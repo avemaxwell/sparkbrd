@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 interface Profile {
   id: string;
@@ -99,7 +100,7 @@ export function useUser() {
     }
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
       if (event === 'SIGNED_OUT') {
         cachedProfile = null;
         cachedLoading = false;
