@@ -1,6 +1,3 @@
-Herosection clean · TSX
-Copy
-
 "use client";
 
 import { useUser } from "@/hooks/useUser";
