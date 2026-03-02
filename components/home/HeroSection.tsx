@@ -1,3 +1,6 @@
+Herosection clean · TSX
+Copy
+
 "use client";
 
 import { useUser } from "@/hooks/useUser";
@@ -129,16 +132,16 @@ export default function HeroSection() {
               href="/login"
               className="inline-block px-8 py-4 bg-ink text-white text-sm font-medium tracking-wide rounded-full hover:bg-ink/90 transition-colors"
             >
-              Begin collectinghttps://www.teacherspayteachers.com/Product/Skip-Count-by-2s-Start-at-1-Dot-to-Dot-Spring-Sun-Math-Activity-3145370
+              Begin collecting
             </a>
           </div>
-        )}https://colorthislife.com/collections/cow-coloring-pages-for-kids/
+        )}
       </div>
 
       {/* Bottom fade */}
       <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#FDFCFB] to-transparent" />
 
-      {/* CSS for animations */}https://www.teacherspayteachers.com/Product/Skip-Count-by-2s-Start-at-1-Dot-to-Dot-Spring-Sun-Math-Activity-3145370
+      {/* CSS for animations */}
       <style jsx>{`
         @keyframes gradientShift {
           0%, 100% {
