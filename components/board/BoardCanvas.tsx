@@ -185,7 +185,10 @@ const [touching, setTouching] = useState(false);
       t.id === resizing ? { ...t, width: newWidth } : t
     ));
   };
-
+  const [checking, setChecking] = useState(false);
+  const [aiWarning, setAiWarning] = useState<string | null>(null);
+  const [showAiConfirm, setShowAiConfirm] = useState(false);
+  const [pendingUpload, setPendingUpload] = useState<{url: string, source?: string} | null>(null);
   const handleResizeEnd = async () => {
     if (!resizing) return;
     
@@ -1116,34 +1119,62 @@ function AddTackModal({
   const [scrapedSource, setScrapedSource] = useState("");
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
   const [checking, setChecking] = useState(false);
-  const [aiBlocked, setAiBlocked] = useState<string | null>(null);
-  const [verified, setVerified] = useState(false);
+  const [aiWarning, setAiWarning] = useState<string | null>(null);
+  const [showAiConfirm, setShowAiConfirm] = useState(false);
+  const [pendingUpload, setPendingUpload] = useState<{url: string, note: string, pinColor: string, source?: string} | null>(null);
   
   const supabase = createClient();
 
   const checkForAI = async (imageUrl: string): Promise<boolean> => {
     setChecking(true);
-    setAiBlocked(null);
-    setVerified(false);
+    setAiWarning(null);
     try {
-      const response = await fetch('/api/check-ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrl }) });
+      const response = await fetch('/api/check-ai', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ imageUrl }) 
+      });
       const data = await response.json();
-      if (data.verified) { setVerified(true); setChecking(false); return true; }
-      if (data.blocked || data.isLikelyAI) { setAiBlocked(data.reason || 'This image appears to be AI-generated.'); setChecking(false); return false; }
+      
+      // If likely AI, show warning modal - don't block
+      if (data.isLikelyAI || data.blocked) {
+        setAiWarning(data.reason || 'This image may be AI-generated.');
+        setChecking(false);
+        return false; // Signal to show confirmation
+      }
+      
+      // Otherwise allow upload
       setChecking(false);
       return true;
     } catch (error) {
       console.error('AI check failed:', error);
       setChecking(false);
-      return true;
+      return true; // Allow upload if check fails
     }
+  };
+
+  const proceedWithUpload = () => {
+    if (!pendingUpload) return;
+    onAdd(pendingUpload.url, pendingUpload.note, pendingUpload.pinColor, pendingUpload.source);
+    setPendingUpload(null);
+    setShowAiConfirm(false);
+  };
+
+  const handleCancelUpload = () => {
+    setShowAiConfirm(false);
+    setAiWarning(null);
+    if (mode === "upload") {
+      setPreviewUrl(null);
+      setUrl("");
+    }
+    setPendingUpload(null);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    setAiBlocked(null);
+    setAiWarning(null);
     const reader = new FileReader();
     reader.onload = () => setPreviewUrl(reader.result as string);
     reader.readAsDataURL(file);
@@ -1160,7 +1191,7 @@ function AddTackModal({
     setScraping(true);
     setScrapedImages([]);
     setSelectedImages(new Set());
-    setAiBlocked(null);
+    setAiWarning(null);
     try {
       const response = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: scrapeUrl }) });
       const data = await response.json();
@@ -1171,9 +1202,23 @@ function AddTackModal({
   };
 
   const toggleImageSelection = async (imgUrl: string) => {
-    if (selectedImages.has(imgUrl)) { const newSelected = new Set(selectedImages); newSelected.delete(imgUrl); setSelectedImages(newSelected); return; }
+    if (selectedImages.has(imgUrl)) { 
+      const newSelected = new Set(selectedImages); 
+      newSelected.delete(imgUrl); 
+      setSelectedImages(newSelected); 
+      return; 
+    }
+    
     const isOk = await checkForAI(imgUrl);
-    if (!isOk) return;
+    const finalPinColor = showCustomPinColor && customPinColor ? customPinColor : pinColor;
+    
+    if (!isOk) {
+      // Show confirmation modal
+      setPendingUpload({ url: imgUrl, note: note.trim(), pinColor: finalPinColor, source: scrapedSource });
+      setShowAiConfirm(true);
+      return;
+    }
+    
     const newSelected = new Set(selectedImages);
     newSelected.add(imgUrl);
     setSelectedImages(newSelected);
@@ -1182,9 +1227,17 @@ function AddTackModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!url.trim()) return;
+    
     const isOk = await checkForAI(url);
-    if (!isOk) return;
     const finalPinColor = showCustomPinColor && customPinColor ? customPinColor : pinColor;
+    
+    if (!isOk) {
+      // Show confirmation modal
+      setPendingUpload({ url: url.trim(), note: note.trim(), pinColor: finalPinColor });
+      setShowAiConfirm(true);
+      return;
+    }
+    
     onAdd(url.trim(), note.trim(), finalPinColor);
   };
 
@@ -1207,34 +1260,14 @@ function AddTackModal({
         </div>
 
         <div className="mb-4 p-3 bg-ink/5 rounded-lg">
-          <p className="text-xs text-ink-soft"><strong>Human-made content only.</strong> AI-generated images are not allowed on Sparkbrd. Uploading AI content will result in account removal.</p>
+          <p className="text-xs text-ink-soft"><strong>Human-made content only.</strong> Sparkbrd is a space for authentic, human-created inspiration.</p>
         </div>
 
         <div className="flex gap-2 mb-6">
-          <button onClick={() => { setMode("upload"); setAiBlocked(null); }} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${mode === "upload" ? "bg-ink text-white" : "bg-ink/5 text-ink hover:bg-ink/10"}`}>Upload</button>
-          <button onClick={() => { setMode("url"); setAiBlocked(null); }} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${mode === "url" ? "bg-ink text-white" : "bg-ink/5 text-ink hover:bg-ink/10"}`}>Image URL</button>
-          <button onClick={() => { setMode("scrape"); setAiBlocked(null); }} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${mode === "scrape" ? "bg-ink text-white" : "bg-ink/5 text-ink hover:bg-ink/10"}`}>From Page</button>
+          <button onClick={() => { setMode("upload"); setAiWarning(null); }} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${mode === "upload" ? "bg-ink text-white" : "bg-ink/5 text-ink hover:bg-ink/10"}`}>Upload</button>
+          <button onClick={() => { setMode("url"); setAiWarning(null); }} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${mode === "url" ? "bg-ink text-white" : "bg-ink/5 text-ink hover:bg-ink/10"}`}>Image URL</button>
+          <button onClick={() => { setMode("scrape"); setAiWarning(null); }} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${mode === "scrape" ? "bg-ink text-white" : "bg-ink/5 text-ink hover:bg-ink/10"}`}>From Page</button>
         </div>
-
-        {aiBlocked && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
-            <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 stroke-red-600 stroke-2 fill-none flex-shrink-0 mt-0.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
-              <div>
-                <p className="text-sm text-red-800 font-medium">AI-generated content blocked</p>
-                <p className="text-sm text-red-700 mt-1">{aiBlocked}</p>
-                <p className="text-xs text-red-600 mt-2">Sparkbrd is exclusively for human-created content. Please choose a different image.</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {verified && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-2">
-            <svg className="w-5 h-5 stroke-green-600 stroke-2 fill-none" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-            <p className="text-sm text-green-800">Verified human-created content</p>
-          </div>
-        )}
 
         {checking && (
           <div className="mb-4 p-4 bg-ink/5 rounded-xl flex items-center gap-3">
@@ -1244,13 +1277,13 @@ function AddTackModal({
         )}
 
         <div className="flex-1 overflow-y-auto">
-          {mode === "upload" && (
+{mode === "upload" && (
             <form onSubmit={handleSubmit}>
               <div className="mb-4">
                 {previewUrl ? (
                   <div className="relative">
                     <img src={previewUrl} alt="Preview" className="w-full h-48 object-cover rounded-xl" />
-                    <button type="button" onClick={() => { setPreviewUrl(null); setUrl(""); setAiBlocked(null); }} className="absolute top-2 right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg">
+                    <button type="button" onClick={() => { setPreviewUrl(null); setUrl(""); setAiWarning(null); }} className="absolute top-2 right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg">
                       <svg className="w-4 h-4 stroke-ink stroke-2 fill-none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
                     </button>
                   </div>
@@ -1272,7 +1305,7 @@ function AddTackModal({
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="What inspires you about this?" rows={3} className="w-full bg-ink/5 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-papaya/30 resize-none" />
               </div>
               <PinColorPicker pinColor={pinColor} setPinColor={setPinColor} customPinColor={customPinColor} setCustomPinColor={setCustomPinColor} showCustomPinColor={showCustomPinColor} setShowCustomPinColor={setShowCustomPinColor} />
-              <button type="submit" disabled={!url || uploading || checking || !!aiBlocked} className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{checking ? 'Checking...' : 'Tack it'}</button>
+              <button type="submit" disabled={!url || uploading || checking} className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{checking ? 'Checking...' : 'Tack it'}</button>
             </form>
           )}
 
@@ -1280,15 +1313,15 @@ function AddTackModal({
             <form onSubmit={handleSubmit}>
               <div className="mb-4">
                 <label className="text-sm text-ink-soft mb-2 block">Image URL</label>
-                <input type="url" value={url} onChange={(e) => { setUrl(e.target.value); setAiBlocked(null); }} placeholder="https://example.com/image.jpg" className="w-full bg-ink/5 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-papaya/30" required />
+                <input type="url" value={url} onChange={(e) => { setUrl(e.target.value); setAiWarning(null); }} placeholder="https://example.com/image.jpg" className="w-full bg-ink/5 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-papaya/30" required />
               </div>
-              {url && !aiBlocked && <div className="mb-4"><img src={url} alt="Preview" className="w-full h-48 object-contain rounded-xl bg-ink/5" onError={(e) => (e.currentTarget.style.display = 'none')} /></div>}
+              {url && <div className="mb-4"><img src={url} alt="Preview" className="w-full h-48 object-contain rounded-xl bg-ink/5" onError={(e) => (e.currentTarget.style.display = 'none')} /></div>}
               <div className="mb-4">
                 <label className="text-sm text-ink-soft mb-2 block">Note (optional)</label>
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="What inspires you about this?" rows={3} className="w-full bg-ink/5 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-papaya/30 resize-none" />
               </div>
               <PinColorPicker pinColor={pinColor} setPinColor={setPinColor} customPinColor={customPinColor} setCustomPinColor={setCustomPinColor} showCustomPinColor={showCustomPinColor} setShowCustomPinColor={setShowCustomPinColor} />
-              <button type="submit" disabled={!url || checking || !!aiBlocked} className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{checking ? 'Checking...' : 'Tack it'}</button>
+              <button type="submit" disabled={!url || checking} className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{checking ? 'Checking...' : 'Tack it'}</button>
             </form>
           )}
 
@@ -1303,7 +1336,7 @@ function AddTackModal({
               </div>
               {scrapedImages.length > 0 && (
                 <>
-                  <p className="text-sm text-ink-soft mb-3">Found {scrapedImages.length} images from <strong>{scrapedSource}</strong>. Select images to tack (AI content will be blocked):</p>
+                  <p className="text-sm text-ink-soft mb-3">Found {scrapedImages.length} images from <strong>{scrapedSource}</strong>. Select images to tack:</p>
                   <div className="grid grid-cols-3 gap-2 mb-4 max-h-64 overflow-y-auto">
                     {scrapedImages.map((imgUrl, index) => (
                       <button key={index} type="button" onClick={() => toggleImageSelection(imgUrl)} disabled={checking} className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${selectedImages.has(imgUrl) ? 'border-papaya ring-2 ring-papaya/30' : 'border-transparent hover:border-ink/20'} disabled:opacity-50`}>
@@ -1325,10 +1358,52 @@ function AddTackModal({
           )}
         </div>
       </div>
+
+      {/* AI Confirmation Modal */}
+      {showAiConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 stroke-yellow-600 stroke-2 fill-none" viewBox="0 0 24 24">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-ink mb-1">This may be AI-generated</h3>
+                <p className="text-sm text-ink-soft">{aiWarning}</p>
+              </div>
+            </div>
+            
+            <div className="bg-ink/5 rounded-xl p-4 mb-4">
+              <p className="text-sm text-ink-soft">
+                <strong className="text-ink">Sparkbrd is for human-made inspiration.</strong> We're building a space free from AI-generated content. Uploading AI imagery violates our community standards.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button 
+                onClick={handleCancelUpload}
+                className="flex-1 px-4 py-3 bg-ink text-white rounded-full text-sm font-medium hover:bg-ink/90 transition-colors"
+              >
+                Go back
+              </button>
+              <button 
+                onClick={proceedWithUpload}
+                className="flex-1 px-4 py-3 bg-ink/10 text-ink rounded-full text-sm font-medium hover:bg-ink/20 transition-colors"
+              >
+                Upload anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
 // ============================================================================
 // ADD TEXT MODAL
 // ============================================================================
