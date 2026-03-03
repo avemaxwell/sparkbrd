@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import * as cheerio from 'cheerio';
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const { url } = await request.json();
-
+    
     if (!url) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 });
     }
@@ -11,8 +12,8 @@ export async function POST(request: NextRequest) {
     // Fetch the page
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; Sparkbrd/1.0; +https://sparkbrd.com)',
-      },
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
     });
 
     if (!response.ok) {
@@ -20,85 +21,64 @@ export async function POST(request: NextRequest) {
     }
 
     const html = await response.text();
-
-    // Extract image URLs using regex patterns
-    const images: string[] = [];
+    const $ = cheerio.load(html);
     
-    // Match <img src="...">
-    const imgSrcRegex = /<img[^>]+src=["']([^"']+)["']/gi;
-    let match;
-    while ((match = imgSrcRegex.exec(html)) !== null) {
-      images.push(match[1]);
-    }
+    // Extract images
+    const images: string[] = [];
+    const seenUrls = new Set<string>();
 
-    // Match <img srcset="...">
-    const srcsetRegex = /<img[^>]+srcset=["']([^"']+)["']/gi;
-    while ((match = srcsetRegex.exec(html)) !== null) {
-      // srcset contains multiple URLs, grab the largest one
-      const srcset = match[1];
-      const urls = srcset.split(',').map(s => s.trim().split(' ')[0]);
-      images.push(...urls);
-    }
-
-    // Match og:image meta tags
-    const ogImageRegex = /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/gi;
-    while ((match = ogImageRegex.exec(html)) !== null) {
-      images.push(match[1]);
-    }
-
-    // Match twitter:image meta tags
-    const twitterImageRegex = /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/gi;
-    while ((match = twitterImageRegex.exec(html)) !== null) {
-      images.push(match[1]);
-    }
-
-    // Match background-image in style attributes
-    const bgImageRegex = /background-image:\s*url\(["']?([^"')]+)["']?\)/gi;
-    while ((match = bgImageRegex.exec(html)) !== null) {
-      images.push(match[1]);
-    }
-
-    // Clean up and dedupe URLs
-    const baseUrl = new URL(url);
-    const cleanedImages = [...new Set(images)]
-      .map(imgUrl => {
-        // Handle relative URLs
-        if (imgUrl.startsWith('//')) {
-          return `https:${imgUrl}`;
+    // Find all img tags
+    $('img').each((_, element) => {
+      const src = $(element).attr('src') || $(element).attr('data-src');
+      if (src) {
+        let imageUrl = src;
+        
+        // Convert relative URLs to absolute
+        if (imageUrl.startsWith('//')) {
+          imageUrl = 'https:' + imageUrl;
+        } else if (imageUrl.startsWith('/')) {
+          const urlObj = new URL(url);
+          imageUrl = urlObj.origin + imageUrl;
+        } else if (!imageUrl.startsWith('http')) {
+          const urlObj = new URL(url);
+          imageUrl = urlObj.origin + '/' + imageUrl;
         }
-        if (imgUrl.startsWith('/')) {
-          return `${baseUrl.origin}${imgUrl}`;
-        }
-        if (!imgUrl.startsWith('http')) {
-          return `${baseUrl.origin}/${imgUrl}`;
-        }
-        return imgUrl;
-      })
-      .filter(imgUrl => {
-        // Filter out tiny images, icons, tracking pixels
-        const lower = imgUrl.toLowerCase();
-        if (lower.includes('pixel') || lower.includes('tracking')) return false;
-        if (lower.includes('icon') && !lower.includes('favicon')) return false;
-        if (lower.includes('.svg') && lower.includes('logo')) return false;
-        if (lower.includes('1x1') || lower.includes('spacer')) return false;
-        // Filter out data URIs that are too small
-        if (lower.startsWith('data:') && lower.length < 1000) return false;
-        return true;
-      })
-      .slice(0, 20); // Limit to 20 images
 
-    // Get page title for source attribution
-    const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
-    const pageTitle = titleMatch ? titleMatch[1].trim() : baseUrl.hostname;
+        // Filter out small images, icons, and duplicates
+        if (
+          !seenUrls.has(imageUrl) &&
+          !imageUrl.includes('icon') &&
+          !imageUrl.includes('logo') &&
+          !imageUrl.includes('avatar') &&
+          !imageUrl.includes('pixel') &&
+          !imageUrl.endsWith('.svg')
+        ) {
+          seenUrls.add(imageUrl);
+          images.push(imageUrl);
+        }
+      }
+    });
+
+    // Also check for og:image meta tags
+    $('meta[property="og:image"]').each((_, element) => {
+      const content = $(element).attr('content');
+      if (content && !seenUrls.has(content)) {
+        seenUrls.add(content);
+        images.push(content);
+      }
+    });
+
+    // Get source domain for attribution
+    const urlObj = new URL(url);
+    const source = urlObj.hostname.replace('www.', '');
 
     return NextResponse.json({
-      images: cleanedImages,
-      source: pageTitle,
-      sourceUrl: url,
+      images: images.slice(0, 30), // Limit to 30 images
+      source: source,
     });
 
   } catch (error) {
     console.error('Scrape error:', error);
-    return NextResponse.json({ error: 'Failed to scrape URL' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to scrape images' }, { status: 500 });
   }
 }
