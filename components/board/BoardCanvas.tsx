@@ -77,6 +77,7 @@ export default function BoardCanvas() {
 // Touch state
 const [touching, setTouching] = useState(false);
 
+const [selectedText, setSelectedText] = useState<TextBlock | null>(null);
   // Load board data
   useEffect(() => {
     const loadBoard = async () => {
@@ -135,26 +136,44 @@ const [touching, setTouching] = useState(false);
     });
   };
 
-  const handleDrag = (e: React.MouseEvent) => {
+const handleDrag = (e: React.MouseEvent) => {
     if (!dragging) return;
 
     const newX = e.clientX - dragOffset.x;
     const newY = e.clientY - dragOffset.y;
 
-    setTacks(tacks.map(t => 
-      t.id === dragging ? { ...t, position_x: newX, position_y: newY } : t
-    ));
+    if (dragging.startsWith('text-')) {
+      const textId = dragging.replace('text-', '');
+      setTextBlocks(textBlocks.map(t => 
+        t.id === textId ? { ...t, position_x: newX, position_y: newY } : t
+      ));
+    } else {
+      setTacks(tacks.map(t => 
+        t.id === dragging ? { ...t, position_x: newX, position_y: newY } : t
+      ));
+    }
   };
 
   const handleDragEnd = async () => {
     if (!dragging) return;
 
-    const tack = tacks.find(t => t.id === dragging);
-    if (tack) {
-      await supabase
-        .from("tacks")
-        .update({ position_x: tack.position_x, position_y: tack.position_y })
-        .eq("id", tack.id);
+    if (dragging.startsWith('text-')) {
+      const textId = dragging.replace('text-', '');
+      const textBlock = textBlocks.find(t => t.id === textId);
+      if (textBlock) {
+        await supabase
+          .from("text_blocks")
+          .update({ position_x: textBlock.position_x, position_y: textBlock.position_y })
+          .eq("id", textBlock.id);
+      }
+    } else {
+      const tack = tacks.find(t => t.id === dragging);
+      if (tack) {
+        await supabase
+          .from("tacks")
+          .update({ position_x: tack.position_x, position_y: tack.position_y })
+          .eq("id", tack.id);
+      }
     }
 
     setDragging(null);
@@ -558,29 +577,41 @@ return (
     </div>
   </div>
 ))}
-
-          {/* Text Blocks */}
+{/* Text Blocks */}
           {textBlocks.map((text) => (
             <div
               key={text.id}
-              className="absolute cursor-move"
+              className={`absolute cursor-move group ${
+                dragging === `text-${text.id}` ? 'z-50' : 'hover:z-10'
+              }`}
               style={{
                 left: text.position_x,
                 top: text.position_y,
                 width: text.width,
                 transform: `rotate(${text.rotation}deg)`,
               }}
+              onMouseDown={(e) => handleDragStart(e, `text-${text.id}`, text.position_x, text.position_y)}
+              onTouchStart={(e) => handleTouchStart(e, `text-${text.id}`, text.position_x, text.position_y)}
+              onClick={(e) => {
+                if (!dragging && !touching) {
+                  e.stopPropagation();
+                  setSelectedText(text);
+                }
+              }}
             >
-              <p 
-                className={`${
-                  text.font_style === 'heading' ? 'font-serif font-bold' :
-                  text.font_style === 'quote' ? 'font-serif italic' :
-                  'font-sans'
-                }`}
-                style={{ fontSize: text.font_size, color: text.color }}
-              >
-                {text.content}
-              </p>
+              <div className="bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-lg">
+                <p 
+                  className={`${
+                    text.font_style === 'heading' ? 'font-serif font-bold' :
+                    text.font_style === 'quote' ? 'font-serif italic' :
+                    text.font_style === 'label' ? 'font-sans uppercase tracking-wide' :
+                    'font-sans'
+                  }`}
+                  style={{ fontSize: text.font_size, color: text.color }}
+                >
+                  {text.content}
+                </p>
+              </div>
             </div>
           ))}
 
@@ -645,7 +676,20 @@ return (
           onDelete={(tackId) => setTacks(tacks.filter(t => t.id !== tackId))}
         />
       )}
-
+{selectedText && (
+        <TextDetailModal
+          textBlock={selectedText}
+          onClose={() => setSelectedText(null)}
+          onUpdate={(textId, updates) => {
+            setTextBlocks(textBlocks.map(t => t.id === textId ? { ...t, ...updates } : t));
+            setSelectedText(prev => prev ? { ...prev, ...updates } : null);
+          }}
+          onDelete={(textId) => {
+            setTextBlocks(textBlocks.filter(t => t.id !== textId));
+            setSelectedText(null);
+          }}
+        />
+      )}
       {addModalOpen && (
         <AddTackModal 
           onClose={() => setAddModalOpen(false)} 
