@@ -599,19 +599,19 @@ return (
                 }
               }}
             >
-              <div className="bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-lg">
-                <p 
-                  className={`${
-                    text.font_style === 'heading' ? 'font-serif font-bold' :
-                    text.font_style === 'quote' ? 'font-serif italic' :
-                    text.font_style === 'label' ? 'font-sans uppercase tracking-wide' :
-                    'font-sans'
-                  }`}
-                  style={{ fontSize: text.font_size, color: text.color }}
-                >
-                  {text.content}
-                </p>
-              </div>
+              <p 
+                className={`${
+                  text.font_style === 'heading' ? 'font-serif font-bold' :
+                  text.font_style === 'quote' ? 'font-serif italic' :
+                  text.font_style === 'label' ? 'font-sans uppercase tracking-wide' :
+                  text.font_style === 'handwriting' ? 'font-serif italic' :
+                  text.font_style === 'mono' ? 'font-mono' :
+                  'font-sans'
+                } drop-shadow-sm`}
+                style={{ fontSize: text.font_size, color: text.color }}
+              >
+                {text.content}
+              </p>
             </div>
           ))}
 
@@ -1522,12 +1522,14 @@ function TextDetailModal({
 
           <div>
             <label className="block text-xs text-ink-soft mb-2">Style</label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {[
                 { id: "heading", label: "Heading" },
                 { id: "body", label: "Body" },
                 { id: "quote", label: "Quote" },
-                { id: "label", label: "Label" }
+                { id: "label", label: "Label" },
+                { id: "handwriting", label: "Script" },
+                { id: "mono", label: "Mono" }
               ].map((style) => (
                 <button
                   key={style.id}
@@ -1595,7 +1597,7 @@ function TextDetailModal({
             <p className="text-xs text-ink-soft text-center mt-1">{rotation}°</p>
           </div>
 
-          <div className="bg-ink/5 rounded-xl p-4">
+    <div className="bg-ink/5 rounded-xl p-4">
             <p className="text-xs text-ink-soft mb-2">Preview</p>
             <div
               style={{ transform: `rotate(${rotation}deg)` }}
@@ -1606,8 +1608,10 @@ function TextDetailModal({
                   fontStyle === 'heading' ? 'font-serif font-bold' :
                   fontStyle === 'quote' ? 'font-serif italic' :
                   fontStyle === 'label' ? 'font-sans uppercase tracking-wide' :
+                  fontStyle === 'handwriting' ? 'font-serif italic' :
+                  fontStyle === 'mono' ? 'font-mono' :
                   'font-sans'
-                }`}
+                } drop-shadow-sm`}
                 style={{ fontSize, color }}
               >
                 {content || "Your text here"}
@@ -1661,8 +1665,15 @@ function AddTextModal({ onClose, onAdd }: { onClose: () => void; onAdd: (content
           </div>
           <div className="mb-6">
             <label className="text-sm text-ink-soft mb-2 block">Style</label>
-            <div className="flex gap-2 flex-wrap">
-              {[{ id: "heading", label: "Heading" }, { id: "body", label: "Body" }, { id: "quote", label: "Quote" }, { id: "label", label: "Label" }].map((style) => (
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: "heading", label: "Heading" }, 
+                { id: "body", label: "Body" }, 
+                { id: "quote", label: "Quote" }, 
+                { id: "label", label: "Label" },
+                { id: "handwriting", label: "Script" },
+                { id: "mono", label: "Mono" }
+              ].map((style) => (
                 <button key={style.id} type="button" onClick={() => setFontStyle(style.id)} className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${fontStyle === style.id ? 'bg-ink text-white' : 'bg-ink/5 text-ink hover:bg-ink/10'}`}>{style.label}</button>
               ))}
             </div>
