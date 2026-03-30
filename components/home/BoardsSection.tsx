@@ -1,191 +1,125 @@
+// Add this to your BoardsSection component in components/home/BoardsSection.tsx
+
 "use client";
 
-import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { useUser } from "@/hooks/useUser";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Board } from "@/types/board";
+import { canCreateBoard, getUpgradeMessage } from "@/lib/plan-limits";
+import UpgradeModal from "@/components/UpgradeModal";
 
-interface Board {
-  id: string;
-  name: string;
-  description: string | null;
-  vibe: string;
-  background_color: string | null;
-  cover_url: string | null;
-  tack_count: number;
-}
+export default function BoardsSection({ 
+  boards, 
+  plan 
+}: { 
+  boards: Board[]; 
+  plan: string | null;
+}) {
+  const router = useRouter();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
-export default function BoardsSection() {
-  const { profile, loading: userLoading } = useUser();
-  const [boards, setBoards] = useState<Board[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
-
-  const supabase = createClient();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    const fetchBoards = async () => {
-      if (!profile) {
-        setLoading(false);
-        return;
-      }
-
-      const { data } = await supabase
-        .from("boards")
-        .select("*")
-        .eq("owner_id", profile.id)
-        .order("created_at", { ascending: false })
-        .limit(5);
-
-      setBoards(data || []);
-      setLoading(false);
-    };
-
-    if (!userLoading) {
-      fetchBoards();
+  const handleNewBoard = () => {
+    const canCreate = canCreateBoard(plan as any, boards.length);
+    
+    if (!canCreate) {
+      setShowUpgradeModal(true);
+      return;
     }
-  }, [profile, userLoading]);
-
-  const getBackgroundStyle = (board: Board) => {
-    const colors = board.background_color?.split(",") || ["#fef3e2", "#fce7f3"];
-    const c1 = colors[0] || "#fef3e2";
-    const c2 = colors[1] || "#fce7f3";
-
-    switch (board.vibe) {
-      case "gradient":
-        return { background: `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)` };
-      case "starburst":
-        return { background: `repeating-conic-gradient(from 0deg, ${c1} 0deg 15deg, ${c2} 15deg 30deg)` };
-      case "swirl":
-        return { 
-          background: `
-            radial-gradient(ellipse at 20% 80%, ${c1} 0%, transparent 50%),
-            radial-gradient(ellipse at 80% 20%, ${c2} 0%, transparent 50%),
-            linear-gradient(135deg, ${c1} 0%, ${c2} 100%)
-          `
-        };
-      case "solid":
-        return { backgroundColor: c1 };
-      default:
-        return { background: `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)` };
-    }
+    
+    router.push('/boards/new');
   };
 
-  if (!profile) return null;
-
   return (
-    <section className="px-6 py-8 max-w-6xl mx-auto">
-      {/* Section header */}
-      <div 
-        className={`flex items-end justify-between mb-6 transition-all duration-700 ${
-          mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-        }`}
-      >
-        <div>
-          <h2 className="font-serif text-2xl md:text-3xl text-ink/90">Your Boards</h2>
-          <p className="text-ink/40 text-sm mt-1">Curated collections</p>
-        </div>
-        {boards.length > 0 && (
-          <Link 
-            href="/boards"
-            className="text-sm text-ink/40 hover:text-ink/60 transition-colors"
-          >
-            View all
-          </Link>
-        )}
-      </div>
+    <>
+      <section className="px-6 py-12">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-6">
+            <h2 className="text-2xl md:text-3xl font-serif mb-1">Your Boards</h2>
+            <p className="text-ink-soft text-sm">Curated collections</p>
+          </div>
 
-      {/* Boards horizontal scroll on mobile, grid on desktop */}
-      {loading ? (
-        <div className="flex gap-4 overflow-x-auto pb-2 -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-6">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="flex-shrink-0 w-32 md:w-auto aspect-[3/4] rounded-xl bg-ink/5 animate-pulse" />
-          ))}
-        </div>
-      ) : boards.length === 0 ? (
-        <div 
-          className={`text-center py-12 transition-all duration-700 delay-200 ${
-            mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-          }`}
-        >
-          <p className="text-ink/40 mb-4 text-sm">No boards yet</p>
-          <Link
-            href="/board/new"
-            className="inline-block px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:bg-ink/90 transition-colors"
-          >
-            Create your first board
-          </Link>
-        </div>
-      ) : (
-        <div className="flex gap-4 overflow-x-auto pb-2 -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-6 scrollbar-hide">
-          {boards.map((board, index) => (
-            <Link
-              key={board.id}
-              href={`/board/${board.id}`}
-              className={`flex-shrink-0 w-32 md:w-auto group transition-all duration-500 ${
-                mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-              }`}
-              style={{ transitionDelay: `${index * 75}ms` }}
-            >
-              <div className="relative aspect-[3/4] rounded-xl overflow-hidden transition-all duration-300 ease-out group-hover:-translate-y-1 group-hover:shadow-xl">
-                {/* Background */}
-                <div 
-                  className="absolute inset-0 transition-transform duration-300 group-hover:scale-105"
-                  style={getBackgroundStyle(board)}
-                />
-
-                {/* Cover image if exists */}
-                {board.cover_url && (
-                  <div className="absolute inset-2 rounded-lg overflow-hidden shadow-md">
-                    <img
-                      src={board.cover_url}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
+          {/* Mobile: Horizontal scroll */}
+          <div className="md:hidden overflow-x-auto -mx-6 px-6">
+            <div className="flex gap-3 pb-2">
+              {/* New Board Card */}
+              <button
+                onClick={handleNewBoard}
+                className="relative flex-shrink-0 w-32 aspect-[3/4] border-2 border-dashed border-ink/20 rounded-xl hover:border-papaya hover:bg-papaya/5 transition-all flex items-center justify-center group"
+              >
+                <div className="text-center">
+                  <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-ink/5 group-hover:bg-papaya/10 flex items-center justify-center transition-colors">
+                    <svg className="w-5 h-5 stroke-ink-soft group-hover:stroke-papaya stroke-2 fill-none transition-colors" viewBox="0 0 24 24">
+                      <path d="M12 5v14M5 12h14"/>
+                    </svg>
                   </div>
-                )}
-
-                {/* Overlay gradient */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-
-                {/* Content */}
-                <div className="absolute bottom-0 left-0 right-0 p-3">
-                  <h3 className="font-serif text-sm text-white truncate drop-shadow-md">
-                    {board.name}
-                  </h3>
-                  <p className="text-white/60 text-xs">
-                    {board.tack_count}
-                  </p>
+                  <p className="text-xs text-ink-soft group-hover:text-papaya transition-colors">New Board</p>
                 </div>
-              </div>
-            </Link>
-          ))}
+              </button>
 
-          {/* New board card */}
-          <Link
-            href="/board/new"
-            className={`flex-shrink-0 w-32 md:w-auto group transition-all duration-500 ${
-              mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-            }`}
-            style={{ transitionDelay: `${boards.length * 75}ms` }}
-          >
-            <div className="relative aspect-[3/4] rounded-xl border-2 border-dashed border-ink/10 flex items-center justify-center transition-all duration-300 ease-out group-hover:-translate-y-1 group-hover:border-ink/20 group-hover:bg-ink/5">
+              {/* Existing Boards */}
+              {boards.map((board, index) => (
+                <Link
+                  key={board.id}
+                  href={`/boards/${board.id}`}
+                  className="relative flex-shrink-0 w-32 aspect-[3/4] rounded-xl overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-2 hover:scale-105 transition-all duration-300 group"
+                  style={{
+                    animation: `fadeInUp 0.6s ease-out ${index * 0.1}s both`
+                  }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-papaya/20 to-aqua/20" />
+                  <div className="absolute inset-0 p-3 flex flex-col justify-end">
+                    <h3 className="font-serif text-sm text-ink line-clamp-2">{board.title}</h3>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Desktop: Grid */}
+          <div className="hidden md:grid md:grid-cols-6 gap-4">
+            {/* New Board Card */}
+            <button
+              onClick={handleNewBoard}
+              className="relative aspect-[3/4] border-2 border-dashed border-ink/20 rounded-xl hover:border-papaya hover:bg-papaya/5 transition-all flex items-center justify-center group"
+            >
               <div className="text-center">
-                <div className="w-8 h-8 rounded-full bg-ink/5 flex items-center justify-center mx-auto mb-2 group-hover:bg-ink/10 transition-colors">
-                  <svg className="w-4 h-4 stroke-ink/40 stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-ink/5 group-hover:bg-papaya/10 flex items-center justify-center transition-colors">
+                  <svg className="w-6 h-6 stroke-ink-soft group-hover:stroke-papaya stroke-2 fill-none transition-colors" viewBox="0 0 24 24">
                     <path d="M12 5v14M5 12h14"/>
                   </svg>
                 </div>
-                <p className="text-ink/40 text-xs font-medium">New</p>
+                <p className="text-sm text-ink-soft group-hover:text-papaya transition-colors">New Board</p>
               </div>
-            </div>
-          </Link>
+            </button>
+
+            {/* Existing Boards */}
+            {boards.map((board, index) => (
+              <Link
+                key={board.id}
+                href={`/boards/${board.id}`}
+                className="relative aspect-[3/4] rounded-xl overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-2 hover:scale-105 transition-all duration-300"
+                style={{
+                  animation: `fadeInUp 0.6s ease-out ${index * 0.1}s both`
+                }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-papaya/20 to-aqua/20" />
+                <div className="absolute inset-0 p-4 flex flex-col justify-end">
+                  <h3 className="font-serif text-lg text-ink line-clamp-2">{board.title}</h3>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
+      </section>
+
+      {showUpgradeModal && (
+        <UpgradeModal
+          message={getUpgradeMessage(plan as any, 'max_boards')}
+          feature="max_boards"
+          onClose={() => setShowUpgradeModal(false)}
+        />
       )}
-    </section>
+    </>
   );
 }

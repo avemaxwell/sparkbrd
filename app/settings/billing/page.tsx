@@ -257,9 +257,9 @@ export default function BillingPage() {
               <summary className="font-medium cursor-pointer">What happens to my boards if I downgrade?</summary>
               <p className="text-sm text-ink/60 mt-2">Your boards and content remain safe. You'll just be limited to the free plan limits for new content.</p>
             </details>
-            <details className="bg-white rounded-xl p-4 border border-ink/5">
+          <details className="bg-white rounded-xl p-4 border border-ink/5">
               <summary className="font-medium cursor-pointer">Do you offer refunds?</summary>
-              <p className="text-sm text-ink/60 mt-2">We offer a 14-day money-back guarantee on all paid plans.</p>
+              <p className="text-sm text-ink/60 mt-2">All purchases are final and non-refundable.</p>
             </details>
           </div>
         </div>

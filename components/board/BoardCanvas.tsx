@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { canAddTack, getUpgradeMessage } from "@/lib/plan-limits";
+import UpgradeModal from "@/components/UpgradeModal";
 
 interface Board {
   id: string;
@@ -76,6 +78,9 @@ export default function BoardCanvas() {
 
 // Touch state
 const [touching, setTouching] = useState(false);
+
+const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+const [upgradeMessage, setUpgradeMessage] = useState("");
 
 const [selectedText, setSelectedText] = useState<TextBlock | null>(null);
   // Load board data
@@ -316,21 +321,15 @@ const handleResizeTouchEnd = async () => {
   const addTack = async (url: string, note: string, pinColor: string, source?: string) => {
     if (!board) return;
     
-    const { data: session } = await supabase.auth.getSession();
-    if (!session?.session?.user) return;
-    
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('plan_limits')
-      .eq('id', session.session.user.id)
-      .single();
-      
-    const maxTacks = profile?.plan_limits?.max_tacks_per_board || 50;
-    
-    if (maxTacks !== -1 && tacks.length >= maxTacks) {
-      alert(`You've reached the limit of ${maxTacks} tacks per board on your current plan. Upgrade to add more!`);
+    // Check tack limit
+    if (!canAddTack(profile?.plan as any, tacks.length)) {
+      setUpgradeMessage(getUpgradeMessage(profile?.plan as any, 'max_tacks_per_board'));
+      setShowUpgradeModal(true);
       return;
     }
+    
+    const { data: session } = await supabase.auth.getSession();
+    if (!session?.session?.user) return;
     
     const newTack = {
       board_id: boardId,
@@ -360,7 +359,6 @@ const handleResizeTouchEnd = async () => {
       console.error("Add tack error:", error);
     }
   };
-
   // Add text block
   const addTextBlock = async (content: string, fontStyle: string) => {
     if (!board) return;
@@ -1647,7 +1645,13 @@ function AddTextModal({ onClose, onAdd }: { onClose: () => void; onAdd: (content
     e.preventDefault();
     if (content.trim()) onAdd(content.trim(), fontStyle);
   };
-
+{showUpgradeModal && (
+  <UpgradeModal
+    message={upgradeMessage}
+    feature="max_tacks_per_board"
+    onClose={() => setShowUpgradeModal(false)}
+  />
+)}
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
