@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { canAddTack, getUpgradeMessage } from "@/lib/plan-limits";
+import { canAddTack, getUpgradeMessage } from "../lib/plan-limits";
 import UpgradeModal from "@/components/UpgradeModal";
 
 interface Board {
