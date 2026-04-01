@@ -1,4 +1,4 @@
-/ Plan limits configuration
+// Plan limits configuration
 export const PLAN_LIMITS = {
   free: {
     max_boards: 10,

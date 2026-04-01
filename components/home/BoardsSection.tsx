@@ -1,33 +1,48 @@
-// Add this to your BoardsSection component in components/home/BoardsSection.tsx
-
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 import { Board } from "@/types/board";
+import { usePlan } from "@/hooks/usePlan";
 import { canCreateBoard, getUpgradeMessage } from "@/lib/plan-limits";
 import UpgradeModal from "@/components/UpgradeModal";
 
-export default function BoardsSection({ 
-  boards, 
-  plan 
-}: { 
-  boards: Board[]; 
-  plan: string | null;
-}) {
+export default function BoardsSection() {
   const router = useRouter();
+  const [boards, setBoards] = useState<Board[]>([]);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const { plan, isFreePlan } = usePlan();
+
+  useEffect(() => {
+    const fetchBoards = async () => {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      const { data } = await supabase
+        .from("boards")
+        .select("*")
+        .eq("owner_id", session.user.id)
+        .order("created_at", { ascending: false });
+
+      setBoards(data || []);
+    };
+
+    fetchBoards();
+  }, []);
 
   const handleNewBoard = () => {
-    const canCreate = canCreateBoard(plan as any, boards.length);
-    
+    const effectivePlan = isFreePlan ? "free" : (plan as any);
+    const canCreate = canCreateBoard(effectivePlan, boards.length);
+
     if (!canCreate) {
       setShowUpgradeModal(true);
       return;
     }
-    
-    router.push('/boards/new');
+
+    router.push("/board/new");
   };
 
   return (
@@ -61,7 +76,7 @@ export default function BoardsSection({
               {boards.map((board, index) => (
                 <Link
                   key={board.id}
-                  href={`/boards/${board.id}`}
+                  href={`/board/${board.id}`}
                   className="relative flex-shrink-0 w-32 aspect-[3/4] rounded-xl overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-2 hover:scale-105 transition-all duration-300 group"
                   style={{
                     animation: `fadeInUp 0.6s ease-out ${index * 0.1}s both`
@@ -69,7 +84,7 @@ export default function BoardsSection({
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-papaya/20 to-aqua/20" />
                   <div className="absolute inset-0 p-3 flex flex-col justify-end">
-                    <h3 className="font-serif text-sm text-ink line-clamp-2">{board.title}</h3>
+                    <h3 className="font-serif text-sm text-ink line-clamp-2">{board.name}</h3>
                   </div>
                 </Link>
               ))}
@@ -97,7 +112,7 @@ export default function BoardsSection({
             {boards.map((board, index) => (
               <Link
                 key={board.id}
-                href={`/boards/${board.id}`}
+                href={`/board/${board.id}`}
                 className="relative aspect-[3/4] rounded-xl overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-2 hover:scale-105 transition-all duration-300"
                 style={{
                   animation: `fadeInUp 0.6s ease-out ${index * 0.1}s both`
@@ -105,7 +120,7 @@ export default function BoardsSection({
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-papaya/20 to-aqua/20" />
                 <div className="absolute inset-0 p-4 flex flex-col justify-end">
-                  <h3 className="font-serif text-lg text-ink line-clamp-2">{board.title}</h3>
+                  <h3 className="font-serif text-lg text-ink line-clamp-2">{board.name}</h3>
                 </div>
               </Link>
             ))}
@@ -115,7 +130,7 @@ export default function BoardsSection({
 
       {showUpgradeModal && (
         <UpgradeModal
-          message={getUpgradeMessage(plan as any, 'max_boards')}
+          message={getUpgradeMessage(plan as any, "max_boards")}
           feature="max_boards"
           onClose={() => setShowUpgradeModal(false)}
         />
