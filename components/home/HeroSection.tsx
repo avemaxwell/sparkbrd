@@ -113,17 +113,6 @@ export default function HeroSection() {
       {/* Main content — right-weighted on desktop */}
       <div className="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-12 flex justify-end">
         <div className="w-full md:w-[55%] lg:w-[50%] py-32 md:py-0">
-          {/* Brand label */}
-          <div
-            className={`mb-6 transition-all duration-700 ${
-              mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-            }`}
-          >
-            <span className="font-serif text-sm tracking-widest text-ink/30 uppercase">
-              Spark<span className="text-papaya">brd</span>
-            </span>
-          </div>
-
           {/* Headline */}
           <h1
             className={`font-serif text-6xl md:text-7xl lg:text-8xl leading-[0.92] text-ink transition-all duration-700 delay-100 ${
@@ -145,7 +134,7 @@ export default function HeroSection() {
               mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
           >
-            A private space to save, organize, and rediscover the images and ideas that light you up.
+            Save, organize, and share the images and ideas that light you up.
           </p>
 
           {/* CTA */}

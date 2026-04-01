@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Warm background -->
+  <rect width="32" height="32" rx="7" fill="#FDFCFB"/>
+
+  <!-- Italic S in serif -->
+  <text
+    x="3" y="25"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="25"
+    font-style="italic"
+    font-weight="normal"
+    fill="#1A1A1A"
+  >S</text>
+
+  <!-- Thumbtack: round head -->
+  <circle cx="25.5" cy="8.5" r="5" fill="#E24E42"/>
+
+  <!-- Thumbtack: shaft -->
+  <line x1="25.5" y1="13.5" x2="25.5" y2="22.5"
+    stroke="#C43C31" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Thumbtack: pointed tip -->
+  <polygon points="25.5,26.5 23.5,22.5 27.5,22.5" fill="#C43C31"/>
+</svg>

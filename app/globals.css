@@ -13,6 +13,9 @@
   
   --font-serif: var(--font-serif);
   --font-sans: var(--font-sans);
+  --font-caveat: var(--font-caveat);
+  --font-bebas: var(--font-bebas);
+  --font-special-elite: var(--font-special-elite);
 }
 
 body {

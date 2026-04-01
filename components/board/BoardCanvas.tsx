@@ -85,6 +85,12 @@ const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 const [upgradeMessage, setUpgradeMessage] = useState("");
 
 const [selectedText, setSelectedText] = useState<TextBlock | null>(null);
+
+const [rotating, setRotating] = useState<string | null>(null);
+const [rotateStartAngle, setRotateStartAngle] = useState(0);
+const [rotateStartRotation, setRotateStartRotation] = useState(0);
+const [clipPickerOpen, setClipPickerOpen] = useState(false);
+
   // Load board data
   useEffect(() => {
     const loadBoard = async () => {
@@ -233,11 +239,13 @@ const handleDrag = (e: React.MouseEvent) => {
   const handleMouseMove = (e: React.MouseEvent) => {
     handleDrag(e);
     handleResize(e);
+    handleRotate(e);
   };
 
   const handleMouseUp = () => {
     handleDragEnd();
     handleResizeEnd();
+    handleRotateEnd();
   };
 // Touch handlers for mobile
 const handleTouchStart = (e: React.TouchEvent, tackId: string, currentX: number, currentY: number) => {
@@ -308,7 +316,7 @@ const handleResizeTouchMove = (e: React.TouchEvent) => {
 
 const handleResizeTouchEnd = async () => {
   if (!resizing) return;
-  
+
   const tack = tacks.find(t => t.id === resizing);
   if (tack) {
     await supabase
@@ -316,9 +324,49 @@ const handleResizeTouchEnd = async () => {
       .update({ width: tack.width })
       .eq("id", tack.id);
   }
-  
+
   setResizing(null);
 };
+
+const handleRotateStart = (e: React.MouseEvent, tackId: string) => {
+  e.preventDefault();
+  e.stopPropagation();
+  const tack = tacks.find(t => t.id === tackId);
+  if (!tack) return;
+  const el = document.getElementById(`tack-wrapper-${tackId}`);
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const angle = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
+  setRotating(tackId);
+  setRotateStartAngle(angle);
+  setRotateStartRotation(tack.rotation);
+};
+
+const handleRotate = (e: React.MouseEvent) => {
+  if (!rotating) return;
+  const tack = tacks.find(t => t.id === rotating);
+  if (!tack) return;
+  const el = document.getElementById(`tack-wrapper-${rotating}`);
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const currentAngle = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
+  const delta = currentAngle - rotateStartAngle;
+  setTacks(tacks.map(t => t.id === rotating ? { ...t, rotation: rotateStartRotation + delta } : t));
+};
+
+const handleRotateEnd = async () => {
+  if (!rotating) return;
+  const tack = tacks.find(t => t.id === rotating);
+  if (tack) {
+    await supabase.from("tacks").update({ rotation: tack.rotation }).eq("id", tack.id);
+  }
+  setRotating(null);
+};
+
   // Add tack
   const addTack = async (url: string, note: string, pinColor: string, source?: string) => {
     if (!board) return;
@@ -362,35 +410,71 @@ const handleResizeTouchEnd = async () => {
     }
   };
   // Add text block
-  const addTextBlock = async (content: string, fontStyle: string) => {
+  const addTextBlock = async (content: string, fontStyle: string, overrideColor?: string) => {
     if (!board) return;
-    
+
     const { data: session } = await supabase.auth.getSession();
     if (!session?.session?.user) return;
-    
+
+    const fontSizeMap: Record<string, number> = {
+      heading: 36, bebas: 52, quote: 22, label: 11,
+      caveat: 28, typewriter: 18, mono: 14, body: 16,
+    };
+
     const newText = {
       board_id: boardId,
       user_id: session.session.user.id,
       content,
       font_style: fontStyle,
-      font_size: fontStyle === "heading" ? 32 : fontStyle === "quote" ? 20 : 16,
-      color: board.vibe === "dark" ? "#FFFFFF" : "#1A1A1A",
+      font_size: fontSizeMap[fontStyle] ?? 16,
+      color: overrideColor ?? (board.vibe === "dark" ? "#FFFFFF" : "#1A1A1A"),
       position_x: Math.round(150 + Math.random() * 200),
       position_y: Math.round(150 + Math.random() * 200),
       width: 300,
       rotation: 0,
       z_index: tacks.length + textBlocks.length,
     };
-    
+
     const { data, error } = await supabase
       .from("text_blocks")
       .insert(newText)
       .select()
       .single();
-      
+
     if (!error && data) {
       setTextBlocks([...textBlocks, data]);
       setAddTextModalOpen(false);
+    }
+  };
+
+  const addColorClip = async (clipColor: string) => {
+    if (!board) return;
+    const { data: session } = await supabase.auth.getSession();
+    if (!session?.session?.user) return;
+
+    const newClip = {
+      board_id: boardId,
+      user_id: session.session.user.id,
+      content: "",
+      font_style: "clip",
+      font_size: 44,
+      color: clipColor,
+      position_x: Math.round(200 + Math.random() * 300),
+      position_y: Math.round(200 + Math.random() * 300),
+      width: 220,
+      rotation: Math.floor(Math.random() * 8) - 4,
+      z_index: tacks.length + textBlocks.length,
+    };
+
+    const { data, error } = await supabase
+      .from("text_blocks")
+      .insert(newClip)
+      .select()
+      .single();
+
+    if (!error && data) {
+      setTextBlocks([...textBlocks, data]);
+      setClipPickerOpen(false);
     }
   };
 
@@ -485,14 +569,11 @@ return (
         </div>
         
         <div className="flex items-center gap-2">
-          <button 
+          <button
             onClick={() => setSettingsOpen(true)}
-            className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md shadow-lg flex items-center justify-center hover:bg-white transition-colors"
+            className="bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink hover:bg-white transition-colors"
           >
-            <svg className="w-5 h-5 stroke-[#1A1A1A] stroke-[1.5] fill-none" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
+            Edit board
           </button>
 
           <button 
@@ -523,8 +604,9 @@ return (
           {tacks.map((tack) => (
   <div
     key={tack.id}
+    id={`tack-wrapper-${tack.id}`}
     className={`absolute group ${
-      dragging === tack.id || resizing === tack.id ? 'z-50' : 'hover:z-10'
+      dragging === tack.id || resizing === tack.id || rotating === tack.id ? 'z-50' : 'hover:z-10'
     }`}
     style={{
       left: tack.position_x,
@@ -533,6 +615,16 @@ return (
       transform: `rotate(${tack.rotation}deg)`,
     }}
   >
+    {/* Rotation handle */}
+    <div
+      className="absolute -top-8 left-1/2 -translate-x-1/2 w-7 h-7 bg-white rounded-full cursor-grab opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md hover:bg-papaya hover:scale-110 z-10"
+      onMouseDown={(e) => handleRotateStart(e, tack.id)}
+      title="Drag to rotate"
+    >
+      <svg className="w-3.5 h-3.5 stroke-ink/60 stroke-[1.5] fill-none" viewBox="0 0 24 24">
+        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+      </svg>
+    </div>
     {/* Tack content */}
     <div 
       className={`bg-white p-2 rounded-sm shadow-xl cursor-move transition-shadow duration-300 ${
@@ -599,19 +691,35 @@ return (
                 }
               }}
             >
-              <p 
-                className={`${
-                  text.font_style === 'heading' ? 'font-serif font-bold' :
-                  text.font_style === 'quote' ? 'font-serif italic' :
-                  text.font_style === 'label' ? 'font-sans uppercase tracking-wide' :
-                  text.font_style === 'handwriting' ? 'font-serif italic' :
-                  text.font_style === 'mono' ? 'font-mono' :
-                  'font-sans'
-                } drop-shadow-sm`}
-                style={{ fontSize: text.font_size, color: text.color }}
-              >
-                {text.content}
-              </p>
+              {text.font_style === 'clip' ? (
+                <div
+                  style={{
+                    width: '100%',
+                    height: text.font_size || 44,
+                    backgroundColor: text.color,
+                    borderRadius: 3,
+                  }}
+                />
+              ) : (
+                <p
+                  className={`${
+                    text.font_style === 'heading' ? 'font-serif font-bold' :
+                    text.font_style === 'quote' ? 'font-serif italic' :
+                    text.font_style === 'label' ? 'font-sans uppercase tracking-widest' :
+                    text.font_style === 'mono' ? 'font-mono' :
+                    'font-sans'
+                  } drop-shadow-sm leading-tight`}
+                  style={{
+                    fontSize: text.font_size,
+                    color: text.color,
+                    ...(text.font_style === 'caveat' ? { fontFamily: 'var(--font-caveat)' } : {}),
+                    ...(text.font_style === 'bebas' ? { fontFamily: 'var(--font-bebas)', letterSpacing: '0.04em', textTransform: 'uppercase' } : {}),
+                    ...(text.font_style === 'typewriter' ? { fontFamily: 'var(--font-special-elite)' } : {}),
+                  }}
+                >
+                  {text.content}
+                </p>
+              )}
             </div>
           ))}
 
@@ -636,7 +744,7 @@ return (
 
       {/* Bottom buttons */}
       <div className="fixed bottom-6 left-6 z-40 flex gap-2">
-        <button 
+        <button
           onClick={() => setAddTextModalOpen(true)}
           className="bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink hover:bg-white transition-colors flex items-center gap-2"
         >
@@ -645,6 +753,30 @@ return (
           </svg>
           Add Text
         </button>
+
+        <div className="relative">
+          <button
+            onClick={() => setClipPickerOpen(!clipPickerOpen)}
+            className="bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink hover:bg-white transition-colors flex items-center gap-2"
+          >
+            <svg className="w-4 h-4 fill-current opacity-70" viewBox="0 0 24 24">
+              <rect x="2" y="6" width="20" height="12" rx="2"/>
+            </svg>
+            Color Clip
+          </button>
+          {clipPickerOpen && (
+            <div className="absolute bottom-full mb-2 left-0 bg-white rounded-2xl shadow-2xl p-3 flex gap-2 flex-wrap w-52 border border-ink/5">
+              {["#E24E42","#E9B000","#EB6E80","#008F95","#1A1A1A","#FFFFFF","#a78bfa","#34d399","#f97316","#ec4899","#fef08a","#bfdbfe"].map(color => (
+                <button
+                  key={color}
+                  onClick={() => addColorClip(color)}
+                  className="w-8 h-8 rounded-lg hover:scale-110 transition-transform shadow-sm border border-black/10"
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <button 
@@ -1536,8 +1668,10 @@ function TextDetailModal({
                 { id: "body", label: "Body" },
                 { id: "quote", label: "Quote" },
                 { id: "label", label: "Label" },
-                { id: "handwriting", label: "Script" },
-                { id: "mono", label: "Mono" }
+                { id: "caveat", label: "Handwriting" },
+                { id: "bebas", label: "Impact" },
+                { id: "typewriter", label: "Typewriter" },
+                { id: "mono", label: "Mono" },
               ].map((style) => (
                 <button
                   key={style.id}
@@ -1615,12 +1749,17 @@ function TextDetailModal({
                 className={`${
                   fontStyle === 'heading' ? 'font-serif font-bold' :
                   fontStyle === 'quote' ? 'font-serif italic' :
-                  fontStyle === 'label' ? 'font-sans uppercase tracking-wide' :
-                  fontStyle === 'handwriting' ? 'font-serif italic' :
+                  fontStyle === 'label' ? 'font-sans uppercase tracking-widest' :
                   fontStyle === 'mono' ? 'font-mono' :
                   'font-sans'
-                } drop-shadow-sm`}
-                style={{ fontSize, color }}
+                } drop-shadow-sm leading-tight`}
+                style={{
+                  fontSize,
+                  color,
+                  ...(fontStyle === 'caveat' ? { fontFamily: 'var(--font-caveat)' } : {}),
+                  ...(fontStyle === 'bebas' ? { fontFamily: 'var(--font-bebas)', letterSpacing: '0.04em', textTransform: 'uppercase' } : {}),
+                  ...(fontStyle === 'typewriter' ? { fontFamily: 'var(--font-special-elite)' } : {}),
+                }}
               >
                 {content || "Your text here"}
               </p>
@@ -1675,12 +1814,14 @@ function AddTextModal({ onClose, onAdd }: { onClose: () => void; onAdd: (content
             <label className="text-sm text-ink-soft mb-2 block">Style</label>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { id: "heading", label: "Heading" }, 
-                { id: "body", label: "Body" }, 
-                { id: "quote", label: "Quote" }, 
+                { id: "heading", label: "Heading" },
+                { id: "body", label: "Body" },
+                { id: "quote", label: "Quote" },
                 { id: "label", label: "Label" },
-                { id: "handwriting", label: "Script" },
-                { id: "mono", label: "Mono" }
+                { id: "caveat", label: "Handwriting" },
+                { id: "bebas", label: "Impact" },
+                { id: "typewriter", label: "Typewriter" },
+                { id: "mono", label: "Mono" },
               ].map((style) => (
                 <button key={style.id} type="button" onClick={() => setFontStyle(style.id)} className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${fontStyle === style.id ? 'bg-ink text-white' : 'bg-ink/5 text-ink hover:bg-ink/10'}`}>{style.label}</button>
               ))}

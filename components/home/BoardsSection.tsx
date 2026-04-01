@@ -12,6 +12,7 @@ import UpgradeModal from "@/components/UpgradeModal";
 export default function BoardsSection() {
   const router = useRouter();
   const [boards, setBoards] = useState<Board[]>([]);
+  const [boardImages, setBoardImages] = useState<Record<string, string[]>>({});
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { plan, isFreePlan } = usePlan();
 
@@ -27,7 +28,27 @@ export default function BoardsSection() {
         .eq("owner_id", session.user.id)
         .order("created_at", { ascending: false });
 
-      setBoards(data || []);
+      const fetchedBoards = data || [];
+      setBoards(fetchedBoards);
+
+      if (fetchedBoards.length > 0) {
+        const boardIds = fetchedBoards.map((b: Board) => b.id);
+        const { data: tacksData } = await supabase
+          .from("tacks")
+          .select("board_id, content_url")
+          .in("board_id", boardIds);
+
+        if (tacksData) {
+          const imageMap: Record<string, string[]> = {};
+          for (const tack of tacksData) {
+            if (!imageMap[tack.board_id]) imageMap[tack.board_id] = [];
+            if (imageMap[tack.board_id].length < 3) {
+              imageMap[tack.board_id].push(tack.content_url);
+            }
+          }
+          setBoardImages(imageMap);
+        }
+      }
     };
 
     fetchBoards();
@@ -53,6 +74,90 @@ export default function BoardsSection() {
     "from-papaya/20 to-blush/25",
     "from-aqua/30 to-mustard/15",
   ];
+
+  const COLLAGE_ANGLES = [-5, 3, -2];
+
+  const renderBoardCardContent = (board: Board) => {
+    const images = boardImages[board.id] || [];
+
+    if (images.length >= 1) {
+      return (
+        <div className="absolute inset-0">
+          {images.slice(0, 3).map((imgUrl, i) => (
+            <img
+              key={i}
+              src={imgUrl}
+              alt=""
+              className="absolute inset-2 w-[calc(100%-16px)] h-[calc(100%-16px)] object-cover rounded-sm shadow-md pointer-events-none"
+              style={{
+                transform: `rotate(${COLLAGE_ANGLES[i] ?? 0}deg)`,
+                zIndex: i,
+              }}
+              draggable={false}
+            />
+          ))}
+          {/* Board name overlay */}
+          <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/50 to-transparent z-10">
+            <h3 className="font-serif text-sm text-white line-clamp-2 leading-snug">{board.name}</h3>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="absolute inset-0 p-4 flex flex-col justify-between">
+        <div className="w-5 h-5 rounded-full bg-white/60" />
+        <h3 className="font-serif text-sm text-ink/80 line-clamp-2 leading-snug">{board.name}</h3>
+      </div>
+    );
+  };
+
+  const renderDesktopCardContent = (board: Board) => {
+    const images = boardImages[board.id] || [];
+
+    if (images.length >= 1) {
+      return (
+        <>
+          <div className="absolute inset-0">
+            {images.slice(0, 3).map((imgUrl, i) => (
+              <img
+                key={i}
+                src={imgUrl}
+                alt=""
+                className="absolute inset-3 w-[calc(100%-24px)] h-[calc(100%-24px)] object-cover rounded-sm shadow-lg pointer-events-none"
+                style={{
+                  transform: `rotate(${COLLAGE_ANGLES[i] ?? 0}deg)`,
+                  zIndex: i,
+                }}
+                draggable={false}
+              />
+            ))}
+          </div>
+          {/* Pin circle */}
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-white/70 group-hover:bg-white/90 transition-colors z-20" />
+          {/* Board name */}
+          <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/50 to-transparent z-20">
+            <h3 className="font-serif text-base text-white line-clamp-2 leading-snug">{board.name}</h3>
+          </div>
+          {/* Hover overlay */}
+          <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors duration-300 z-30" />
+        </>
+      );
+    }
+
+    return (
+      <>
+        {/* Pin circle */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-white/50 group-hover:bg-white/80 transition-colors" />
+        {/* Board name */}
+        <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/10 to-transparent">
+          <h3 className="font-serif text-base text-ink/80 line-clamp-2 leading-snug">{board.name}</h3>
+        </div>
+        {/* Hover overlay */}
+        <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors duration-300" />
+      </>
+    );
+  };
 
   return (
     <>
@@ -97,12 +202,13 @@ export default function BoardsSection() {
                     <Link
                       key={board.id}
                       href={`/board/${board.id}`}
-                      className={`relative flex-shrink-0 w-36 aspect-[3/4] rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 bg-gradient-to-br ${BOARD_GRADIENTS[index % BOARD_GRADIENTS.length]}`}
+                      className={`relative flex-shrink-0 w-36 aspect-[3/4] rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 ${
+                        (boardImages[board.id] || []).length === 0
+                          ? `bg-gradient-to-br ${BOARD_GRADIENTS[index % BOARD_GRADIENTS.length]}`
+                          : 'bg-ink/10'
+                      }`}
                     >
-                      <div className="absolute inset-0 p-4 flex flex-col justify-between">
-                        <div className="w-5 h-5 rounded-full bg-white/60" />
-                        <h3 className="font-serif text-sm text-ink/80 line-clamp-2 leading-snug">{board.name}</h3>
-                      </div>
+                      {renderBoardCardContent(board)}
                     </Link>
                   ))}
                   {/* Add new */}
@@ -123,17 +229,14 @@ export default function BoardsSection() {
                   <Link
                     key={board.id}
                     href={`/board/${board.id}`}
-                    className={`group relative aspect-[3/4] rounded-2xl overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 bg-gradient-to-br ${BOARD_GRADIENTS[index % BOARD_GRADIENTS.length]}`}
+                    className={`group relative aspect-[3/4] rounded-2xl overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 ${
+                      (boardImages[board.id] || []).length === 0
+                        ? `bg-gradient-to-br ${BOARD_GRADIENTS[index % BOARD_GRADIENTS.length]}`
+                        : 'bg-ink/10'
+                    }`}
                     style={{ transitionDelay: `${index * 30}ms` }}
                   >
-                    {/* Pin circle */}
-                    <div className="absolute top-4 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-white/50 group-hover:bg-white/80 transition-colors" />
-                    {/* Board name */}
-                    <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/10 to-transparent">
-                      <h3 className="font-serif text-base text-ink/80 line-clamp-2 leading-snug">{board.name}</h3>
-                    </div>
-                    {/* Hover overlay */}
-                    <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors duration-300" />
+                    {renderDesktopCardContent(board)}
                   </Link>
                 ))}
               </div>
