@@ -46,7 +46,7 @@ export default function Header() {
     >
       <div className="max-w-6xl mx-auto flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="font-serif text-2xl tracking-tight">
+        <Link href="/" className="font-serif text-4xl tracking-tight leading-none">
           Spark<span className="text-papaya">brd</span>
         </Link>
 
