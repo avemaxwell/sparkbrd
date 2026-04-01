@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { canAddTack, getUpgradeMessage } from "../../lib/plan-limits";
 import UpgradeModal from "@/components/UpgradeModal";
+import { useUser } from "@/hooks/useUser";
 
 interface Board {
   id: string;
@@ -55,6 +56,7 @@ export default function BoardCanvas() {
   const params = useParams();
   const boardId = params.id as string;
   const supabase = createClient();
+  const { profile } = useUser();
 
   const [board, setBoard] = useState<Board | null>(null);
   const [tacks, setTacks] = useState<Tack[]>([]);
