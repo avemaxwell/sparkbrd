@@ -711,7 +711,7 @@ return (
           <div className="fixed top-0 right-0 h-full w-80 bg-white shadow-2xl z-50 p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="font-serif text-xl">Activity</h2>
-              <button 
+              <button
                 onClick={() => setSidebarOpen(false)}
                 className="w-8 h-8 rounded-full hover:bg-ink/5 flex items-center justify-center"
               >
@@ -723,6 +723,14 @@ return (
             <p className="text-ink-soft text-sm">No activity yet</p>
           </div>
         </>
+      )}
+
+      {showUpgradeModal && (
+        <UpgradeModal
+          message={upgradeMessage}
+          feature="max_tacks_per_board"
+          onClose={() => setShowUpgradeModal(false)}
+        />
       )}
     </div>
   );
@@ -1647,13 +1655,7 @@ function AddTextModal({ onClose, onAdd }: { onClose: () => void; onAdd: (content
     e.preventDefault();
     if (content.trim()) onAdd(content.trim(), fontStyle);
   };
-{showUpgradeModal && (
-  <UpgradeModal
-    message={upgradeMessage}
-    feature="max_tacks_per_board"
-    onClose={() => setShowUpgradeModal(false)}
-  />
-)}
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
