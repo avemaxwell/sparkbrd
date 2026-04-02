@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useUser } from "@/hooks/useUser";
+import { PLACEHOLDER_TACKS } from "@/lib/placeholder-images";
 
 interface DiscoverTack {
   id: string;
@@ -42,10 +43,11 @@ export default function DiscoverySection() {
       try {
         const res = await fetch('/api/discover?limit=40');
         const data = await res.json();
-        setTacks(data.tacks || []);
+        const tacks = data.tacks?.length ? data.tacks : PLACEHOLDER_TACKS;
+        setTacks(tacks);
         setPersonalized(data.personalized ?? false);
       } catch {
-        setTacks([]);
+        setTacks(PLACEHOLDER_TACKS);
       } finally {
         setLoading(false);
       }

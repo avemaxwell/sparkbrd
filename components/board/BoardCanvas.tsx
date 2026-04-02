@@ -90,7 +90,12 @@ const [selectedText, setSelectedText] = useState<TextBlock | null>(null);
 const [rotating, setRotating] = useState<string | null>(null);
 const [rotateStartAngle, setRotateStartAngle] = useState(0);
 const [rotateStartRotation, setRotateStartRotation] = useState(0);
-const [clipPickerOpen, setClipPickerOpen] = useState(false);
+
+const [textResizing, setTextResizing] = useState<string | null>(null);
+const [textResizeStart, setTextResizeStart] = useState({ x: 0, width: 0 });
+const [textRotating, setTextRotating] = useState<string | null>(null);
+const [textRotateStartAngle, setTextRotateStartAngle] = useState(0);
+const [textRotateStartRotation, setTextRotateStartRotation] = useState(0);
 
   // Load board data
   useEffect(() => {
@@ -241,12 +246,16 @@ const handleDrag = (e: React.MouseEvent) => {
     handleDrag(e);
     handleResize(e);
     handleRotate(e);
+    handleTextResize(e);
+    handleTextRotate(e);
   };
 
   const handleMouseUp = () => {
     handleDragEnd();
     handleResizeEnd();
     handleRotateEnd();
+    handleTextResizeEnd();
+    handleTextRotateEnd();
   };
 // Touch handlers for mobile
 const handleTouchStart = (e: React.TouchEvent, tackId: string, currentX: number, currentY: number) => {
@@ -368,6 +377,70 @@ const handleRotateEnd = async () => {
   setRotating(null);
 };
 
+const handleTextResizeStart = (e: React.MouseEvent, textId: string) => {
+  e.preventDefault();
+  e.stopPropagation();
+  const text = textBlocks.find(t => t.id === textId);
+  if (!text) return;
+  setTextResizing(textId);
+  setTextResizeStart({ x: e.clientX, width: text.width });
+};
+
+const handleTextResize = (e: React.MouseEvent) => {
+  if (!textResizing) return;
+  const delta = e.clientX - textResizeStart.x;
+  const newWidth = Math.max(80, textResizeStart.width + delta);
+  setTextBlocks(textBlocks.map(t => t.id === textResizing ? { ...t, width: newWidth } : t));
+};
+
+const handleTextResizeEnd = async () => {
+  if (!textResizing) return;
+  const text = textBlocks.find(t => t.id === textResizing);
+  if (text) {
+    await supabase.from("text_blocks").update({ width: text.width }).eq("id", text.id);
+  }
+  setTextResizing(null);
+};
+
+const handleTextRotateStart = (e: React.MouseEvent, textId: string) => {
+  e.preventDefault();
+  e.stopPropagation();
+  const text = textBlocks.find(t => t.id === textId);
+  if (!text) return;
+  const el = document.getElementById(`text-wrapper-${textId}`);
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const angle = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
+  setTextRotating(textId);
+  setTextRotateStartAngle(angle);
+  setTextRotateStartRotation(text.rotation);
+};
+
+const handleTextRotate = (e: React.MouseEvent) => {
+  if (!textRotating) return;
+  const text = textBlocks.find(t => t.id === textRotating);
+  if (!text) return;
+  const el = document.getElementById(`text-wrapper-${textRotating}`);
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const currentAngle = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
+  const delta = currentAngle - textRotateStartAngle;
+  setTextBlocks(textBlocks.map(t => t.id === textRotating ? { ...t, rotation: textRotateStartRotation + delta } : t));
+};
+
+const handleTextRotateEnd = async () => {
+  if (!textRotating) return;
+  const text = textBlocks.find(t => t.id === textRotating);
+  if (text) {
+    await supabase.from("text_blocks").update({ rotation: text.rotation }).eq("id", text.id);
+  }
+  setTextRotating(null);
+};
+
   // Add tack
   const addTack = async (url: string, note: string, pinColor: string, source?: string) => {
     if (!board) return;
@@ -445,37 +518,6 @@ const handleRotateEnd = async () => {
     if (!error && data) {
       setTextBlocks([...textBlocks, data]);
       setAddTextModalOpen(false);
-    }
-  };
-
-  const addColorClip = async (clipColor: string) => {
-    if (!board) return;
-    const { data: session } = await supabase.auth.getSession();
-    if (!session?.session?.user) return;
-
-    const newClip = {
-      board_id: boardId,
-      user_id: session.session.user.id,
-      content: " ",
-      font_style: "clip",
-      font_size: 44,
-      color: clipColor,
-      position_x: Math.round(200 + Math.random() * 300),
-      position_y: Math.round(200 + Math.random() * 300),
-      width: 220,
-      rotation: Math.floor(Math.random() * 8) - 4,
-      z_index: tacks.length + textBlocks.length,
-    };
-
-    const { data, error } = await supabase
-      .from("text_blocks")
-      .insert(newClip)
-      .select()
-      .single();
-
-    if (!error && data) {
-      setTextBlocks([...textBlocks, data]);
-      setClipPickerOpen(false);
     }
   };
 
@@ -679,8 +721,9 @@ return (
           {textBlocks.map((text) => (
             <div
               key={text.id}
+              id={`text-wrapper-${text.id}`}
               className={`absolute cursor-move group ${
-                dragging === `text-${text.id}` ? 'z-50' : 'hover:z-10'
+                dragging === `text-${text.id}` || textResizing === text.id || textRotating === text.id ? 'z-50' : 'hover:z-10'
               }`}
               style={{
                 left: text.position_x,
@@ -691,23 +734,23 @@ return (
               onMouseDown={(e) => handleDragStart(e, `text-${text.id}`, text.position_x, text.position_y)}
               onTouchStart={(e) => handleTouchStart(e, `text-${text.id}`, text.position_x, text.position_y)}
               onClick={(e) => {
-                if (!dragging && !touching) {
+                if (!dragging && !touching && !textResizing && !textRotating) {
                   e.stopPropagation();
                   setSelectedText(text);
                 }
               }}
             >
-              {text.font_style === 'clip' ? (
-                <div
-                  style={{
-                    width: '100%',
-                    height: text.font_size || 44,
-                    backgroundColor: text.color,
-                    borderRadius: 3,
-                  }}
-                />
-              ) : (
-                <p
+              {/* Text rotate handle */}
+              <div
+                className="absolute -top-8 left-1/2 -translate-x-1/2 w-7 h-7 bg-white rounded-full cursor-grab opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md hover:bg-papaya hover:scale-110 z-10"
+                onMouseDown={(e) => handleTextRotateStart(e, text.id)}
+                title="Drag to rotate"
+              >
+                <svg className="w-3.5 h-3.5 stroke-ink/60 stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                </svg>
+              </div>
+              <p
                   className={`${
                     text.font_style === 'heading' ? 'font-serif font-bold' :
                     text.font_style === 'quote' ? 'font-serif italic' :
@@ -725,7 +768,15 @@ return (
                 >
                   {text.content}
                 </p>
-              )}
+              {/* Text resize handle */}
+              <div
+                className="absolute -bottom-3 -right-3 w-7 h-7 bg-papaya rounded-full cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md z-10"
+                onMouseDown={(e) => handleTextResizeStart(e, text.id)}
+              >
+                <svg className="w-3 h-3 text-white" viewBox="0 0 10 10" fill="none">
+                  <path d="M1 9L9 1M5 9L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </div>
             </div>
           ))}
 
@@ -760,29 +811,6 @@ return (
           Add Text
         </button>
 
-        <div className="relative">
-          <button
-            onClick={() => setClipPickerOpen(!clipPickerOpen)}
-            className="bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink hover:bg-white transition-colors flex items-center gap-2"
-          >
-            <svg className="w-4 h-4 fill-current opacity-70" viewBox="0 0 24 24">
-              <rect x="2" y="6" width="20" height="12" rx="2"/>
-            </svg>
-            Color Clip
-          </button>
-          {clipPickerOpen && (
-            <div className="absolute bottom-full mb-2 left-0 bg-white rounded-2xl shadow-2xl p-3 flex gap-2 flex-wrap w-52 border border-ink/5">
-              {["#E24E42","#E9B000","#EB6E80","#008F95","#1A1A1A","#FFFFFF","#a78bfa","#34d399","#f97316","#ec4899","#fef08a","#bfdbfe"].map(color => (
-                <button
-                  key={color}
-                  onClick={() => addColorClip(color)}
-                  className="w-8 h-8 rounded-lg hover:scale-110 transition-transform shadow-sm border border-black/10"
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
       <button 
@@ -814,7 +842,7 @@ return (
           onDelete={(tackId) => setTacks(tacks.filter(t => t.id !== tackId))}
         />
       )}
-{selectedText && selectedText.font_style !== 'clip' && (
+{selectedText && (
         <TextDetailModal
           textBlock={selectedText}
           onClose={() => setSelectedText(null)}
@@ -829,20 +857,6 @@ return (
         />
       )}
 
-      {selectedText && selectedText.font_style === 'clip' && (
-        <ClipDetailModal
-          textBlock={selectedText}
-          onClose={() => setSelectedText(null)}
-          onUpdate={(textId, updates) => {
-            setTextBlocks(textBlocks.map(t => t.id === textId ? { ...t, ...updates } : t));
-            setSelectedText(prev => prev ? { ...prev, ...updates } : null);
-          }}
-          onDelete={(textId) => {
-            setTextBlocks(textBlocks.filter(t => t.id !== textId));
-            setSelectedText(null);
-          }}
-        />
-      )}
       {addModalOpen && (
         <AddTackModal 
           onClose={() => setAddModalOpen(false)} 
@@ -1851,116 +1865,43 @@ function AddTextModal({ onClose, onAdd }: { onClose: () => void; onAdd: (content
           </div>
           <div className="mb-6">
             <label className="text-sm text-ink-soft mb-2 block">Style</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {[
-                { id: "heading", label: "Heading" },
-                { id: "body", label: "Body" },
-                { id: "quote", label: "Quote" },
-                { id: "label", label: "Label" },
-                { id: "caveat", label: "Handwriting" },
-                { id: "bebas", label: "Impact" },
-                { id: "typewriter", label: "Typewriter" },
-                { id: "mono", label: "Mono" },
+                { id: "heading",    label: "Heading",     preview: "Heading",     fontFamily: "var(--font-sans)",         fontSize: "1.1rem",  fontWeight: "700" },
+                { id: "body",       label: "Body",        preview: "Body text",   fontFamily: "var(--font-sans)",         fontSize: "0.9rem",  fontWeight: "400" },
+                { id: "quote",      label: "Quote",       preview: "A quote…",    fontFamily: "var(--font-serif)",        fontSize: "1rem",    fontWeight: "400", fontStyle: "italic" },
+                { id: "label",      label: "Label",       preview: "LABEL",       fontFamily: "var(--font-sans)",         fontSize: "0.7rem",  fontWeight: "600", letterSpacing: "0.1em", textTransform: "uppercase" as const },
+                { id: "caveat",     label: "Handwriting", preview: "Handwriting", fontFamily: "var(--font-caveat)",       fontSize: "1.1rem",  fontWeight: "400" },
+                { id: "bebas",      label: "Impact",      preview: "IMPACT",      fontFamily: "var(--font-bebas)",        fontSize: "1.2rem",  fontWeight: "400" },
+                { id: "typewriter", label: "Typewriter",  preview: "Typewriter",  fontFamily: "var(--font-special-elite)", fontSize: "0.9rem", fontWeight: "400" },
+                { id: "mono",       label: "Mono",        preview: "monospace",   fontFamily: "monospace",                fontSize: "0.85rem", fontWeight: "400" },
               ].map((style) => (
-                <button key={style.id} type="button" onClick={() => setFontStyle(style.id)} className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${fontStyle === style.id ? 'bg-ink text-white' : 'bg-ink/5 text-ink hover:bg-ink/10'}`}>{style.label}</button>
+                <button
+                  key={style.id}
+                  type="button"
+                  onClick={() => setFontStyle(style.id)}
+                  className={`flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl transition-all border ${fontStyle === style.id ? 'bg-ink text-white border-ink' : 'bg-ink/5 text-ink border-transparent hover:bg-ink/10'}`}
+                >
+                  <span
+                    style={{
+                      fontFamily: style.fontFamily,
+                      fontSize: style.fontSize,
+                      fontWeight: style.fontWeight,
+                      fontStyle: style.fontStyle,
+                      letterSpacing: style.letterSpacing,
+                      textTransform: style.textTransform,
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {style.preview}
+                  </span>
+                  <span className="text-[10px] opacity-60 font-sans font-normal normal-case tracking-normal">{style.label}</span>
+                </button>
               ))}
             </div>
           </div>
           <button type="submit" className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors">Add text</button>
         </form>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// CLIP DETAIL MODAL
-// ============================================================================
-
-function ClipDetailModal({
-  textBlock,
-  onClose,
-  onUpdate,
-  onDelete,
-}: {
-  textBlock: TextBlock;
-  onClose: () => void;
-  onUpdate: (textId: string, updates: Partial<TextBlock>) => void;
-  onDelete: (textId: string) => void;
-}) {
-  const [color, setColor] = useState(textBlock.color);
-  const [height, setHeight] = useState(textBlock.font_size || 44);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const supabase = createClient();
-
-  const save = async (updates: Partial<TextBlock>) => {
-    await supabase.from("text_blocks").update(updates).eq("id", textBlock.id);
-    onUpdate(textBlock.id, updates);
-  };
-
-  const handleDelete = async () => {
-    await supabase.from("text_blocks").delete().eq("id", textBlock.id);
-    onDelete(textBlock.id);
-    onClose();
-  };
-
-  const CLIP_COLORS = ["#E24E42","#E9B000","#EB6E80","#008F95","#1A1A1A","#FFFFFF","#a78bfa","#34d399","#f97316","#ec4899","#fef08a","#bfdbfe"];
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="font-serif text-xl">Color Clip</h2>
-          <button onClick={onClose} className="w-8 h-8 rounded-full hover:bg-ink/5 flex items-center justify-center">
-            <svg className="w-5 h-5 stroke-[#1A1A1A] stroke-[1.5] fill-none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
-          </button>
-        </div>
-
-        {/* Preview */}
-        <div className="mb-5 flex items-center justify-center p-4 bg-ink/5 rounded-xl">
-          <div style={{ width: 160, height, backgroundColor: color, borderRadius: 3 }} />
-        </div>
-
-        {/* Color swatches */}
-        <div className="mb-4">
-          <p className="text-xs text-ink/50 mb-2">Color</p>
-          <div className="flex flex-wrap gap-2 mb-3">
-            {CLIP_COLORS.map(c => (
-              <button
-                key={c}
-                onClick={() => { setColor(c); save({ color: c }); }}
-                className={`w-8 h-8 rounded-lg hover:scale-110 transition-transform shadow-sm border ${color === c ? 'border-papaya ring-2 ring-papaya/40' : 'border-black/10'}`}
-                style={{ backgroundColor: c }}
-              />
-            ))}
-          </div>
-          <div className="flex items-center gap-2">
-            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} onBlur={() => save({ color })} className="w-10 h-10 rounded-lg cursor-pointer border-2 border-ink/10 p-1" />
-            <input type="text" value={color} onChange={(e) => setColor(e.target.value)} onBlur={() => save({ color })} className="flex-1 px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/20" />
-          </div>
-        </div>
-
-        {/* Height */}
-        <div className="mb-5">
-          <p className="text-xs text-ink/50 mb-1">Height — {height}px</p>
-          <input
-            type="range" min="8" max="200" value={height}
-            onChange={(e) => setHeight(parseInt(e.target.value))}
-            onMouseUp={() => save({ font_size: height })}
-            onTouchEnd={() => save({ font_size: height })}
-            className="w-full accent-papaya"
-          />
-        </div>
-
-        {confirmDelete ? (
-          <div className="flex gap-2">
-            <button onClick={handleDelete} className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-full text-sm font-medium hover:bg-red-600 transition-colors">Yes, delete</button>
-            <button onClick={() => setConfirmDelete(false)} className="flex-1 px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors">Cancel</button>
-          </div>
-        ) : (
-          <button onClick={() => setConfirmDelete(true)} className="w-full px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-red-50 hover:text-red-500 transition-colors">Delete clip</button>
-        )}
       </div>
     </div>
   );
