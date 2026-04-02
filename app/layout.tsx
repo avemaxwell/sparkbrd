@@ -18,7 +18,7 @@ const bebasNeue = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--f
 const specialElite = Special_Elite({ weight: "400", subsets: ["latin"], variable: "--font-special-elite" });
 
 export const metadata: Metadata = {
-  title: "Sparkbrd — Creativity, sparked by humans.",
+  title: "Sparkurio — Creativity, sparked by humans.",
   description: "A place for visual inspiration, curated by real people.",
 };
 

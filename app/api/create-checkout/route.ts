@@ -54,8 +54,8 @@ export async function POST(request: Request) {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://sparkbrd.com'}/settings?upgrade=success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://sparkbrd.com'}/settings/billing?upgrade=cancelled`,
+      success_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://sparkurio.com'}/settings?upgrade=success`,
+      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://sparkurio.com'}/settings/billing?upgrade=cancelled`,
       metadata: {
         user_id: user.id,
       },

@@ -19,7 +19,7 @@ const PLAN_DETAILS = {
       '10 boards',
       '50 tacks per board',
       '4 background presets',
-      'Sparkbrd branding on shared boards',
+      'Sparkurio branding on shared boards',
     ],
   },
   pro: {

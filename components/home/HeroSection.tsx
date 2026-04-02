@@ -46,7 +46,7 @@ export default function HeroSection() {
               mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
           >
-            <p className="text-sm font-medium text-ink/40 tracking-widest uppercase mb-2">Sparkbrd</p>
+            <p className="text-sm font-medium text-ink/40 tracking-widest uppercase mb-2">Sparkurio</p>
             <h1 className="font-serif text-4xl md:text-5xl text-ink/90 leading-tight">
               {getGreeting()}
               {firstName && (

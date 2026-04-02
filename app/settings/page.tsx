@@ -482,7 +482,7 @@ function PreferencesSection() {
 
   const handleSave = () => {
     // Save to localStorage or database
-    localStorage.setItem("sparkbrd_preferences", JSON.stringify({
+    localStorage.setItem("sparkurio_preferences", JSON.stringify({
       defaultBgStyle,
       emailNotifications,
       weeklyDigest,
@@ -492,7 +492,7 @@ function PreferencesSection() {
   };
 
   useEffect(() => {
-    const saved = localStorage.getItem("sparkbrd_preferences");
+    const saved = localStorage.getItem("sparkurio_preferences");
     if (saved) {
       const prefs = JSON.parse(saved);
       setDefaultBgStyle(prefs.defaultBgStyle || "gradient");

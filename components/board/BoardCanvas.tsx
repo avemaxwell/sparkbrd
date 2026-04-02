@@ -1464,7 +1464,7 @@ function AddTackModal({
         </div>
 
         <div className="mb-4 p-3 bg-ink/5 rounded-lg">
-          <p className="text-xs text-ink-soft"><strong>Human-made content only.</strong> Sparkbrd is a space for authentic, human-created inspiration.</p>
+          <p className="text-xs text-ink-soft"><strong>Human-made content only.</strong> Sparkurio is a space for authentic, human-created inspiration.</p>
         </div>
 
         <div className="flex gap-2 mb-6">
@@ -1584,7 +1584,7 @@ function AddTackModal({
             
             <div className="bg-ink/5 rounded-xl p-4 mb-4">
               <p className="text-sm text-ink-soft">
-                <strong className="text-ink">Sparkbrd is for human-made inspiration.</strong> We're building a space free from AI-generated content. Uploading AI imagery violates our community standards.
+                <strong className="text-ink">Sparkurio is for human-made inspiration.</strong> We're building a space free from AI-generated content. Uploading AI imagery violates our community standards.
               </p>
             </div>
 

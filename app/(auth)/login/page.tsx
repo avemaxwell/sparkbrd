@@ -37,7 +37,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="font-serif text-3xl">
-            Spark<span className="text-papaya">brd</span>
+            Spark<span className="text-papaya">urio</span>
           </Link>
           <p className="text-ink-soft mt-2">Welcome back</p>
         </div>

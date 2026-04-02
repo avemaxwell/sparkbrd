@@ -67,7 +67,7 @@ export default function SignupPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="font-serif text-4xl">
-            Spark<span className="text-papaya">brd</span>
+            Spark<span className="text-papaya">urio</span>
           </Link>
           <p className="text-ink/40 mt-2 text-sm">Spark what inspires you.</p>
         </div>
