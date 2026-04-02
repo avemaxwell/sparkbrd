@@ -455,7 +455,7 @@ const handleRotateEnd = async () => {
     const newClip = {
       board_id: boardId,
       user_id: session.session.user.id,
-      content: "",
+      content: " ",
       font_style: "clip",
       font_size: 44,
       color: clipColor,
@@ -626,30 +626,35 @@ return (
       </svg>
     </div>
     {/* Tack content */}
-    <div 
-      className={`bg-white p-2 rounded-sm shadow-xl cursor-move transition-shadow duration-300 ${
-        dragging === tack.id ? 'shadow-2xl' : 'hover:shadow-xl'
-      }`}
-      onMouseDown={(e) => handleDragStart(e, tack.id, tack.position_x, tack.position_y)}
-      onTouchStart={(e) => handleTouchStart(e, tack.id, tack.position_x, tack.position_y)}
-      onClick={(e) => {
-        if (!dragging && !touching) {
-          e.stopPropagation();
-          setSelectedTack(tack);
-        }
-      }}
-    >
-      <img
-        src={tack.content_url}
-        alt={tack.title || ""}
-        className="w-full rounded-sm pointer-events-none"
-        style={{ height: 'auto', maxHeight: '400px', objectFit: 'contain' }}
-        draggable={false}
-      />
-      {tack.title && (
-        <p className="mt-2 text-xs font-medium text-ink truncate">{tack.title}</p>
-      )}
-    </div>
+    {(() => {
+      const isPng = /\.png(\?.*)?$/i.test(tack.content_url);
+      return (
+        <div
+          className={`${isPng ? '' : 'bg-white p-2'} rounded-sm shadow-xl cursor-move transition-shadow duration-300 ${
+            dragging === tack.id ? 'shadow-2xl' : 'hover:shadow-xl'
+          }`}
+          onMouseDown={(e) => handleDragStart(e, tack.id, tack.position_x, tack.position_y)}
+          onTouchStart={(e) => handleTouchStart(e, tack.id, tack.position_x, tack.position_y)}
+          onClick={(e) => {
+            if (!dragging && !touching) {
+              e.stopPropagation();
+              setSelectedTack(tack);
+            }
+          }}
+        >
+          <img
+            src={tack.content_url}
+            alt={tack.title || ""}
+            className={`w-full pointer-events-none ${isPng ? '' : 'rounded-sm'}`}
+            style={{ height: 'auto', maxHeight: '400px', objectFit: 'contain' }}
+            draggable={false}
+          />
+          {tack.title && !isPng && (
+            <p className="mt-2 text-xs font-medium text-ink truncate">{tack.title}</p>
+          )}
+        </div>
+      );
+    })()}
     
     {/* Pin */}
     <div 
@@ -808,8 +813,23 @@ return (
           onDelete={(tackId) => setTacks(tacks.filter(t => t.id !== tackId))}
         />
       )}
-{selectedText && (
+{selectedText && selectedText.font_style !== 'clip' && (
         <TextDetailModal
+          textBlock={selectedText}
+          onClose={() => setSelectedText(null)}
+          onUpdate={(textId, updates) => {
+            setTextBlocks(textBlocks.map(t => t.id === textId ? { ...t, ...updates } : t));
+            setSelectedText(prev => prev ? { ...prev, ...updates } : null);
+          }}
+          onDelete={(textId) => {
+            setTextBlocks(textBlocks.filter(t => t.id !== textId));
+            setSelectedText(null);
+          }}
+        />
+      )}
+
+      {selectedText && selectedText.font_style === 'clip' && (
+        <ClipDetailModal
           textBlock={selectedText}
           onClose={() => setSelectedText(null)}
           onUpdate={(textId, updates) => {
@@ -1829,6 +1849,99 @@ function AddTextModal({ onClose, onAdd }: { onClose: () => void; onAdd: (content
           </div>
           <button type="submit" className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors">Add text</button>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// CLIP DETAIL MODAL
+// ============================================================================
+
+function ClipDetailModal({
+  textBlock,
+  onClose,
+  onUpdate,
+  onDelete,
+}: {
+  textBlock: TextBlock;
+  onClose: () => void;
+  onUpdate: (textId: string, updates: Partial<TextBlock>) => void;
+  onDelete: (textId: string) => void;
+}) {
+  const [color, setColor] = useState(textBlock.color);
+  const [height, setHeight] = useState(textBlock.font_size || 44);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const supabase = createClient();
+
+  const save = async (updates: Partial<TextBlock>) => {
+    await supabase.from("text_blocks").update(updates).eq("id", textBlock.id);
+    onUpdate(textBlock.id, updates);
+  };
+
+  const handleDelete = async () => {
+    await supabase.from("text_blocks").delete().eq("id", textBlock.id);
+    onDelete(textBlock.id);
+    onClose();
+  };
+
+  const CLIP_COLORS = ["#E24E42","#E9B000","#EB6E80","#008F95","#1A1A1A","#FFFFFF","#a78bfa","#34d399","#f97316","#ec4899","#fef08a","#bfdbfe"];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="font-serif text-xl">Color Clip</h2>
+          <button onClick={onClose} className="w-8 h-8 rounded-full hover:bg-ink/5 flex items-center justify-center">
+            <svg className="w-5 h-5 stroke-[#1A1A1A] stroke-[1.5] fill-none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        {/* Preview */}
+        <div className="mb-5 flex items-center justify-center p-4 bg-ink/5 rounded-xl">
+          <div style={{ width: 160, height, backgroundColor: color, borderRadius: 3 }} />
+        </div>
+
+        {/* Color swatches */}
+        <div className="mb-4">
+          <p className="text-xs text-ink/50 mb-2">Color</p>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {CLIP_COLORS.map(c => (
+              <button
+                key={c}
+                onClick={() => { setColor(c); save({ color: c }); }}
+                className={`w-8 h-8 rounded-lg hover:scale-110 transition-transform shadow-sm border ${color === c ? 'border-papaya ring-2 ring-papaya/40' : 'border-black/10'}`}
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} onBlur={() => save({ color })} className="w-10 h-10 rounded-lg cursor-pointer border-2 border-ink/10 p-1" />
+            <input type="text" value={color} onChange={(e) => setColor(e.target.value)} onBlur={() => save({ color })} className="flex-1 px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/20" />
+          </div>
+        </div>
+
+        {/* Height */}
+        <div className="mb-5">
+          <p className="text-xs text-ink/50 mb-1">Height — {height}px</p>
+          <input
+            type="range" min="8" max="200" value={height}
+            onChange={(e) => setHeight(parseInt(e.target.value))}
+            onMouseUp={() => save({ font_size: height })}
+            onTouchEnd={() => save({ font_size: height })}
+            className="w-full accent-papaya"
+          />
+        </div>
+
+        {confirmDelete ? (
+          <div className="flex gap-2">
+            <button onClick={handleDelete} className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-full text-sm font-medium hover:bg-red-600 transition-colors">Yes, delete</button>
+            <button onClick={() => setConfirmDelete(false)} className="flex-1 px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors">Cancel</button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmDelete(true)} className="w-full px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-red-50 hover:text-red-500 transition-colors">Delete clip</button>
+        )}
       </div>
     </div>
   );
