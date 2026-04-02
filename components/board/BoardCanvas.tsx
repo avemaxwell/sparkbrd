@@ -15,6 +15,7 @@ interface Board {
   vibe: string;
   background_color: string | null;
   owner_id: string;
+  is_public: boolean;
 }
 
 interface Tack {
@@ -910,6 +911,7 @@ function SettingsSidebar({
   const [bgStyle, setBgStyle] = useState(board.vibe || "gradient");
   const [color1, setColor1] = useState(initialColors[0] || "#fef3e2");
   const [color2, setColor2] = useState(initialColors[1] || "#fce7f3");
+  const [isPublic, setIsPublic] = useState(board.is_public ?? false);
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
 
@@ -922,6 +924,7 @@ function SettingsSidebar({
         description: description || null,
         vibe: bgStyle,
         background_color: colorString,
+        is_public: isPublic,
       };
 
       const { error } = await supabase
@@ -939,7 +942,7 @@ function SettingsSidebar({
 
     const timeout = setTimeout(saveChanges, 500);
     return () => clearTimeout(timeout);
-  }, [name, description, bgStyle, color1, color2]);
+  }, [name, description, bgStyle, color1, color2, isPublic]);
 
   const bgPatterns = [
     { id: "gradient", label: "Gradient", description: "Smooth blend" },
@@ -988,7 +991,7 @@ function SettingsSidebar({
         <div className="p-6 border-b border-ink/5">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-serif text-2xl text-ink">Board Settings</h2>
+              <h2 className="font-serif text-2xl text-ink">Edit board</h2>
               <p className="text-sm text-ink-soft mt-0.5">Make it yours</p>
             </div>
             <button onClick={onClose} className="w-10 h-10 rounded-full bg-ink/5 hover:bg-ink/10 flex items-center justify-center transition-colors">
@@ -1023,6 +1026,22 @@ function SettingsSidebar({
               rows={3}
               className="w-full px-4 py-3 bg-ink/5 rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 resize-none text-sm text-ink transition-all"
             />
+          </div>
+
+          <div className="p-6 border-b border-ink/5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-ink">Public board</p>
+                <p className="text-xs text-ink-soft mt-0.5">Tacks appear in Discover for everyone</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPublic(!isPublic)}
+                className={`relative w-12 h-7 rounded-full transition-colors duration-200 flex-shrink-0 ${isPublic ? 'bg-papaya' : 'bg-ink/20'}`}
+              >
+                <span className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${isPublic ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
           </div>
 
           <div className="p-6 border-b border-ink/5">
