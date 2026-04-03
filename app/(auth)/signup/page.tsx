@@ -142,7 +142,7 @@ export default function SignupPage() {
         {/* Pricing tiers */}
         <div className="mt-10">
           <p className="text-center text-xs text-ink/30 uppercase tracking-widest mb-5">Plans</p>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {PLANS.map((plan) => (
               <div
                 key={plan.id}

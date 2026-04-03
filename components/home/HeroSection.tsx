@@ -39,7 +39,7 @@ export default function HeroSection() {
   // Logged-in: compact personal header
   if (!loading && profile) {
     return (
-      <section className="relative pt-32 pb-4 px-6 overflow-hidden">
+      <section className="relative pt-24 md:pt-32 pb-4 px-6 overflow-hidden">
         <div className="max-w-7xl mx-auto">
           <div
             className={`transition-all duration-700 ${
@@ -81,8 +81,8 @@ export default function HeroSection() {
         }}
       />
 
-      {/* Scattered floating cards — left side decorative collage */}
-      <div className="absolute inset-0 pointer-events-none">
+      {/* Scattered floating cards — left side decorative collage (hidden on mobile) */}
+      <div className="absolute inset-0 pointer-events-none hidden md:block">
         {CARD_CONFIGS.map((cfg, i) => (
           <div
             key={i}
@@ -112,7 +112,7 @@ export default function HeroSection() {
 
       {/* Main content — right-weighted on desktop */}
       <div className="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-12 flex justify-end">
-        <div className="w-full md:w-[55%] lg:w-[50%] py-32 md:py-0">
+        <div className="w-full md:w-[55%] lg:w-[50%] pt-24 pb-16 md:py-0">
           {/* Headline */}
           <h1
             className={`font-serif text-6xl md:text-7xl lg:text-8xl leading-[0.92] text-ink transition-all duration-700 delay-100 ${

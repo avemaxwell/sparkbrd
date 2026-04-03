@@ -606,8 +606,8 @@ return (
               <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
           </Link>
-          <div className="bg-white/80 backdrop-blur-md rounded-full px-4 py-2 shadow-lg">
-            <h1 className="font-serif text-lg leading-tight">{board.name}</h1>
+          <div className="bg-white/80 backdrop-blur-md rounded-full px-4 py-2 shadow-lg max-w-[150px] sm:max-w-xs">
+            <h1 className="font-serif text-lg leading-tight truncate">{board.name}</h1>
           </div>
         </div>
         
@@ -800,7 +800,10 @@ return (
       </div>
 
       {/* Bottom buttons */}
-      <div className="fixed bottom-6 left-6 z-40 flex gap-2">
+      <div
+        className="fixed left-6 z-40 flex gap-2"
+        style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+      >
         <button
           onClick={() => setAddTextModalOpen(true)}
           className="bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink hover:bg-white transition-colors flex items-center gap-2"
@@ -808,14 +811,16 @@ return (
           <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
             <path d="M4 7V4h16v3M9 20h6M12 4v16"/>
           </svg>
-          Add Text
+          <span className="hidden sm:inline">Add Text</span>
+          <span className="sm:hidden">Text</span>
         </button>
 
       </div>
 
-      <button 
+      <button
         onClick={() => setAddModalOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-papaya text-white flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-transform z-40"
+        className="fixed right-6 w-14 h-14 rounded-full bg-papaya text-white flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-transform z-40"
+        style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
       >
         <svg className="w-6 h-6 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
           <path d="M12 5v14M5 12h14"/>
@@ -875,7 +880,7 @@ return (
       {sidebarOpen && (
         <>
           <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setSidebarOpen(false)} />
-          <div className="fixed top-0 right-0 h-full w-80 bg-white shadow-2xl z-50 p-6">
+          <div className="fixed top-0 right-0 h-full w-full sm:w-80 bg-white shadow-2xl z-50 p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="font-serif text-xl">Activity</h2>
               <button
@@ -1001,7 +1006,7 @@ function SettingsSidebar({
   return (
     <>
       <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40" onClick={onClose} />
-      <div className="fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-50 flex flex-col overflow-hidden">
+      <div className="fixed top-0 right-0 h-full w-full sm:w-96 bg-white shadow-2xl z-50 flex flex-col overflow-hidden">
         <div className="p-6 border-b border-ink/5">
           <div className="flex items-center justify-between">
             <div>
@@ -1079,7 +1084,7 @@ function SettingsSidebar({
 
           <div className="p-6 border-b border-ink/5">
             <p className="text-xs font-medium text-ink-soft uppercase tracking-wide mb-4">Quick Palettes</p>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {colorPresets.map((preset, i) => (
                 <button key={i} onClick={() => { setColor1(preset.c1); setColor2(preset.c2); }} title={preset.name}>
                   <div className="h-12 rounded-lg overflow-hidden border-2 border-transparent hover:border-papaya transition-all">
@@ -1865,7 +1870,7 @@ function AddTextModal({ onClose, onAdd }: { onClose: () => void; onAdd: (content
           </div>
           <div className="mb-6">
             <label className="text-sm text-ink-soft mb-2 block">Style</label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
                 { id: "heading",    label: "Heading",     preview: "Heading",     fontFamily: "var(--font-sans)",         fontSize: "1.1rem",  fontWeight: "700" },
                 { id: "body",       label: "Body",        preview: "Body text",   fontFamily: "var(--font-sans)",         fontSize: "0.9rem",  fontWeight: "400" },

@@ -7,7 +7,7 @@ import FloatingTackButton from "@/components/home/FloatingTackButton";
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-[#FDFCFB]">
+    <main className="min-h-screen bg-[#FDFCFB] pb-20 lg:pb-0">
       <Header />
       <HeroSection />
       <BoardsSection />
