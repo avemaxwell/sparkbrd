@@ -46,6 +46,7 @@ export async function GET(request: Request) {
       return [
         `tags.ilike.%${safe}%`,
         `title.ilike.%${safe}%`,
+        `note.ilike.%${safe}%`,
         `source.ilike.%${safe}%`,
       ];
     }).join(',');
@@ -96,7 +97,10 @@ export async function GET(request: Request) {
       return [`name.ilike.%${safe}%`, `description.ilike.%${safe}%`];
     }).join(',');
 
-    type BoardResult = { id: string; name: string; description: string | null; owner_id: string };
+    type BoardResult = {
+      id: string; name: string; description: string | null;
+      owner_id: string; owner_name: string | null; preview_images: string[];
+    };
     let boards: BoardResult[] = [];
 
     if (boardOrParts) {
@@ -107,9 +111,7 @@ export async function GET(request: Request) {
         .or(boardOrParts)
         .limit(20);
 
-      boards = (publicBoards || []).map(b => ({
-        id: b.id, name: b.name, description: b.description, owner_id: b.owner_id,
-      }));
+      let rawBoards = publicBoards || [];
 
       if (user) {
         const { data: ownBoards } = await supabase
@@ -120,12 +122,44 @@ export async function GET(request: Request) {
           .limit(20);
 
         if (ownBoards) {
-          const existingIds = new Set(boards.map(b => b.id));
-          const own = ownBoards
-            .filter(b => !existingIds.has(b.id))
-            .map(b => ({ id: b.id, name: b.name, description: b.description, owner_id: b.owner_id }));
-          boards = [...boards, ...own];
+          const existingIds = new Set(rawBoards.map(b => b.id));
+          rawBoards = [...rawBoards, ...ownBoards.filter(b => !existingIds.has(b.id))];
         }
+      }
+
+      if (rawBoards.length > 0) {
+        const boardIds = rawBoards.map(b => b.id);
+
+        // Fetch preview tacks for all boards in one query
+        const { data: previewTacks } = await supabase
+          .from('tacks')
+          .select('board_id, content_url')
+          .in('board_id', boardIds)
+          .order('created_at', { ascending: false })
+          .limit(boardIds.length * 3);
+
+        const imageMap: Record<string, string[]> = {};
+        for (const t of previewTacks ?? []) {
+          if (!imageMap[t.board_id]) imageMap[t.board_id] = [];
+          if (imageMap[t.board_id].length < 3) imageMap[t.board_id].push(t.content_url);
+        }
+
+        // Fetch owner profiles
+        const ownerIds = [...new Set(rawBoards.map(b => b.owner_id))];
+        const { data: ownerProfiles } = await supabase
+          .from('profiles')
+          .select('id, name')
+          .in('id', ownerIds);
+        const ownerMap = Object.fromEntries((ownerProfiles ?? []).map(p => [p.id, p.name]));
+
+        boards = rawBoards.map(b => ({
+          id: b.id,
+          name: b.name,
+          description: b.description,
+          owner_id: b.owner_id,
+          owner_name: ownerMap[b.owner_id] ?? null,
+          preview_images: imageMap[b.id] ?? [],
+        }));
       }
     }
 

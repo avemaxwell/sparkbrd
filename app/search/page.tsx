@@ -19,6 +19,8 @@ interface SearchBoard {
   name: string;
   description: string | null;
   owner_id: string;
+  owner_name: string | null;
+  preview_images: string[];
 }
 
 function SearchContent() {
@@ -197,29 +199,60 @@ function SearchContent() {
               <h2 className="px-2 mb-3 text-xs font-semibold text-ink/40 uppercase tracking-widest">
                 Boards <span className="font-normal normal-case tracking-normal text-ink/30">({boards.length})</span>
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-10">
-                {boards.map(board => (
-                  <Link
-                    key={board.id}
-                    href={`/board/${board.id}`}
-                    className="group flex items-center gap-3 p-4 bg-white rounded-2xl border border-ink/5 shadow-sm hover:shadow-md hover:border-ink/10 transition-all"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blush/30 to-mustard/30 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-5 h-5 stroke-ink/40 stroke-[1.5] fill-none" viewBox="0 0 24 24">
-                        <rect x="3" y="3" width="7" height="7" rx="1"/>
-                        <rect x="14" y="3" width="7" height="7" rx="1"/>
-                        <rect x="14" y="14" width="7" height="7" rx="1"/>
-                        <rect x="3" y="14" width="7" height="7" rx="1"/>
-                      </svg>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm text-ink truncate group-hover:text-papaya transition-colors">{board.name}</p>
-                      {board.description && (
-                        <p className="text-xs text-ink/40 truncate mt-0.5">{board.description}</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-10">
+                {boards.map((board, index) => {
+                  const GRADIENTS = [
+                    "from-papaya/30 to-mustard/20",
+                    "from-aqua/25 to-blush/20",
+                    "from-blush/30 to-papaya/15",
+                    "from-mustard/25 to-aqua/20",
+                    "from-papaya/20 to-blush/25",
+                  ];
+                  const ANGLES = [-5, 3, -2];
+                  const hasImages = board.preview_images.length > 0;
+
+                  return (
+                    <Link
+                      key={board.id}
+                      href={`/board/${board.id}`}
+                      className={`group relative aspect-[3/4] rounded-2xl overflow-hidden shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 ${
+                        hasImages ? 'bg-ink/10' : `bg-gradient-to-br ${GRADIENTS[index % GRADIENTS.length]}`
+                      }`}
+                    >
+                      {hasImages ? (
+                        <>
+                          {board.preview_images.slice(0, 3).map((url, i) => (
+                            <img
+                              key={i}
+                              src={url}
+                              alt=""
+                              className="absolute inset-2 w-[calc(100%-16px)] h-[calc(100%-16px)] object-cover rounded-sm shadow-md pointer-events-none"
+                              style={{ transform: `rotate(${ANGLES[i] ?? 0}deg)`, zIndex: i }}
+                              draggable={false}
+                            />
+                          ))}
+                          <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/60 to-transparent z-10">
+                            <p className="font-serif text-sm text-white line-clamp-2 leading-snug">{board.name}</p>
+                            {board.owner_name && (
+                              <p className="text-[10px] text-white/60 mt-0.5 truncate">{board.owner_name}</p>
+                            )}
+                          </div>
+                          <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors duration-300 z-20" />
+                        </>
+                      ) : (
+                        <div className="absolute inset-0 p-3 flex flex-col justify-between">
+                          <div className="w-4 h-4 rounded-full bg-white/50" />
+                          <div>
+                            <p className="font-serif text-sm text-ink/80 line-clamp-2 leading-snug">{board.name}</p>
+                            {board.owner_name && (
+                              <p className="text-[10px] text-ink/40 mt-0.5 truncate">{board.owner_name}</p>
+                            )}
+                          </div>
+                        </div>
                       )}
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  );
+                })}
               </div>
             </>
           )}

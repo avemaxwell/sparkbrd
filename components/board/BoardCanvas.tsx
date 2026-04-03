@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -116,6 +116,9 @@ const [panStart, setPanStart] = useState({ x: 0, y: 0, panX: 0, panY: 0 });
 const [lastPinchDist, setLastPinchDist] = useState<number | null>(null);
 const [lastPinchMid, setLastPinchMid] = useState<{ x: number; y: number } | null>(null);
 
+// Ref to track latest drag position — avoids stale-closure bug when persisting on drag end
+const lastDragPos = useRef<{ x: number; y: number } | null>(null);
+
 // Convert screen coordinates to canvas coordinates
 const screenToCanvas = (screenX: number, screenY: number) => {
   const container = document.getElementById('board-viewport');
@@ -192,6 +195,7 @@ const handleDrag = (e: React.MouseEvent) => {
     const canvasPos = screenToCanvas(e.clientX, e.clientY);
     const newX = canvasPos.x - dragOffset.x;
     const newY = canvasPos.y - dragOffset.y;
+    lastDragPos.current = { x: newX, y: newY };
 
     if (dragging.startsWith('text-')) {
       const textId = dragging.replace('text-', '');
@@ -207,23 +211,21 @@ const handleDrag = (e: React.MouseEvent) => {
 
   const handleDragEnd = async () => {
     if (!dragging) return;
+    const pos = lastDragPos.current;
+    lastDragPos.current = null;
 
-    if (dragging.startsWith('text-')) {
-      const textId = dragging.replace('text-', '');
-      const textBlock = textBlocks.find(t => t.id === textId);
-      if (textBlock) {
+    if (pos) {
+      if (dragging.startsWith('text-')) {
+        const textId = dragging.replace('text-', '');
         await supabase
           .from("text_blocks")
-          .update({ position_x: textBlock.position_x, position_y: textBlock.position_y })
-          .eq("id", textBlock.id);
-      }
-    } else {
-      const tack = tacks.find(t => t.id === dragging);
-      if (tack) {
+          .update({ position_x: pos.x, position_y: pos.y })
+          .eq("id", textId);
+      } else {
         await supabase
           .from("tacks")
-          .update({ position_x: tack.position_x, position_y: tack.position_y })
-          .eq("id", tack.id);
+          .update({ position_x: pos.x, position_y: pos.y })
+          .eq("id", dragging);
       }
     }
 
@@ -271,6 +273,18 @@ const handleDrag = (e: React.MouseEvent) => {
     setResizing(null);
   };
 
+  // Mouse-based canvas pan (click-drag on empty background)
+  const handleViewportMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    if (dragging || resizing || rotating || textResizing || textRotating) return;
+    const target = e.target as HTMLElement;
+    const isBackground = target.id === 'board-canvas-inner' || target.id === 'board-viewport';
+    if (isBackground) {
+      setIsPanning(true);
+      setPanStart({ x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y });
+    }
+  };
+
   // Combined mouse handlers
   const handleMouseMove = (e: React.MouseEvent) => {
     handleDrag(e);
@@ -278,6 +292,11 @@ const handleDrag = (e: React.MouseEvent) => {
     handleRotate(e);
     handleTextResize(e);
     handleTextRotate(e);
+    if (isPanning) {
+      const dx = (e.clientX - panStart.x) / zoom;
+      const dy = (e.clientY - panStart.y) / zoom;
+      setPan({ x: panStart.panX + dx, y: panStart.panY + dy });
+    }
   };
 
   const handleMouseUp = () => {
@@ -286,6 +305,7 @@ const handleDrag = (e: React.MouseEvent) => {
     handleRotateEnd();
     handleTextResizeEnd();
     handleTextRotateEnd();
+    setIsPanning(false);
   };
 // ── Unified touch handlers ──────────────────────────────────────────────────
 
@@ -353,6 +373,7 @@ const handleCanvasTouchMove = (e: React.TouchEvent) => {
       const canvasPos = screenToCanvas(touch.clientX, touch.clientY);
       const newX = canvasPos.x - dragOffset.x;
       const newY = canvasPos.y - dragOffset.y;
+      lastDragPos.current = { x: newX, y: newY };
       if (dragging.startsWith('text-')) {
         const textId = dragging.replace('text-', '');
         setTextBlocks(prev => prev.map(t =>
@@ -390,13 +411,15 @@ const handleCanvasTouchEnd = async () => {
   setLastPinchMid(null);
 
   if (dragging) {
-    if (dragging.startsWith('text-')) {
-      const textId = dragging.replace('text-', '');
-      const text = textBlocks.find(t => t.id === textId);
-      if (text) await supabase.from('text_blocks').update({ position_x: text.position_x, position_y: text.position_y }).eq('id', text.id);
-    } else {
-      const tack = tacks.find(t => t.id === dragging);
-      if (tack) await supabase.from('tacks').update({ position_x: tack.position_x, position_y: tack.position_y }).eq('id', tack.id);
+    const pos = lastDragPos.current;
+    lastDragPos.current = null;
+    if (pos) {
+      if (dragging.startsWith('text-')) {
+        const textId = dragging.replace('text-', '');
+        await supabase.from('text_blocks').update({ position_x: pos.x, position_y: pos.y }).eq('id', textId);
+      } else {
+        await supabase.from('tacks').update({ position_x: pos.x, position_y: pos.y }).eq('id', dragging);
+      }
     }
     setDragging(null);
   }
@@ -786,6 +809,7 @@ return (
       <div
         id="board-viewport"
         className="absolute inset-0 overflow-hidden"
+        onMouseDown={handleViewportMouseDown}
         onTouchStart={handleCanvasTouchStart}
         onTouchMove={handleCanvasTouchMove}
         onTouchEnd={handleCanvasTouchEnd}
@@ -804,7 +828,7 @@ return (
 
         <div
           id="board-canvas-inner"
-          className={`absolute ${canvasMode === 'comment' ? 'cursor-crosshair' : ''}`}
+          className={`absolute ${canvasMode === 'comment' ? 'cursor-crosshair' : isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
           style={{
             width: '2800px',
             height: '2000px',
@@ -1445,8 +1469,11 @@ function TackDetailModal({
           </div>
 
           <div className="mb-4">
-            <label className="block text-xs text-ink-soft mb-1">Note</label>
-            <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="What inspires you about this?" rows={3} className="w-full px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/30 resize-none" />
+            <div className="flex items-baseline justify-between mb-1">
+              <label className="block text-xs text-ink-soft">Note</label>
+              <span className="text-[10px] text-ink/30">Searched by title, note &amp; tags</span>
+            </div>
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Describe what catches your eye — colors, mood, subject, style. The more specific, the more findable." rows={3} className="w-full px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/30 resize-none" />
           </div>
 
           <div className="mb-4">
@@ -1756,7 +1783,7 @@ function AddTackModal({
               </div>
               <div className="mb-4">
                 <label className="text-sm text-ink-soft mb-2 block">Note (optional)</label>
-                <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="What inspires you about this?" rows={3} className="w-full bg-ink/5 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-papaya/30 resize-none" />
+                <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Describe what catches your eye — colors, mood, subject, style. The more specific, the more findable." rows={3} className="w-full bg-ink/5 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-papaya/30 resize-none" />
               </div>
               <PinColorPicker pinColor={pinColor} setPinColor={setPinColor} customPinColor={customPinColor} setCustomPinColor={setCustomPinColor} showCustomPinColor={showCustomPinColor} setShowCustomPinColor={setShowCustomPinColor} />
               <button type="submit" disabled={!url || uploading || checking} className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{checking ? 'Checking...' : 'Tack it'}</button>
@@ -1772,7 +1799,7 @@ function AddTackModal({
               {url && <div className="mb-4"><img src={url} alt="Preview" className="w-full h-48 object-contain rounded-xl bg-ink/5" onError={(e) => (e.currentTarget.style.display = 'none')} /></div>}
               <div className="mb-4">
                 <label className="text-sm text-ink-soft mb-2 block">Note (optional)</label>
-                <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="What inspires you about this?" rows={3} className="w-full bg-ink/5 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-papaya/30 resize-none" />
+                <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Describe what catches your eye — colors, mood, subject, style. The more specific, the more findable." rows={3} className="w-full bg-ink/5 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-papaya/30 resize-none" />
               </div>
               <PinColorPicker pinColor={pinColor} setPinColor={setPinColor} customPinColor={customPinColor} setCustomPinColor={setCustomPinColor} showCustomPinColor={showCustomPinColor} setShowCustomPinColor={setShowCustomPinColor} />
               <button type="submit" disabled={!url || checking} className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{checking ? 'Checking...' : 'Tack it'}</button>
@@ -1801,7 +1828,7 @@ function AddTackModal({
                   </div>
                   <div className="mb-4">
                     <label className="text-sm text-ink-soft mb-2 block">Note for all selected (optional)</label>
-                    <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="What inspires you about these?" rows={2} className="w-full bg-ink/5 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-papaya/30 resize-none" />
+                    <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Describe what catches your eye — colors, mood, subject, style." rows={2} className="w-full bg-ink/5 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-papaya/30 resize-none" />
                   </div>
                   <PinColorPicker pinColor={pinColor} setPinColor={setPinColor} customPinColor={customPinColor} setCustomPinColor={setCustomPinColor} showCustomPinColor={showCustomPinColor} setShowCustomPinColor={setShowCustomPinColor} />
                   <button type="button" onClick={handleAddSelectedImages} disabled={selectedImages.size === 0 || checking} className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Tack {selectedImages.size} image{selectedImages.size !== 1 ? 's' : ''}</button>
