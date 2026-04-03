@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import Anthropic from '@anthropic-ai/sdk';
 
-// Expand user query into semantically related visual search terms via Claude
 async function expandQuery(query: string): Promise<string[]> {
   if (!process.env.ANTHROPIC_API_KEY) return [query];
 
@@ -21,7 +20,6 @@ async function expandQuery(query: string): Promise<string[]> {
 
     const text = response.content[0].type === 'text' ? response.content[0].text.trim() : query;
     const terms = text.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
-    // Always include the original query terms too
     const original = query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
     return [...new Set([...original, ...terms])].slice(0, 12);
   } catch {
@@ -36,16 +34,15 @@ export async function GET(request: Request) {
     const query = searchParams.get('q')?.trim();
     const limit = Math.min(parseInt(searchParams.get('limit') || '40'), 80);
 
-    if (!query) return NextResponse.json({ tacks: [], terms: [] });
+    if (!query) return NextResponse.json({ tacks: [], boards: [], terms: [] });
 
     const { data: { user } } = await supabase.auth.getUser();
 
-    // Expand query semantically
     const terms = await expandQuery(query);
 
-    // Build OR filter: each term checked against tags, title, and source
+    // ── Tack search ──────────────────────────────────────────────────────────
     const orParts = terms.flatMap(term => {
-      const safe = term.replace(/[%_]/g, '\\$&'); // escape ILIKE special chars
+      const safe = term.replace(/[%_]/g, '\\$&');
       return [
         `tags.ilike.%${safe}%`,
         `title.ilike.%${safe}%`,
@@ -53,49 +50,88 @@ export async function GET(request: Request) {
       ];
     }).join(',');
 
-    // Search public tacks
-    const { data: publicResults } = await supabase
+    type TackResult = { id: string; content_url: string; title: string | null; source: string | null; board_id: string };
+
+    const { data: publicTacks } = await supabase
       .from('tacks')
       .select('id, content_url, title, source, board_id, boards!inner(is_public, owner_id)')
       .eq('boards.is_public', true)
       .or(orParts)
       .limit(limit);
 
-    // Normalize to plain shape to avoid type conflicts between the two queries
-    type TackResult = { id: string; content_url: string; title: string | null; source: string | null; board_id: string };
-    let results: TackResult[] = (publicResults || []).map(t => ({
+    let tacks: TackResult[] = (publicTacks || []).map(t => ({
       id: t.id, content_url: t.content_url, title: t.title, source: t.source, board_id: t.board_id,
     }));
 
-    // Also search user's own tacks (including private boards)
     if (user) {
-      const { data: ownResults } = await supabase
+      const { data: ownTacks } = await supabase
         .from('tacks')
         .select('id, content_url, title, source, board_id, boards!inner(owner_id)')
         .eq('boards.owner_id', user.id)
         .or(orParts)
         .limit(limit);
 
-      if (ownResults) {
-        const existingIds = new Set(results.map(t => t.id));
-        const own: TackResult[] = ownResults
+      if (ownTacks) {
+        const existingIds = new Set(tacks.map(t => t.id));
+        const own: TackResult[] = ownTacks
           .filter(t => !existingIds.has(t.id))
           .map(t => ({ id: t.id, content_url: t.content_url, title: t.title, source: t.source, board_id: t.board_id }));
-        results = [...results, ...own];
+        tacks = [...tacks, ...own];
       }
     }
 
     // Dedupe by content_url
-    const seen = new Set<string>();
-    const feed = results.filter(t => {
-      if (seen.has(t.content_url)) return false;
-      seen.add(t.content_url);
+    const seenUrls = new Set<string>();
+    tacks = tacks.filter(t => {
+      if (seenUrls.has(t.content_url)) return false;
+      seenUrls.add(t.content_url);
       return true;
     }).slice(0, limit);
 
-    return NextResponse.json({ tacks: feed, terms });
+    // ── Board search ─────────────────────────────────────────────────────────
+    // Build a simple OR across name and description for the raw query terms
+    const rawTerms = query.toLowerCase().split(/\s+/).filter(t => t.length > 1);
+    const boardOrParts = rawTerms.flatMap(term => {
+      const safe = term.replace(/[%_]/g, '\\$&');
+      return [`name.ilike.%${safe}%`, `description.ilike.%${safe}%`];
+    }).join(',');
+
+    type BoardResult = { id: string; name: string; description: string | null; owner_id: string };
+    let boards: BoardResult[] = [];
+
+    if (boardOrParts) {
+      const { data: publicBoards } = await supabase
+        .from('boards')
+        .select('id, name, description, owner_id')
+        .eq('is_public', true)
+        .or(boardOrParts)
+        .limit(20);
+
+      boards = (publicBoards || []).map(b => ({
+        id: b.id, name: b.name, description: b.description, owner_id: b.owner_id,
+      }));
+
+      if (user) {
+        const { data: ownBoards } = await supabase
+          .from('boards')
+          .select('id, name, description, owner_id')
+          .eq('owner_id', user.id)
+          .or(boardOrParts)
+          .limit(20);
+
+        if (ownBoards) {
+          const existingIds = new Set(boards.map(b => b.id));
+          const own = ownBoards
+            .filter(b => !existingIds.has(b.id))
+            .map(b => ({ id: b.id, name: b.name, description: b.description, owner_id: b.owner_id }));
+          boards = [...boards, ...own];
+        }
+      }
+    }
+
+    return NextResponse.json({ tacks, boards, terms });
   } catch (err) {
     console.error('Search error:', err);
-    return NextResponse.json({ tacks: [], terms: [] });
+    return NextResponse.json({ tacks: [], boards: [], terms: [] });
   }
 }

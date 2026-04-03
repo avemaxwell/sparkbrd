@@ -160,6 +160,8 @@ export default function CommentDrawer({ tack, boardId, currentUserId, onClose }:
   const [comments, setComments] = useState<Comment[]>([]);
   const [reactions, setReactions] = useState<ReactionState>({ counts: {}, user_reactions: [] });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<{ id: string; authorName: string | null } | null>(null);
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -171,14 +173,25 @@ export default function CommentDrawer({ tack, boardId, currentUserId, onClose }:
     let cancelled = false;
     const load = async () => {
       setLoading(true);
-      const [commentsRes, reactionsRes] = await Promise.all([
-        fetch(`/api/comments?board_id=${boardId}&tack_id=${tack.id}`).then(r => r.json()),
-        fetch(`/api/reactions/${canonicalId}`).then(r => r.json()),
-      ]);
-      if (!cancelled) {
-        setComments(commentsRes.comments ?? []);
-        setReactions({ counts: reactionsRes.counts ?? {}, user_reactions: reactionsRes.user_reactions ?? [] });
-        setLoading(false);
+      setLoadError(null);
+      try {
+        const [commentsResp, reactionsResp] = await Promise.all([
+          fetch(`/api/comments?board_id=${boardId}&tack_id=${tack.id}`),
+          fetch(`/api/reactions/${canonicalId}`),
+        ]);
+        const [commentsRes, reactionsRes] = await Promise.all([
+          commentsResp.json(),
+          reactionsResp.json(),
+        ]);
+        if (!cancelled) {
+          if (commentsRes.error) setLoadError(commentsRes.error);
+          setComments(commentsRes.comments ?? []);
+          setReactions({ counts: reactionsRes.counts ?? {}, user_reactions: reactionsRes.user_reactions ?? [] });
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError('Failed to load — check that migrations have been run in Supabase.');
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     };
     load();
@@ -187,18 +200,24 @@ export default function CommentDrawer({ tack, boardId, currentUserId, onClose }:
 
   const handleReaction = async (type: string) => {
     if (!currentUserId) return;
-    const res = await fetch('/api/reactions', {
+    const resp = await fetch('/api/reactions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tack_id: tack.id, reaction_type: type }),
-    }).then(r => r.json());
+    });
+    const res = await resp.json();
+    if (res.error) {
+      console.error('Reaction error:', res.error);
+      return;
+    }
     setReactions({ counts: res.counts ?? {}, user_reactions: res.user_reactions ?? [] });
   };
 
   const handleSubmit = async () => {
     if (!draft.trim() || !currentUserId) return;
     setSubmitting(true);
-    const res = await fetch('/api/comments', {
+    setSubmitError(null);
+    const resp = await fetch('/api/comments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -207,12 +226,15 @@ export default function CommentDrawer({ tack, boardId, currentUserId, onClose }:
         parent_id: replyingTo?.id ?? null,
         body: draft.trim(),
       }),
-    }).then(r => r.json());
+    });
+    const res = await resp.json();
     if (res.comment) {
       setComments(prev => [...prev, res.comment]);
       setDraft('');
       setReplyingTo(null);
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    } else {
+      setSubmitError(res.error ?? 'Failed to post comment');
     }
     setSubmitting(false);
   };
@@ -303,7 +325,14 @@ export default function CommentDrawer({ tack, boardId, currentUserId, onClose }:
             </div>
           )}
 
-          {!loading && topLevel.length === 0 && (
+          {!loading && loadError && (
+            <div className="text-center py-10 px-4">
+              <p className="text-xs text-red-500 font-medium">Error loading comments</p>
+              <p className="text-[11px] text-ink/40 mt-1">{loadError}</p>
+            </div>
+          )}
+
+          {!loading && !loadError && topLevel.length === 0 && (
             <div className="text-center py-10">
               <p className="text-sm text-ink/40">No comments yet.</p>
               {currentUserId && <p className="text-xs text-ink/30 mt-1">Be the first to say something.</p>}
@@ -347,6 +376,10 @@ export default function CommentDrawer({ tack, boardId, currentUserId, onClose }:
                 <svg className="w-3.5 h-3.5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
               </button>
             </div>
+          )}
+
+          {submitError && (
+            <p className="text-[11px] text-red-500 mb-2 px-1">{submitError}</p>
           )}
 
           {currentUserId ? (

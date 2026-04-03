@@ -3,9 +3,11 @@
 import { useUser } from "@/hooks/useUser";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Header() {
   const { profile, loading, signOut } = useUser();
+  const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [hidden, setHidden] = useState(false);
@@ -53,7 +55,11 @@ export default function Header() {
         {/* Right side */}
         <div className="flex items-center gap-2">
           {/* Search button */}
-          <button className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-ink/5 transition-colors">
+          <button
+            onClick={() => router.push('/search')}
+            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-ink/5 transition-colors"
+            aria-label="Search"
+          >
             <svg className="w-5 h-5 stroke-ink/60 stroke-[1.5] fill-none" viewBox="0 0 24 24">
               <circle cx="11" cy="11" r="8"/>
               <path d="m21 21-4.35-4.35"/>

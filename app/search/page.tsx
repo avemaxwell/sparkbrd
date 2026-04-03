@@ -14,13 +14,21 @@ interface SearchTack {
   board_id: string;
 }
 
+interface SearchBoard {
+  id: string;
+  name: string;
+  description: string | null;
+  owner_id: string;
+}
+
 function SearchContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [query, setQuery] = useState(searchParams.get('q') || '');
-  const [results, setResults] = useState<SearchTack[]>([]);
+  const [tacks, setTacks] = useState<SearchTack[]>([]);
+  const [boards, setBoards] = useState<SearchBoard[]>([]);
   const [expandedTerms, setExpandedTerms] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -39,7 +47,6 @@ function SearchContent() {
     return () => window.removeEventListener('resize', update);
   }, []);
 
-  // Run search if query is in URL on mount
   useEffect(() => {
     const q = searchParams.get('q');
     if (q) {
@@ -58,10 +65,12 @@ function SearchContent() {
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=60`);
       const data = await res.json();
-      setResults(data.tacks || []);
+      setTacks(data.tacks || []);
+      setBoards(data.boards || []);
       setExpandedTerms(data.terms || []);
     } catch {
-      setResults([]);
+      setTacks([]);
+      setBoards([]);
     } finally {
       setLoading(false);
     }
@@ -74,9 +83,10 @@ function SearchContent() {
     runSearch(query.trim());
   };
 
-  // Masonry columns
   const columns: SearchTack[][] = Array.from({ length: columnCount }, () => []);
-  results.forEach((t, i) => columns[i % columnCount].push(t));
+  tacks.forEach((t, i) => columns[i % columnCount].push(t));
+
+  const hasResults = tacks.length > 0 || boards.length > 0;
 
   return (
     <main className="min-h-screen bg-[#FDFCFB] pb-20 lg:pb-0">
@@ -89,7 +99,7 @@ function SearchContent() {
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search images… nail polish, brutalist architecture, cozy coffee"
+            placeholder="Search images, boards… nail polish, brutalist architecture"
             className="w-full bg-white border border-ink/10 rounded-full px-5 py-3.5 pr-14 text-sm shadow-sm outline-none focus:ring-2 focus:ring-papaya/30 focus:border-papaya/30 transition-all"
           />
           <button
@@ -103,7 +113,6 @@ function SearchContent() {
           </button>
         </form>
 
-        {/* AI-expanded terms pill row */}
         {expandedTerms.length > 0 && !loading && (
           <div className="flex flex-wrap gap-1.5 mt-3">
             {expandedTerms.slice(0, 8).map(term => (
@@ -125,7 +134,7 @@ function SearchContent() {
         </div>
       )}
 
-      {!loading && searched && results.length === 0 && (
+      {!loading && searched && !hasResults && (
         <div className="text-center py-20 px-6">
           <p className="text-ink/40 text-sm">No results for &ldquo;{query}&rdquo;</p>
           <p className="text-ink/25 text-xs mt-1">Try different keywords or make boards public to grow the index.</p>
@@ -134,42 +143,87 @@ function SearchContent() {
 
       {!loading && !searched && (
         <div className="text-center py-20 px-6">
-          <p className="text-ink/30 text-sm">Type something to find images across public boards.</p>
+          <p className="text-ink/30 text-sm">Type something to find images and boards.</p>
         </div>
       )}
 
-      {!loading && results.length > 0 && (
-        <div
-          className="grid gap-2 md:gap-3 px-2 md:px-3"
-          style={{ gridTemplateColumns: `repeat(${columnCount}, 1fr)` }}
-        >
-          {columns.map((col, colIdx) => (
-            <div key={colIdx} className="flex flex-col gap-2 md:gap-3">
-              {col.map(tack => (
-                <Link
-                  key={tack.id}
-                  href={`/board/${tack.board_id}`}
-                  className="group relative overflow-hidden rounded-lg cursor-pointer block"
-                >
-                  <img
-                    src={tack.content_url}
-                    alt={tack.title || ''}
-                    className="w-full h-auto object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-                    loading="lazy"
-                    onError={e => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }}
-                  />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
-                  {tack.source && (
-                    <div className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <span className="text-[10px] text-white/90 bg-black/40 backdrop-blur-sm px-1.5 py-0.5 rounded-full">
-                        {tack.source}
-                      </span>
+      {!loading && hasResults && (
+        <div className="px-2 md:px-3">
+
+          {/* Tacks section */}
+          {tacks.length > 0 && (
+            <>
+              <h2 className="px-2 mb-3 text-xs font-semibold text-ink/40 uppercase tracking-widest">
+                Tacks <span className="font-normal normal-case tracking-normal text-ink/30">({tacks.length})</span>
+              </h2>
+              <div
+                className="grid gap-2 md:gap-3 mb-10"
+                style={{ gridTemplateColumns: `repeat(${columnCount}, 1fr)` }}
+              >
+                {columns.map((col, colIdx) => (
+                  <div key={colIdx} className="flex flex-col gap-2 md:gap-3">
+                    {col.map(tack => (
+                      <Link
+                        key={tack.id}
+                        href={`/board/${tack.board_id}`}
+                        className="group relative overflow-hidden rounded-lg cursor-pointer block"
+                      >
+                        <img
+                          src={tack.content_url}
+                          alt={tack.title || ''}
+                          className="w-full h-auto object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                          loading="lazy"
+                          onError={e => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }}
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+                        {tack.title && (
+                          <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <span className="text-[10px] text-white/90 bg-black/40 backdrop-blur-sm px-1.5 py-0.5 rounded-full line-clamp-1">
+                              {tack.title}
+                            </span>
+                          </div>
+                        )}
+                      </Link>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Boards section */}
+          {boards.length > 0 && (
+            <>
+              <h2 className="px-2 mb-3 text-xs font-semibold text-ink/40 uppercase tracking-widest">
+                Boards <span className="font-normal normal-case tracking-normal text-ink/30">({boards.length})</span>
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-10">
+                {boards.map(board => (
+                  <Link
+                    key={board.id}
+                    href={`/board/${board.id}`}
+                    className="group flex items-center gap-3 p-4 bg-white rounded-2xl border border-ink/5 shadow-sm hover:shadow-md hover:border-ink/10 transition-all"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blush/30 to-mustard/30 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-5 h-5 stroke-ink/40 stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                        <rect x="3" y="3" width="7" height="7" rx="1"/>
+                        <rect x="14" y="3" width="7" height="7" rx="1"/>
+                        <rect x="14" y="14" width="7" height="7" rx="1"/>
+                        <rect x="3" y="14" width="7" height="7" rx="1"/>
+                      </svg>
                     </div>
-                  )}
-                </Link>
-              ))}
-            </div>
-          ))}
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm text-ink truncate group-hover:text-papaya transition-colors">{board.name}</p>
+                      {board.description && (
+                        <p className="text-xs text-ink/40 truncate mt-0.5">{board.description}</p>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
+
         </div>
       )}
 
