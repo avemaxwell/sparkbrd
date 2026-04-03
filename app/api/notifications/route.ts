@@ -12,22 +12,50 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabase
       .from('notifications')
-      .select(`
-        id, type, is_read, created_at, board_id, tack_id, comment_id,
-        actor:profiles!actor_id(id, name, avatar_url),
-        board:boards!board_id(name),
-        tack:tacks!tack_id(content_url)
-      `)
+      .select('id, type, is_read, created_at, board_id, tack_id, comment_id, actor_id')
       .eq('recipient_id', user.id)
       .order('created_at', { ascending: false })
       .limit(limit);
 
     if (error) throw error;
 
-    const notifications = (data || []).map(n => {
-      const actor = Array.isArray(n.actor) ? n.actor[0] : n.actor;
-      const board = Array.isArray(n.board) ? n.board[0] : n.board;
-      const tack = Array.isArray(n.tack) ? n.tack[0] : n.tack;
+    const rows = data ?? [];
+
+    // Fetch actor profiles in one query
+    const actorIds = [...new Set(rows.map(n => n.actor_id).filter(Boolean))];
+    const profileMap: Record<string, { id: string; name: string | null; avatar_url: string | null }> = {};
+    if (actorIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, name, avatar_url')
+        .in('id', actorIds);
+      for (const p of profiles ?? []) profileMap[p.id] = p;
+    }
+
+    // Fetch board names in one query
+    const boardIds = [...new Set(rows.map(n => n.board_id).filter(Boolean))];
+    const boardMap: Record<string, string> = {};
+    if (boardIds.length > 0) {
+      const { data: boards } = await supabase
+        .from('boards')
+        .select('id, name')
+        .in('id', boardIds);
+      for (const b of boards ?? []) boardMap[b.id] = b.name;
+    }
+
+    // Fetch tack thumbnails in one query
+    const tackIds = [...new Set(rows.map(n => n.tack_id).filter(Boolean))];
+    const tackMap: Record<string, string> = {};
+    if (tackIds.length > 0) {
+      const { data: tacks } = await supabase
+        .from('tacks')
+        .select('id, content_url')
+        .in('id', tackIds);
+      for (const t of tacks ?? []) tackMap[t.id] = t.content_url;
+    }
+
+    const notifications = rows.map(n => {
+      const actor = profileMap[n.actor_id] ?? null;
       return {
         id: n.id,
         type: n.type,
@@ -36,9 +64,9 @@ export async function GET(request: Request) {
         board_id: n.board_id,
         tack_id: n.tack_id,
         comment_id: n.comment_id,
-        actor: { id: actor?.id ?? '', name: actor?.name ?? null, avatar_url: actor?.avatar_url ?? null },
-        board_name: board?.name ?? null,
-        tack_thumbnail: tack?.content_url ?? null,
+        actor: { id: actor?.id ?? n.actor_id ?? '', name: actor?.name ?? null, avatar_url: actor?.avatar_url ?? null },
+        board_name: n.board_id ? (boardMap[n.board_id] ?? null) : null,
+        tack_thumbnail: n.tack_id ? (tackMap[n.tack_id] ?? null) : null,
       };
     });
 

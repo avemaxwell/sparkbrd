@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+async function attachProfiles(supabase: Awaited<ReturnType<typeof createClient>>, comments: Array<{ user_id: string; [key: string]: unknown }>) {
+  const userIds = [...new Set(comments.map(c => c.user_id))];
+  if (userIds.length === 0) return {};
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, name, avatar_url')
+    .in('id', userIds);
+  return Object.fromEntries((profiles ?? []).map(p => [p.id, p]));
+}
+
 export async function GET(request: Request) {
   try {
     const supabase = await createClient();
@@ -14,17 +24,15 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabase
       .from('comments')
-      .select(`
-        id, board_id, tack_id, parent_id, body, created_at, updated_at,
-        profiles!user_id(id, name, avatar_url)
-      `)
+      .select('id, board_id, tack_id, parent_id, body, created_at, updated_at, user_id')
       .eq('board_id', boardId)
       .eq('tack_id', tackId)
       .order('created_at', { ascending: true });
 
     if (error) throw error;
 
-    // Compute reply_count client-side from the flat list
+    const profileMap = await attachProfiles(supabase, data ?? []);
+
     const allIds = new Set((data || []).map(c => c.id));
     const replyCounts: Record<string, number> = {};
     for (const c of data || []) {
@@ -34,7 +42,7 @@ export async function GET(request: Request) {
     }
 
     const comments = (data || []).map(c => {
-      const profile = Array.isArray(c.profiles) ? c.profiles[0] : c.profiles;
+      const profile = profileMap[c.user_id];
       return {
         id: c.id,
         board_id: c.board_id,
@@ -44,7 +52,7 @@ export async function GET(request: Request) {
         created_at: c.created_at,
         updated_at: c.updated_at,
         author: {
-          id: profile?.id ?? '',
+          id: profile?.id ?? c.user_id,
           name: profile?.name ?? null,
           avatar_url: profile?.avatar_url ?? null,
         },
@@ -96,15 +104,18 @@ export async function POST(request: Request) {
         parent_id: parent_id ?? null,
         body: commentBody.trim(),
       })
-      .select(`
-        id, board_id, tack_id, parent_id, body, created_at, updated_at,
-        profiles!user_id(id, name, avatar_url)
-      `)
+      .select('id, board_id, tack_id, parent_id, body, created_at, updated_at, user_id')
       .single();
 
     if (insertErr || !inserted) throw insertErr;
 
-    const profile = Array.isArray(inserted.profiles) ? inserted.profiles[0] : inserted.profiles;
+    // Fetch the author profile separately
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, name, avatar_url')
+      .eq('id', user.id)
+      .single();
+
     const comment = {
       id: inserted.id,
       board_id: inserted.board_id,
@@ -124,16 +135,13 @@ export async function POST(request: Request) {
     // Create notification
     let notifRecipientId: string | null = null;
     let notifType: string | null = null;
-    let notifCommentId: string | null = inserted.id;
 
     if (!parent_id) {
-      // Comment on a tack — notify tack owner
       if (tack.user_id !== user.id) {
         notifRecipientId = tack.user_id;
         notifType = 'comment_on_my_tack';
       }
     } else {
-      // Reply — notify parent comment author
       const { data: parentComment } = await supabase
         .from('comments')
         .select('user_id')
@@ -152,7 +160,7 @@ export async function POST(request: Request) {
         type: notifType,
         board_id,
         tack_id,
-        comment_id: notifCommentId,
+        comment_id: inserted.id,
       });
     }
 

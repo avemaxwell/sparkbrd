@@ -47,6 +47,7 @@ interface TextBlock {
   width: number;
   rotation: number;
   z_index: number;
+  nowrap: boolean;
 }
 
 const pinColorPresets: Record<string, string> = {
@@ -302,12 +303,12 @@ const handleCanvasTouchStart = (e: React.TouchEvent) => {
     setLastPinchMid({ x: midX, y: midY });
     setIsPanning(false);
   } else if (e.touches.length === 1) {
-    // Pan start (one finger on empty space)
+    // Pan start (one finger on empty space) — isPanning activates after dead zone in touchMove
     const target = e.target as HTMLElement;
     const isCanvas = target.id === 'board-canvas-inner' || target.id === 'board-viewport' || target === e.currentTarget;
     if (isCanvas) {
       const t = e.touches[0];
-      setIsPanning(true);
+      setIsPanning(false);
       setPanStart({ x: t.clientX, y: t.clientY, panX: pan.x, panY: pan.y });
     }
   }
@@ -331,21 +332,15 @@ const handleCanvasTouchMove = (e: React.TouchEvent) => {
       const scaleFactor = dist / lastPinchDist;
       const newZoom = Math.min(3, Math.max(0.25, zoom * scaleFactor));
 
-      // Zoom toward pinch midpoint
+      // Zoom toward pinch midpoint, incorporating midpoint translation in one update
       if (rect) {
-        const localMidX = midX - rect.left;
-        const localMidY = midY - rect.top;
-        const canvasMidX = localMidX / zoom - pan.x;
-        const canvasMidY = localMidY / zoom - pan.y;
-        const newPanX = localMidX / newZoom - canvasMidX;
-        const newPanY = localMidY / newZoom - canvasMidY;
+        // The canvas point currently under lastPinchMid — keep it under the new midpoint
+        const canvasMidX = (lastPinchMid.x - rect.left) / zoom - pan.x;
+        const canvasMidY = (lastPinchMid.y - rect.top) / zoom - pan.y;
+        const newPanX = (midX - rect.left) / newZoom - canvasMidX;
+        const newPanY = (midY - rect.top) / newZoom - canvasMidY;
         setPan({ x: newPanX, y: newPanY });
       }
-
-      // Pan simultaneously
-      const dx = (midX - lastPinchMid.x) / zoom;
-      const dy = (midY - lastPinchMid.y) / zoom;
-      setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
       setZoom(newZoom);
     }
 
@@ -375,11 +370,17 @@ const handleCanvasTouchMove = (e: React.TouchEvent) => {
       setTacks(prev => prev.map(t =>
         t.id === resizing ? { ...t, width: newWidth } : t
       ));
-    } else if (isPanning) {
+    } else if (!dragging && !resizing) {
       const touch = e.touches[0];
-      const dx = (touch.clientX - panStart.x) / zoom;
-      const dy = (touch.clientY - panStart.y) / zoom;
-      setPan({ x: panStart.panX + dx, y: panStart.panY + dy });
+      const moved = Math.hypot(touch.clientX - panStart.x, touch.clientY - panStart.y);
+      if (!isPanning && moved > 8) {
+        setIsPanning(true);
+      }
+      if (isPanning || moved > 8) {
+        const dx = (touch.clientX - panStart.x) / zoom;
+        const dy = (touch.clientY - panStart.y) / zoom;
+        setPan({ x: panStart.panX + dx, y: panStart.panY + dy });
+      }
     }
   }
 };
@@ -641,6 +642,7 @@ const handleTextRotateEnd = async () => {
       width: 300,
       rotation: 0,
       z_index: tacks.length + textBlocks.length,
+      nowrap: false,
     };
 
     const { data, error } = await supabase
@@ -934,6 +936,7 @@ return (
                   style={{
                     fontSize: text.font_size,
                     color: text.color,
+                    whiteSpace: text.nowrap ? 'nowrap' : 'normal',
                     ...(text.font_style === 'caveat' ? { fontFamily: 'var(--font-caveat)' } : {}),
                     ...(text.font_style === 'bebas' ? { fontFamily: 'var(--font-bebas)', letterSpacing: '0.04em', textTransform: 'uppercase' } : {}),
                     ...(text.font_style === 'typewriter' ? { fontFamily: 'var(--font-special-elite)' } : {}),
@@ -1875,6 +1878,7 @@ function TextDetailModal({
   const [color, setColor] = useState(textBlock.color);
   const [fontStyle, setFontStyle] = useState(textBlock.font_style);
   const [rotation, setRotation] = useState(textBlock.rotation);
+  const [nowrap, setNowrap] = useState(textBlock.nowrap ?? false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -1887,17 +1891,18 @@ function TextDetailModal({
         fontSize !== textBlock.font_size ||
         color !== textBlock.color ||
         fontStyle !== textBlock.font_style ||
-        rotation !== textBlock.rotation
+        rotation !== textBlock.rotation ||
+        nowrap !== (textBlock.nowrap ?? false)
       ) {
         setSaving(true);
-        const updates = { content, font_size: fontSize, color, font_style: fontStyle, rotation };
+        const updates = { content, font_size: fontSize, color, font_style: fontStyle, rotation, nowrap };
         await supabase.from("text_blocks").update(updates).eq("id", textBlock.id);
         onUpdate(textBlock.id, updates);
         setSaving(false);
       }
     }, 500);
     return () => clearTimeout(timeout);
-  }, [content, fontSize, color, fontStyle, rotation]);
+  }, [content, fontSize, color, fontStyle, rotation, nowrap]);
 
   const handleDelete = async () => {
     await supabase.from("text_blocks").delete().eq("id", textBlock.id);
@@ -2006,6 +2011,24 @@ function TextDetailModal({
             <p className="text-xs text-ink-soft text-center mt-1">{rotation}°</p>
           </div>
 
+          <div>
+            <label className="block text-xs text-ink-soft mb-2">Layout</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setNowrap(false)}
+                className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${!nowrap ? 'bg-ink text-white' : 'bg-ink/5 text-ink hover:bg-ink/10'}`}
+              >
+                Wrap text
+              </button>
+              <button
+                onClick={() => setNowrap(true)}
+                className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${nowrap ? 'bg-ink text-white' : 'bg-ink/5 text-ink hover:bg-ink/10'}`}
+              >
+                Single line
+              </button>
+            </div>
+          </div>
+
     <div className="bg-ink/5 rounded-xl p-4">
             <p className="text-xs text-ink-soft mb-2">Preview</p>
             <div
@@ -2023,6 +2046,7 @@ function TextDetailModal({
                 style={{
                   fontSize,
                   color,
+                  whiteSpace: nowrap ? 'nowrap' : 'normal',
                   ...(fontStyle === 'caveat' ? { fontFamily: 'var(--font-caveat)' } : {}),
                   ...(fontStyle === 'bebas' ? { fontFamily: 'var(--font-bebas)', letterSpacing: '0.04em', textTransform: 'uppercase' } : {}),
                   ...(fontStyle === 'typewriter' ? { fontFamily: 'var(--font-special-elite)' } : {}),

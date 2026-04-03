@@ -17,16 +17,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .from('comments')
       .update({ body: body.trim(), updated_at: new Date().toISOString() })
       .eq('id', id)
-      .eq('user_id', user.id) // only author can edit
-      .select(`
-        id, board_id, tack_id, parent_id, body, created_at, updated_at,
-        profiles!user_id(id, name, avatar_url)
-      `)
+      .eq('user_id', user.id)
+      .select('id, board_id, tack_id, parent_id, body, created_at, updated_at, user_id')
       .single();
 
     if (error || !data) return NextResponse.json({ error: 'Comment not found or forbidden' }, { status: 404 });
 
-    const profile = Array.isArray(data.profiles) ? data.profiles[0] : data.profiles;
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, name, avatar_url')
+      .eq('id', user.id)
+      .single();
+
     return NextResponse.json({
       comment: {
         id: data.id,
@@ -54,7 +56,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
     const { id } = await params;
 
-    // Fetch comment to check ownership and get board_id for board-owner check
     const { data: comment } = await supabase
       .from('comments')
       .select('id, user_id, board_id')
@@ -63,7 +64,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
     if (!comment) return NextResponse.json({ error: 'Comment not found' }, { status: 404 });
 
-    // Allow: comment author OR board owner
     let authorized = comment.user_id === user.id;
     if (!authorized) {
       const { data: board } = await supabase
