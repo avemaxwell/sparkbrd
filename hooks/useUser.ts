@@ -24,6 +24,14 @@ let cachedLoading = true;
 let isFetching = false;
 const listeners = new Set<() => void>();
 
+// Call this before client-side navigation after sign-in so the next mount
+// triggers a fresh session fetch instead of relying on the stale cache.
+export const resetUserCache = () => {
+  cachedProfile = null;
+  cachedLoading = true;
+  isFetching = false;
+};
+
 const notifyListeners = () => {
   listeners.forEach(listener => listener());
 };

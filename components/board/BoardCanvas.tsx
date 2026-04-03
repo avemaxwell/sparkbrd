@@ -479,6 +479,21 @@ const handleTextRotateEnd = async () => {
     if (!error && data) {
       setTacks([...tacks, data]);
       setAddModalOpen(false);
+      // Generate AI tags in the background for searchability
+      const insertedId = data.id;
+      const insertedUrl = url;
+      fetch('/api/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: insertedUrl }),
+      })
+        .then(r => r.json())
+        .then(({ tags }) => {
+          if (tags) {
+            supabase.from('tacks').update({ tags }).eq('id', insertedId).then(() => {});
+          }
+        })
+        .catch(() => {});
     } else {
       console.error("Add tack error:", error);
     }

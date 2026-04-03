@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { resetUserCache } from "@/hooks/useUser";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -56,6 +57,7 @@ export default function SignupPage() {
       setError(error.message);
       setLoading(false);
     } else {
+      resetUserCache();
       router.push("/");
       router.refresh();
     }
