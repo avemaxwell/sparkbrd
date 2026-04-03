@@ -7,6 +7,8 @@ import { useParams } from "next/navigation";
 import { canAddTack, getUpgradeMessage } from "../../lib/plan-limits";
 import UpgradeModal from "@/components/UpgradeModal";
 import { useUser } from "@/hooks/useUser";
+import CommentDrawer from "@/components/board/CommentDrawer";
+import NotificationBell from "@/components/board/NotificationBell";
 
 interface Board {
   id: string;
@@ -31,6 +33,7 @@ interface Tack {
   height: number;
   rotation: number;
   z_index: number;
+  origin_item_id: string | null;
 }
 
 interface TextBlock {
@@ -71,6 +74,11 @@ export default function BoardCanvas() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addTextModalOpen, setAddTextModalOpen] = useState(false);
 
+  // Canvas mode
+  type CanvasMode = 'edit' | 'comment';
+  const [canvasMode, setCanvasMode] = useState<CanvasMode>('edit');
+  const [commentDrawerTack, setCommentDrawerTack] = useState<Tack | null>(null);
+
   // Drag state
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -96,6 +104,27 @@ const [textResizeStart, setTextResizeStart] = useState({ x: 0, width: 0 });
 const [textRotating, setTextRotating] = useState<string | null>(null);
 const [textRotateStartAngle, setTextRotateStartAngle] = useState(0);
 const [textRotateStartRotation, setTextRotateStartRotation] = useState(0);
+
+// Viewport (pan + zoom)
+const [zoom, setZoom] = useState(1);
+const [pan, setPan] = useState({ x: 0, y: 0 });
+const [isPanning, setIsPanning] = useState(false);
+const [panStart, setPanStart] = useState({ x: 0, y: 0, panX: 0, panY: 0 });
+
+// Pinch state
+const [lastPinchDist, setLastPinchDist] = useState<number | null>(null);
+const [lastPinchMid, setLastPinchMid] = useState<{ x: number; y: number } | null>(null);
+
+// Convert screen coordinates to canvas coordinates
+const screenToCanvas = (screenX: number, screenY: number) => {
+  const container = document.getElementById('board-viewport');
+  if (!container) return { x: screenX / zoom - pan.x, y: screenY / zoom - pan.y };
+  const rect = container.getBoundingClientRect();
+  return {
+    x: (screenX - rect.left) / zoom - pan.x,
+    y: (screenY - rect.top) / zoom - pan.y,
+  };
+};
 
   // Load board data
   useEffect(() => {
@@ -147,27 +176,29 @@ const [textRotateStartRotation, setTextRotateStartRotation] = useState(0);
 
   // Drag handlers
   const handleDragStart = (e: React.MouseEvent, tackId: string, currentX: number, currentY: number) => {
+    if (canvasMode === 'comment') return;
     e.preventDefault();
     setDragging(tackId);
+    const canvasPos = screenToCanvas(e.clientX, e.clientY);
     setDragOffset({
-      x: e.clientX - currentX,
-      y: e.clientY - currentY,
+      x: canvasPos.x - currentX,
+      y: canvasPos.y - currentY,
     });
   };
 
 const handleDrag = (e: React.MouseEvent) => {
     if (!dragging) return;
-
-    const newX = e.clientX - dragOffset.x;
-    const newY = e.clientY - dragOffset.y;
+    const canvasPos = screenToCanvas(e.clientX, e.clientY);
+    const newX = canvasPos.x - dragOffset.x;
+    const newY = canvasPos.y - dragOffset.y;
 
     if (dragging.startsWith('text-')) {
       const textId = dragging.replace('text-', '');
-      setTextBlocks(textBlocks.map(t => 
+      setTextBlocks(prev => prev.map(t =>
         t.id === textId ? { ...t, position_x: newX, position_y: newY } : t
       ));
     } else {
-      setTacks(tacks.map(t => 
+      setTacks(prev => prev.map(t =>
         t.id === dragging ? { ...t, position_x: newX, position_y: newY } : t
       ));
     }
@@ -215,11 +246,9 @@ const handleDrag = (e: React.MouseEvent) => {
 
   const handleResize = (e: React.MouseEvent) => {
     if (!resizing) return;
-    
-    const deltaX = e.clientX - resizeStart.x;
-    const newWidth = Math.max(100, resizeStart.width + deltaX);
-    
-    setTacks(tacks.map(t => 
+    const delta = (e.clientX - resizeStart.x) / zoom;
+    const newWidth = Math.max(100, resizeStart.width + delta);
+    setTacks(prev => prev.map(t =>
       t.id === resizing ? { ...t, width: newWidth } : t
     ));
   };
@@ -257,88 +286,178 @@ const handleDrag = (e: React.MouseEvent) => {
     handleTextResizeEnd();
     handleTextRotateEnd();
   };
-// Touch handlers for mobile
-const handleTouchStart = (e: React.TouchEvent, tackId: string, currentX: number, currentY: number) => {
-  if (e.touches.length !== 1) return;
-  const touch = e.touches[0];
-  setDragging(tackId);
-  setTouching(true);
-  setDragOffset({
-    x: touch.clientX - currentX,
-    y: touch.clientY - currentY,
-  });
-};
+// ── Unified touch handlers ──────────────────────────────────────────────────
 
-const handleTouchMove = (e: React.TouchEvent) => {
-  if (!dragging || !touching || e.touches.length !== 1) return;
-  const touch = e.touches[0];
-  
-  const newX = touch.clientX - dragOffset.x;
-  const newY = touch.clientY - dragOffset.y;
+const handleCanvasTouchStart = (e: React.TouchEvent) => {
+  if (dragging || resizing || rotating || textResizing || textRotating) return;
 
-  setTacks(tacks.map(t => 
-    t.id === dragging ? { ...t, position_x: newX, position_y: newY } : t
-  ));
-};
-
-const handleTouchEnd = async () => {
-  if (!dragging) return;
-  
-  const tack = tacks.find(t => t.id === dragging);
-  if (tack) {
-    await supabase
-      .from("tacks")
-      .update({ position_x: tack.position_x, position_y: tack.position_y })
-      .eq("id", tack.id);
+  if (e.touches.length === 2) {
+    // Pinch start
+    const t0 = e.touches[0];
+    const t1 = e.touches[1];
+    const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+    const midX = (t0.clientX + t1.clientX) / 2;
+    const midY = (t0.clientY + t1.clientY) / 2;
+    setLastPinchDist(dist);
+    setLastPinchMid({ x: midX, y: midY });
+    setIsPanning(false);
+  } else if (e.touches.length === 1) {
+    // Pan start (one finger on empty space)
+    const target = e.target as HTMLElement;
+    const isCanvas = target.id === 'board-canvas-inner' || target.id === 'board-viewport' || target === e.currentTarget;
+    if (isCanvas) {
+      const t = e.touches[0];
+      setIsPanning(true);
+      setPanStart({ x: t.clientX, y: t.clientY, panX: pan.x, panY: pan.y });
+    }
   }
-  
-  setDragging(null);
+};
+
+const handleCanvasTouchMove = (e: React.TouchEvent) => {
+  e.preventDefault();
+
+  if (e.touches.length === 2) {
+    // Pinch zoom + pan
+    const t0 = e.touches[0];
+    const t1 = e.touches[1];
+    const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+    const midX = (t0.clientX + t1.clientX) / 2;
+    const midY = (t0.clientY + t1.clientY) / 2;
+
+    if (lastPinchDist !== null && lastPinchMid !== null) {
+      const container = document.getElementById('board-viewport');
+      const rect = container?.getBoundingClientRect();
+
+      const scaleFactor = dist / lastPinchDist;
+      const newZoom = Math.min(3, Math.max(0.25, zoom * scaleFactor));
+
+      // Zoom toward pinch midpoint
+      if (rect) {
+        const localMidX = midX - rect.left;
+        const localMidY = midY - rect.top;
+        const canvasMidX = localMidX / zoom - pan.x;
+        const canvasMidY = localMidY / zoom - pan.y;
+        const newPanX = localMidX / newZoom - canvasMidX;
+        const newPanY = localMidY / newZoom - canvasMidY;
+        setPan({ x: newPanX, y: newPanY });
+      }
+
+      // Pan simultaneously
+      const dx = (midX - lastPinchMid.x) / zoom;
+      const dy = (midY - lastPinchMid.y) / zoom;
+      setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+      setZoom(newZoom);
+    }
+
+    setLastPinchDist(dist);
+    setLastPinchMid({ x: midX, y: midY });
+  } else if (e.touches.length === 1) {
+    if (dragging) {
+      // Drag a tack
+      const touch = e.touches[0];
+      const canvasPos = screenToCanvas(touch.clientX, touch.clientY);
+      const newX = canvasPos.x - dragOffset.x;
+      const newY = canvasPos.y - dragOffset.y;
+      if (dragging.startsWith('text-')) {
+        const textId = dragging.replace('text-', '');
+        setTextBlocks(prev => prev.map(t =>
+          t.id === textId ? { ...t, position_x: newX, position_y: newY } : t
+        ));
+      } else {
+        setTacks(prev => prev.map(t =>
+          t.id === dragging ? { ...t, position_x: newX, position_y: newY } : t
+        ));
+      }
+    } else if (resizing) {
+      const touch = e.touches[0];
+      const delta = (touch.clientX - resizeStart.x) / zoom;
+      const newWidth = Math.max(100, resizeStart.width + delta);
+      setTacks(prev => prev.map(t =>
+        t.id === resizing ? { ...t, width: newWidth } : t
+      ));
+    } else if (isPanning) {
+      const touch = e.touches[0];
+      const dx = (touch.clientX - panStart.x) / zoom;
+      const dy = (touch.clientY - panStart.y) / zoom;
+      setPan({ x: panStart.panX + dx, y: panStart.panY + dy });
+    }
+  }
+};
+
+const handleCanvasTouchEnd = async () => {
+  setLastPinchDist(null);
+  setLastPinchMid(null);
+
+  if (dragging) {
+    if (dragging.startsWith('text-')) {
+      const textId = dragging.replace('text-', '');
+      const text = textBlocks.find(t => t.id === textId);
+      if (text) await supabase.from('text_blocks').update({ position_x: text.position_x, position_y: text.position_y }).eq('id', text.id);
+    } else {
+      const tack = tacks.find(t => t.id === dragging);
+      if (tack) await supabase.from('tacks').update({ position_x: tack.position_x, position_y: tack.position_y }).eq('id', tack.id);
+    }
+    setDragging(null);
+  }
+
+  if (resizing) {
+    const tack = tacks.find(t => t.id === resizing);
+    if (tack) await supabase.from('tacks').update({ width: tack.width }).eq('id', tack.id);
+    setResizing(null);
+  }
+
+  setIsPanning(false);
   setTouching(false);
 };
 
-// Touch resize
+// Touch start on a tack (single finger drag)
+const handleTouchStart = (e: React.TouchEvent, tackId: string, currentX: number, currentY: number) => {
+  if (canvasMode === 'comment') return;
+  if (e.touches.length !== 1) return;
+  e.stopPropagation();
+  const touch = e.touches[0];
+  const canvasPos = screenToCanvas(touch.clientX, touch.clientY);
+  setDragging(tackId);
+  setTouching(true);
+  setDragOffset({ x: canvasPos.x - currentX, y: canvasPos.y - currentY });
+};
+
+// Touch start on resize handle
 const handleResizeTouchStart = (e: React.TouchEvent, tackId: string) => {
   e.stopPropagation();
   if (e.touches.length !== 1) return;
-  
   const touch = e.touches[0];
   const tack = tacks.find(t => t.id === tackId);
   if (!tack) return;
-  
   setResizing(tackId);
-  setResizeStart({
-    x: touch.clientX,
-    width: tack.width,
-  });
+  setResizeStart({ x: touch.clientX, width: tack.width });
 };
 
-const handleResizeTouchMove = (e: React.TouchEvent) => {
-  if (!resizing || e.touches.length !== 1) return;
-  
-  const touch = e.touches[0];
-  const deltaX = touch.clientX - resizeStart.x;
-  const newWidth = Math.max(100, resizeStart.width + deltaX);
-  
-  setTacks(tacks.map(t => 
-    t.id === resizing ? { ...t, width: newWidth } : t
-  ));
-};
+// These are now handled by handleCanvasTouchMove/End — keep stubs for compatibility
+const handleTouchMove = (_e: React.TouchEvent) => {};
+const handleTouchEnd = async () => {};
+const handleResizeTouchMove = (_e: React.TouchEvent) => {};
+const handleResizeTouchEnd = async () => {};
 
-const handleResizeTouchEnd = async () => {
-  if (!resizing) return;
-
-  const tack = tacks.find(t => t.id === resizing);
-  if (tack) {
-    await supabase
-      .from("tacks")
-      .update({ width: tack.width })
-      .eq("id", tack.id);
-  }
-
-  setResizing(null);
+const handleWheelZoom = (e: React.WheelEvent) => {
+  e.preventDefault();
+  const container = document.getElementById('board-viewport');
+  if (!container) return;
+  const rect = container.getBoundingClientRect();
+  const localX = e.clientX - rect.left;
+  const localY = e.clientY - rect.top;
+  const canvasX = localX / zoom - pan.x;
+  const canvasY = localY / zoom - pan.y;
+  const factor = e.deltaY < 0 ? 1.1 : 0.9;
+  const newZoom = Math.min(3, Math.max(0.25, zoom * factor));
+  const newPanX = localX / newZoom - canvasX;
+  const newPanY = localY / newZoom - canvasY;
+  setZoom(newZoom);
+  setPan({ x: newPanX, y: newPanY });
 };
 
 const handleRotateStart = (e: React.MouseEvent, tackId: string) => {
+  if (canvasMode === 'comment') return;
   e.preventDefault();
   e.stopPropagation();
   const tack = tacks.find(t => t.id === tackId);
@@ -595,20 +714,12 @@ const handleTextRotateEnd = async () => {
   }
 
 return (
-  <div 
-    className="min-h-screen relative overflow-hidden touch-none"
+  <div
+    className="min-h-screen relative overflow-hidden touch-none select-none"
     style={getBackgroundStyle()}
     onMouseMove={handleMouseMove}
     onMouseUp={handleMouseUp}
     onMouseLeave={handleMouseUp}
-    onTouchMove={(e) => {
-      handleTouchMove(e);
-      handleResizeTouchMove(e);
-    }}
-    onTouchEnd={() => {
-      handleTouchEnd();
-      handleResizeTouchEnd();
-    }}
   >
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-30 px-4 py-3 flex items-center justify-between">
@@ -627,14 +738,38 @@ return (
         </div>
         
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink hover:bg-white transition-colors"
-          >
-            Edit board
-          </button>
+          {/* Mode toggle */}
+          <div className="bg-white/80 backdrop-blur-md rounded-full p-1 flex shadow-lg">
+            <button
+              onClick={() => { setCanvasMode('edit'); setCommentDrawerTack(null); }}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                canvasMode === 'edit' ? 'bg-ink text-white shadow-sm' : 'text-ink/60 hover:text-ink'
+              }`}
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => setCanvasMode('comment')}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                canvasMode === 'comment' ? 'bg-papaya text-white shadow-sm' : 'text-ink/60 hover:text-ink'
+              }`}
+            >
+              Comment
+            </button>
+          </div>
 
-          <button 
+          <NotificationBell />
+
+          {canvasMode === 'edit' && (
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="hidden sm:block bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink hover:bg-white transition-colors"
+            >
+              Edit board
+            </button>
+          )}
+
+          <button
             onClick={() => setSidebarOpen(true)}
             className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md shadow-lg flex items-center justify-center hover:bg-white transition-colors"
           >
@@ -645,10 +780,18 @@ return (
         </div>
       </header>
 
-      {/* Canvas */}
-      <div className="relative w-full h-screen overflow-auto">
+      {/* Canvas viewport */}
+      <div
+        id="board-viewport"
+        className="absolute inset-0 overflow-hidden"
+        onTouchStart={handleCanvasTouchStart}
+        onTouchMove={handleCanvasTouchMove}
+        onTouchEnd={handleCanvasTouchEnd}
+        onWheel={handleWheelZoom}
+        style={{ touchAction: 'none' }}
+      >
         {board.description && (
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 max-w-md text-center px-4">
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 max-w-md text-center px-4 pointer-events-none">
             <p className={`font-serif text-lg italic ${
               board.vibe === 'dark' ? 'text-white/60' : 'text-ink/40'
             }`}>
@@ -656,8 +799,19 @@ return (
             </p>
           </div>
         )}
-        
-        <div className="relative" style={{ width: '2000px', height: '1500px', margin: '120px auto 100px' }}>
+
+        <div
+          id="board-canvas-inner"
+          className={`absolute ${canvasMode === 'comment' ? 'cursor-crosshair' : ''}`}
+          style={{
+            width: '2800px',
+            height: '2000px',
+            transformOrigin: '0 0',
+            transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+            top: 0,
+            left: 0,
+          }}
+        >
           {/* Tacks */}
           {tacks.map((tack) => (
   <div
@@ -696,7 +850,11 @@ return (
           onClick={(e) => {
             if (!dragging && !touching) {
               e.stopPropagation();
-              setSelectedTack(tack);
+              if (canvasMode === 'comment') {
+                setCommentDrawerTack(tack);
+              } else {
+                setSelectedTack(tack);
+              }
             }
           }}
         >
@@ -814,6 +972,33 @@ return (
         </div>
       </div>
 
+      {/* Zoom controls */}
+      <div
+        className="fixed left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 bg-white/80 backdrop-blur-md rounded-full px-2 py-1 shadow-lg"
+        style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
+      >
+        <button
+          onClick={() => setZoom(z => Math.max(0.25, z * 0.8))}
+          className="w-8 h-8 rounded-full hover:bg-ink/5 flex items-center justify-center text-ink/60 text-lg font-light"
+        >
+          <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        </button>
+        <span className="text-xs text-ink/40 w-10 text-center tabular-nums">{Math.round(zoom * 100)}%</span>
+        <button
+          onClick={() => setZoom(z => Math.min(3, z * 1.25))}
+          className="w-8 h-8 rounded-full hover:bg-ink/5 flex items-center justify-center text-ink/60"
+        >
+          <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        </button>
+        <button
+          onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+          className="w-8 h-8 rounded-full hover:bg-ink/5 flex items-center justify-center text-ink/40 text-xs font-medium"
+          title="Reset view"
+        >
+          ↺
+        </button>
+      </div>
+
       {/* Bottom buttons */}
       <div
         className="fixed left-6 z-40 flex gap-2"
@@ -848,6 +1033,15 @@ return (
           board={board}
           onClose={() => setSettingsOpen(false)}
           onUpdate={(updates) => setBoard({ ...board, ...updates })}
+        />
+      )}
+
+      {commentDrawerTack && (
+        <CommentDrawer
+          tack={commentDrawerTack}
+          boardId={boardId}
+          currentUserId={profile?.id ?? null}
+          onClose={() => setCommentDrawerTack(null)}
         />
       )}
 
