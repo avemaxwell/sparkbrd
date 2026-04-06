@@ -29,18 +29,12 @@ CREATE INDEX IF NOT EXISTS idx_board_members_user  ON board_members(user_id);
 
 ALTER TABLE board_members ENABLE ROW LEVEL SECURITY;
 
--- Members can see the membership row for boards they belong to;
--- board owner can see all members of their boards.
+-- Members can see their own membership rows.
+-- Board owners access the full members list via the service-role API client,
+-- which bypasses RLS — so no board → board_members → boards circular reference.
 DROP POLICY IF EXISTS "board_members_select" ON board_members;
 CREATE POLICY "board_members_select" ON board_members FOR SELECT
-  USING (
-    user_id = auth.uid()
-    OR EXISTS (
-      SELECT 1 FROM boards
-      WHERE boards.id = board_members.board_id
-        AND boards.owner_id = auth.uid()
-    )
-  );
+  USING (user_id = auth.uid());
 
 -- Only the board owner can add members (API enforces this too).
 DROP POLICY IF EXISTS "board_members_insert" ON board_members;
