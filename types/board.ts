@@ -5,4 +5,35 @@ export interface Board {
   vibe: string;
   background_color: string | null;
   owner_id: string;
+  is_public: boolean;
+}
+
+export interface Tack {
+  id: string;
+  content_url: string;
+  title: string | null;
+  note: string | null;
+  source: string | null;
+  pin_color: string;
+  position_x: number;
+  position_y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  z_index: number;
+  origin_item_id: string | null;
+}
+
+export interface TextBlock {
+  id: string;
+  content: string;
+  font_style: string;
+  font_size: number;
+  color: string;
+  position_x: number;
+  position_y: number;
+  width: number;
+  rotation: number;
+  z_index: number;
+  nowrap: boolean;
 }

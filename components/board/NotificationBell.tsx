@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/hooks/useUser";
 
 interface NotificationItem {
@@ -41,20 +42,55 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
 
+  const fetchNotifs = async () => {
+    try {
+      const res = await fetch('/api/notifications?limit=20').then(r => r.json());
+      setNotifications(res.notifications ?? []);
+      setUnreadCount(res.unread_count ?? 0);
+    } catch {}
+  };
+
+  // Initial load
+  useEffect(() => {
+    if (!profile) return;
+    fetchNotifs();
+  }, [profile?.id]);
+
+  // Realtime subscription — replaces the previous 30-second polling interval.
+  // Fires fetchNotifs() when a new notification row is inserted for this user,
+  // so the bell updates within ~1 second of the event rather than up to 30s.
+  //
+  // The raw INSERT payload doesn't include joined actor/board data, so we do a
+  // full refetch instead of trying to construct the item from the raw row.
+  //
+  // ⚠️  Requires the notifications table to be in the Supabase Realtime
+  //     publication. If not already enabled, run:
+  //     ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
   useEffect(() => {
     if (!profile) return;
 
-    const fetchNotifs = async () => {
-      try {
-        const res = await fetch('/api/notifications?limit=20').then(r => r.json());
-        setNotifications(res.notifications ?? []);
-        setUnreadCount(res.unread_count ?? 0);
-      } catch {}
-    };
+    const supabase = createClient();
 
-    fetchNotifs();
-    const interval = setInterval(fetchNotifs, 30_000);
-    return () => clearInterval(interval);
+    const channel = supabase
+      .channel(`notifications:${profile.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `recipient_id=eq.${profile.id}`,
+        },
+        () => {
+          // Refetch so we get the full joined shape (actor name, board name, etc.)
+          fetchNotifs();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [profile?.id]);
 
   const handleOpen = async () => {
@@ -108,7 +144,6 @@ export default function NotificationBell() {
                     key={n.id}
                     className={`flex items-start gap-3 px-4 py-3 transition-colors ${!n.is_read ? 'bg-papaya/5' : 'hover:bg-ink/3'}`}
                   >
-                    {/* Actor avatar or tack thumbnail */}
                     {n.actor.avatar_url ? (
                       <img src={n.actor.avatar_url} alt={n.actor.name ?? ''} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
                     ) : (

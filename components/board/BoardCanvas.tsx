@@ -4,51 +4,18 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { canAddTack, getUpgradeMessage } from "../../lib/plan-limits";
+import { canAddTack, getUpgradeMessage, hasFeature } from "../../lib/plan-limits";
+import type { Plan } from "../../lib/plan-limits";
 import UpgradeModal from "@/components/UpgradeModal";
 import { useUser } from "@/hooks/useUser";
 import CommentDrawer from "@/components/board/CommentDrawer";
 import NotificationBell from "@/components/board/NotificationBell";
-
-interface Board {
-  id: string;
-  name: string;
-  description: string | null;
-  vibe: string;
-  background_color: string | null;
-  owner_id: string;
-  is_public: boolean;
-}
-
-interface Tack {
-  id: string;
-  content_url: string;
-  title: string | null;
-  note: string | null;
-  source: string | null;
-  pin_color: string;
-  position_x: number;
-  position_y: number;
-  width: number;
-  height: number;
-  rotation: number;
-  z_index: number;
-  origin_item_id: string | null;
-}
-
-interface TextBlock {
-  id: string;
-  content: string;
-  font_style: string;
-  font_size: number;
-  color: string;
-  position_x: number;
-  position_y: number;
-  width: number;
-  rotation: number;
-  z_index: number;
-  nowrap: boolean;
-}
+import SharePanel from "@/components/board/SharePanel";
+import { useBoardPresence } from "@/hooks/useBoardPresence";
+import { useBoardSync } from "@/hooks/useBoardSync";
+import PresenceAvatars from "@/components/board/PresenceAvatars";
+import CollaboratorCursors from "@/components/board/CollaboratorCursors";
+import type { Board, Tack, TextBlock } from "@/types/board";
 
 const pinColorPresets: Record<string, string> = {
   papaya: "#E24E42",
@@ -63,14 +30,23 @@ export default function BoardCanvas() {
   const supabase = createClient();
   const { profile } = useUser();
 
+  const currentUser = profile
+    ? { id: profile.id, name: profile.name, avatarUrl: profile.avatar_url }
+    : null;
+  const collaborationEnabled = hasFeature(profile?.plan as Plan | undefined, 'collaboration');
+  const { collaborators, broadcastCursor, clearCursor } = useBoardPresence(boardId, currentUser, collaborationEnabled);
+
   const [board, setBoard] = useState<Board | null>(null);
   const [tacks, setTacks] = useState<Tack[]>([]);
   const [textBlocks, setTextBlocks] = useState<TextBlock[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  useBoardSync(boardId, setBoard, setTacks, setTextBlocks);
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sharePanelOpen, setSharePanelOpen] = useState(false);
   const [selectedTack, setSelectedTack] = useState<Tack | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addTextModalOpen, setAddTextModalOpen] = useState(false);
@@ -297,6 +273,9 @@ const handleDrag = (e: React.MouseEvent) => {
       const dy = (e.clientY - panStart.y) / zoom;
       setPan({ x: panStart.panX + dx, y: panStart.panY + dy });
     }
+    // Broadcast cursor position to other collaborators (throttled inside the hook).
+    const canvasPos = screenToCanvas(e.clientX, e.clientY);
+    broadcastCursor(canvasPos.x, canvasPos.y);
   };
 
   const handleMouseUp = () => {
@@ -744,7 +723,7 @@ return (
     style={getBackgroundStyle()}
     onMouseMove={handleMouseMove}
     onMouseUp={handleMouseUp}
-    onMouseLeave={handleMouseUp}
+    onMouseLeave={() => { handleMouseUp(); clearCursor(); }}
   >
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-30 px-4 py-3 flex items-center justify-between">
@@ -783,7 +762,23 @@ return (
             </button>
           </div>
 
+          <PresenceAvatars collaborators={collaborators} />
+
           <NotificationBell />
+
+          {canvasMode === 'edit' && collaborationEnabled && board && profile?.id === board.owner_id && (
+            <button
+              onClick={() => setSharePanelOpen(true)}
+              className="hidden sm:flex items-center gap-1.5 bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink hover:bg-white transition-colors"
+            >
+              <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                <polyline points="16 6 12 2 8 6"/>
+                <line x1="12" y1="2" x2="12" y2="15"/>
+              </svg>
+              Share
+            </button>
+          )}
 
           {canvasMode === 'edit' && (
             <button
@@ -980,6 +975,9 @@ return (
             </div>
           ))}
 
+          {/* Collaborator cursors — rendered in canvas space so they pan/zoom with the board */}
+          <CollaboratorCursors collaborators={collaborators} />
+
           {/* Empty state */}
           {tacks.length === 0 && textBlocks.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center">
@@ -1060,6 +1058,13 @@ return (
           board={board}
           onClose={() => setSettingsOpen(false)}
           onUpdate={(updates) => setBoard({ ...board, ...updates })}
+        />
+      )}
+
+      {sharePanelOpen && (
+        <SharePanel
+          boardId={boardId}
+          onClose={() => setSharePanelOpen(false)}
         />
       )}
 
