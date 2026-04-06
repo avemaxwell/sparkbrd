@@ -5,13 +5,17 @@ import type { Dispatch, SetStateAction } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Board, Tack, TextBlock } from "@/types/board";
 
+// Shape of the payload object Supabase passes to postgres_changes callbacks.
+// The SDK doesn't always infer this from the overload, so we annotate explicitly.
+type PgPayload = { new: Record<string, unknown>; old: Record<string, unknown> };
+
 /**
  * Subscribes to Supabase Realtime postgres_changes for the current board and
  * applies remote changes directly to the caller's state setters.
  *
  * Watches three tables:
- *  - boards     → board name / background / settings changes
- *  - tacks      → image adds, moves, resizes, deletes
+ *  - boards      → board name / background / settings changes
+ *  - tacks       → image adds, moves, resizes, deletes
  *  - text_blocks → text adds, edits, deletes
  *
  * Self-update handling:
@@ -54,7 +58,7 @@ export function useBoardSync(
           table: "boards",
           filter: `id=eq.${boardId}`,
         },
-        (payload) => {
+        (payload: PgPayload) => {
           setBoard((prev) =>
             prev ? { ...prev, ...(payload.new as Partial<Board>) } : prev
           );
@@ -70,8 +74,8 @@ export function useBoardSync(
           table: "tacks",
           filter: `board_id=eq.${boardId}`,
         },
-        (payload) => {
-          const incoming = payload.new as Tack;
+        (payload: PgPayload) => {
+          const incoming = payload.new as unknown as Tack;
           setTacks((prev) => {
             // Already present (we added it optimistically ourselves).
             if (prev.some((t) => t.id === incoming.id)) return prev;
@@ -89,8 +93,8 @@ export function useBoardSync(
           table: "tacks",
           filter: `board_id=eq.${boardId}`,
         },
-        (payload) => {
-          const incoming = payload.new as Tack;
+        (payload: PgPayload) => {
+          const incoming = payload.new as unknown as Tack;
           setTacks((prev) =>
             prev.map((t) => (t.id === incoming.id ? { ...t, ...incoming } : t))
           );
@@ -106,7 +110,7 @@ export function useBoardSync(
           table: "tacks",
           filter: `board_id=eq.${boardId}`,
         },
-        (payload) => {
+        (payload: PgPayload) => {
           const deletedId = (payload.old as { id: string }).id;
           setTacks((prev) => prev.filter((t) => t.id !== deletedId));
         }
@@ -121,8 +125,8 @@ export function useBoardSync(
           table: "text_blocks",
           filter: `board_id=eq.${boardId}`,
         },
-        (payload) => {
-          const incoming = payload.new as TextBlock;
+        (payload: PgPayload) => {
+          const incoming = payload.new as unknown as TextBlock;
           setTextBlocks((prev) => {
             if (prev.some((t) => t.id === incoming.id)) return prev;
             return [...prev, incoming];
@@ -139,8 +143,8 @@ export function useBoardSync(
           table: "text_blocks",
           filter: `board_id=eq.${boardId}`,
         },
-        (payload) => {
-          const incoming = payload.new as TextBlock;
+        (payload: PgPayload) => {
+          const incoming = payload.new as unknown as TextBlock;
           setTextBlocks((prev) =>
             prev.map((t) =>
               t.id === incoming.id ? { ...t, ...incoming } : t
@@ -158,7 +162,7 @@ export function useBoardSync(
           table: "text_blocks",
           filter: `board_id=eq.${boardId}`,
         },
-        (payload) => {
+        (payload: PgPayload) => {
           const deletedId = (payload.old as { id: string }).id;
           setTextBlocks((prev) => prev.filter((t) => t.id !== deletedId));
         }
