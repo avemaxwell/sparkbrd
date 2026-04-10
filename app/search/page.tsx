@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Header from "@/components/layout/Header";
 import BottomNav from "@/components/layout/BottomNav";
 import Link from "next/link";
+import RetackButton from "@/components/tacks/RetackButton";
 
 interface SearchTack {
   id: string;
@@ -165,27 +166,26 @@ function SearchContent() {
                 {columns.map((col, colIdx) => (
                   <div key={colIdx} className="flex flex-col gap-2 md:gap-3">
                     {col.map(tack => (
-                      <Link
-                        key={tack.id}
-                        href={`/board/${tack.board_id}`}
-                        className="group relative overflow-hidden rounded-lg cursor-pointer block"
-                      >
-                        <img
-                          src={tack.content_url}
-                          alt={tack.title || ''}
-                          className="w-full h-auto object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-                          loading="lazy"
-                          onError={e => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }}
-                        />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
-                        {tack.title && (
-                          <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                            <span className="text-[10px] text-white/90 bg-black/40 backdrop-blur-sm px-1.5 py-0.5 rounded-full line-clamp-1">
-                              {tack.title}
-                            </span>
-                          </div>
-                        )}
-                      </Link>
+                      <div key={tack.id} className="group relative overflow-hidden rounded-lg">
+                        <Link href={`/board/${tack.board_id}`} className="block">
+                          <img
+                            src={tack.content_url}
+                            alt={tack.title || ''}
+                            className="w-full h-auto object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                            loading="lazy"
+                            onError={e => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }}
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+                          {tack.title && (
+                            <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                              <span className="text-[10px] text-white/90 bg-black/40 backdrop-blur-sm px-1.5 py-0.5 rounded-full line-clamp-1">
+                                {tack.title}
+                              </span>
+                            </div>
+                          )}
+                        </Link>
+                        <RetackButton tackId={tack.id} />
+                      </div>
                     ))}
                   </div>
                 ))}

@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useUser } from "@/hooks/useUser";
 import { PLACEHOLDER_TACKS } from "@/lib/placeholder-images";
+import RetackButton from "@/components/tacks/RetackButton";
+import Link from "next/link";
 
 interface DiscoverTack {
   id: string;
@@ -121,12 +123,12 @@ export default function DiscoverySection() {
                     key={tack.id}
                     data-discover-item
                     data-id={tack.id}
-                    className={`group relative overflow-hidden rounded-lg transition-all duration-500 ease-out cursor-pointer ${
+                    className={`group relative overflow-hidden rounded-lg transition-all duration-500 ease-out ${
                       visibleIds.has(tack.id) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
                     }`}
                     style={{ transitionDelay: `${(colIdx * 30) + (imgIdx * 60)}ms` }}
                   >
-                    <div className="relative overflow-hidden">
+                    <Link href={`/board/${tack.board_id}`} className="block relative overflow-hidden">
                       <img
                         src={tack.content_url}
                         alt={tack.title || ''}
@@ -137,8 +139,6 @@ export default function DiscoverySection() {
                         }}
                       />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
-
-                      {/* Source label on hover */}
                       {tack.source && (
                         <div className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                           <span className="text-[10px] text-white/90 bg-black/40 backdrop-blur-sm px-1.5 py-0.5 rounded-full">
@@ -146,7 +146,8 @@ export default function DiscoverySection() {
                           </span>
                         </div>
                       )}
-                    </div>
+                    </Link>
+                    <RetackButton tackId={tack.id} />
                   </div>
                 ))}
               </div>
