@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { sendInviteEmail } from '@/lib/email';
 
 // ─── GET /api/boards/[id]/members ────────────────────────────────────────────
 // Returns current members and pending (unaccepted) invitations.
@@ -96,7 +97,7 @@ export async function POST(
 
     const { data: ownerProfile } = await supabase
       .from('profiles')
-      .select('plan')
+      .select('plan, name')
       .eq('id', user.id)
       .single();
 
@@ -123,10 +124,10 @@ export async function POST(
       return NextResponse.json({ error: 'You cannot invite yourself' }, { status: 400 });
     }
 
-    // Check if this user is already a member.
+    // Check if this user already has a Sparkurio account.
     const { data: existingUser } = await admin
       .from('profiles')
-      .select('id')
+      .select('id, plan')
       .eq('email', normalizedEmail)
       .maybeSingle();
 
@@ -142,6 +143,14 @@ export async function POST(
         return NextResponse.json({ error: 'This person is already a member of the board' }, { status: 409 });
       }
     }
+
+    // Editor invites require the invitee to have at least a Pro plan.
+    // If they have an account and are on free, we still send the invite but
+    // with an upgrade prompt in the email.
+    const needsUpgrade =
+      role === 'editor' &&
+      !!existingUser &&
+      (existingUser.plan === 'free' || !existingUser.plan);
 
     // Upsert invitation — if one exists for this email+board, replace it
     // (reset token and expiry so the owner can re-invite).
@@ -168,13 +177,20 @@ export async function POST(
     const origin = new URL(req.url).origin;
     const inviteUrl = `${origin}/invite/${invitation.token}`;
 
-    // ── Email stub ────────────────────────────────────────────────────────────
-    // Replace this block with your email provider (Resend, SendGrid, etc.).
-    // The invite URL is returned in the response so the owner can share it
-    // manually in the meantime.
-    console.log(`[invite] ${user.id} invited ${normalizedEmail} to board ${boardId}`);
-    console.log(`[invite] Invite URL: ${inviteUrl}`);
-    // await sendInviteEmail({ to: normalizedEmail, inviteUrl, boardName: board.name, inviterName: ... });
+    // ── Send invite email ─────────────────────────────────────────────────────
+    try {
+      await sendInviteEmail({
+        to: normalizedEmail,
+        inviterName: ownerProfile?.name ?? 'Someone',
+        boardName: board.name,
+        inviteUrl,
+        role: role as 'editor' | 'viewer',
+        needsUpgrade,
+      });
+    } catch (emailErr) {
+      // Non-fatal — the invite is saved and the URL is returned to the owner.
+      console.error('[invite] Failed to send email:', emailErr);
+    }
     // ─────────────────────────────────────────────────────────────────────────
 
     return NextResponse.json({ invitation, invite_url: inviteUrl });
