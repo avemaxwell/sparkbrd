@@ -23,7 +23,6 @@ export async function GET(request: Request) {
         boards!inner(id, name, owner_id, is_public)
       `)
       .eq('boards.is_public', true)
-      .not('boards.owner_id', 'eq', user?.id ?? '00000000-0000-0000-0000-000000000000')
       .order('created_at', { ascending: false })
       .limit(200);
 

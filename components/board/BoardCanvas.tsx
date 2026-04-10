@@ -977,25 +977,23 @@ return (
 
           {/* Collaborator cursors — rendered in canvas space so they pan/zoom with the board */}
           <CollaboratorCursors collaborators={collaborators} />
-
-          {/* Empty state */}
-          {tacks.length === 0 && textBlocks.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <p className={`text-lg mb-4 ${board.vibe === 'dark' ? 'text-white/60' : 'text-ink-soft'}`}>
-                  This board is empty
-                </p>
-                <button
-                  onClick={() => setAddModalOpen(true)}
-                  className="px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors"
-                >
-                  Tack your first image
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Empty state — fixed overlay so it doesn't move with the canvas */}
+      {tacks.length === 0 && textBlocks.length === 0 && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center pointer-events-none">
+          <div className="text-center bg-white/80 backdrop-blur-md rounded-2xl px-8 py-6 shadow-xl pointer-events-auto">
+            <p className="text-lg text-ink mb-4 font-serif">This board is empty</p>
+            <button
+              onClick={() => setAddModalOpen(true)}
+              className="px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors"
+            >
+              Tack your first image
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Zoom controls */}
       <div
@@ -1768,7 +1766,7 @@ function AddTackModal({
               <div className="mb-4">
                 {previewUrl ? (
                   <div className="relative">
-                    <img src={previewUrl} alt="Preview" className="w-full h-48 object-cover rounded-xl" />
+                    <img src={previewUrl} alt="Preview" className="w-full max-h-72 object-contain rounded-xl bg-ink/5" />
                     <button type="button" onClick={() => { setPreviewUrl(null); setUrl(""); setAiWarning(null); }} className="absolute top-2 right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg">
                       <svg className="w-4 h-4 stroke-ink stroke-2 fill-none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
                     </button>
