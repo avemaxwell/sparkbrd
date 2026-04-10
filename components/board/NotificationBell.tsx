@@ -6,7 +6,7 @@ import { useUser } from "@/hooks/useUser";
 
 interface NotificationItem {
   id: string;
-  type: 'comment_on_my_tack' | 'reply_to_my_comment' | 'reaction_on_my_tack';
+  type: 'comment_on_my_tack' | 'reply_to_my_comment' | 'reaction_on_my_tack' | 'tack_added_to_board' | 'mention_in_comment';
   is_read: boolean;
   created_at: string;
   board_id: string | null;
@@ -33,6 +33,8 @@ function notifText(n: NotificationItem): string {
     case 'comment_on_my_tack': return `${name} commented on your tack`;
     case 'reply_to_my_comment': return `${name} replied to your comment`;
     case 'reaction_on_my_tack': return `${name} reacted to your tack`;
+    case 'tack_added_to_board': return `${name} added a tack to your board`;
+    case 'mention_in_comment': return `${name} mentioned you in a comment`;
   }
 }
 

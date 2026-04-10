@@ -166,6 +166,13 @@ export default function CommentDrawer({ tack, boardId, currentUserId, onClose }:
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // @mention autocomplete
+  const [collaborators, setCollaborators] = useState<{ id: string; name: string | null; avatar_url: string | null }[]>([]);
+  const [mentionAnchor, setMentionAnchor] = useState<number | null>(null);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionIndex, setMentionIndex] = useState(0);
 
   const canonicalId = tack.origin_item_id ?? tack.id;
 
@@ -253,6 +260,54 @@ export default function CommentDrawer({ tack, boardId, currentUserId, onClose }:
   const handleDelete = async (commentId: string) => {
     await fetch(`/api/comments/${commentId}`, { method: 'DELETE' });
     setComments(prev => prev.filter(c => c.id !== commentId && c.parent_id !== commentId));
+  };
+
+  const fetchCollaborators = async () => {
+    if (collaborators.length > 0) return;
+    const res = await fetch(`/api/boards/${boardId}/collaborators`).then(r => r.json());
+    setCollaborators(res.collaborators ?? []);
+  };
+
+  const mentionMatches = mentionAnchor !== null
+    ? collaborators.filter(c => c.name && c.name.toLowerCase().startsWith(mentionQuery))
+    : [];
+
+  const selectMention = (name: string) => {
+    if (mentionAnchor === null) return;
+    const before = draft.slice(0, mentionAnchor);
+    const after = draft.slice(mentionAnchor + 1 + mentionQuery.length);
+    const newDraft = `${before}@${name}${after.startsWith(' ') ? '' : ' '}${after}`;
+    setDraft(newDraft);
+    setMentionAnchor(null);
+    setMentionQuery('');
+    textareaRef.current?.focus();
+  };
+
+  const handleDraftChange = async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setDraft(val);
+    const cursor = e.target.selectionStart;
+    const textBeforeCursor = val.slice(0, cursor);
+    const match = textBeforeCursor.match(/@([\w ]*)$/);
+    if (match && match.index !== undefined) {
+      setMentionAnchor(match.index);
+      setMentionQuery(match[1].toLowerCase());
+      setMentionIndex(0);
+      fetchCollaborators();
+    } else {
+      setMentionAnchor(null);
+      setMentionQuery('');
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentionMatches.length > 0) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setMentionIndex(i => Math.min(i + 1, mentionMatches.length - 1)); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setMentionIndex(i => Math.max(i - 1, 0)); return; }
+      if (e.key === 'Enter') { e.preventDefault(); selectMention(mentionMatches[mentionIndex].name!); return; }
+      if (e.key === 'Escape') { setMentionAnchor(null); return; }
+    }
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit();
   };
 
   const topLevel = comments.filter(c => !c.parent_id);
@@ -383,11 +438,33 @@ export default function CommentDrawer({ tack, boardId, currentUserId, onClose }:
           )}
 
           {currentUserId ? (
-            <div className="flex gap-2 items-end">
+            <div className="flex gap-2 items-end relative">
+              {mentionMatches.length > 0 && (
+                <div className="absolute bottom-full left-0 mb-1 w-56 bg-white rounded-xl shadow-xl border border-ink/10 overflow-hidden z-10">
+                  {mentionMatches.slice(0, 6).map((c, i) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onMouseDown={e => { e.preventDefault(); selectMention(c.name!); }}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${i === mentionIndex ? 'bg-papaya/10 text-papaya' : 'hover:bg-ink/5 text-ink'}`}
+                    >
+                      {c.avatar_url ? (
+                        <img src={c.avatar_url} alt={c.name ?? ''} className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blush to-mustard flex items-center justify-center text-white text-[10px] font-semibold flex-shrink-0">
+                          {c.name?.[0]?.toUpperCase() ?? '?'}
+                        </div>
+                      )}
+                      <span className="truncate">{c.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <textarea
+                ref={textareaRef}
                 value={draft}
-                onChange={e => setDraft(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit(); }}
+                onChange={handleDraftChange}
+                onKeyDown={handleKeyDown}
                 placeholder="Add a comment…"
                 rows={2}
                 className="flex-1 bg-ink/5 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-papaya/30 resize-none"

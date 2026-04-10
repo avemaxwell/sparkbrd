@@ -104,6 +104,8 @@ export async function POST(
         position_y,
         z_index,
         origin_item_id: originItemId,
+        user_id: user.id,
+        added_by: user.id,
       })
       .select()
       .single();

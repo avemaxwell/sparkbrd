@@ -36,6 +36,7 @@ export default function SharePanel({ boardId, onClose }: Props) {
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [revokingToken, setRevokingToken] = useState<string | null>(null);
+  const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
 
   const fetchMembers = useCallback(async () => {
     try {
@@ -101,6 +102,20 @@ export default function SharePanel({ boardId, onClose }: Props) {
       setMembers(prev => prev.filter(m => m.user_id !== userId));
     } finally {
       setRemovingId(null);
+    }
+  };
+
+  const handleRoleChange = async (userId: string, newRole: 'editor' | 'viewer') => {
+    setUpdatingRoleId(userId);
+    try {
+      await fetch(`/api/boards/${boardId}/members/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: newRole }),
+      });
+      setMembers(prev => prev.map(m => m.user_id === userId ? { ...m, role: newRole } : m));
+    } finally {
+      setUpdatingRoleId(null);
     }
   };
 
@@ -231,12 +246,25 @@ export default function SharePanel({ boardId, onClose }: Props) {
                           </div>
                         )}
 
-                        {/* Name + role */}
+                        {/* Name + role toggle */}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-ink truncate">
                             {member.profile.name ?? member.profile.email ?? 'Unknown'}
                           </p>
-                          <p className="text-xs text-ink-soft">{roleLabel(member.role)}</p>
+                          <button
+                            onClick={() => handleRoleChange(
+                              member.user_id,
+                              member.role === 'editor' ? 'viewer' : 'editor'
+                            )}
+                            disabled={updatingRoleId === member.user_id}
+                            className="text-xs text-ink-soft hover:text-papaya transition-colors disabled:opacity-40"
+                            title="Click to toggle role"
+                          >
+                            {updatingRoleId === member.user_id ? 'Updating…' : roleLabel(member.role)}
+                            {updatingRoleId !== member.user_id && (
+                              <span className="ml-1 opacity-40">↕</span>
+                            )}
+                          </button>
                         </div>
 
                         {/* Remove button */}

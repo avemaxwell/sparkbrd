@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 async function attachProfiles(supabase: Awaited<ReturnType<typeof createClient>>, comments: Array<{ user_id: string; [key: string]: unknown }>) {
   const userIds = [...new Set(comments.map(c => c.user_id))];
@@ -162,6 +162,54 @@ export async function POST(request: Request) {
         tack_id,
         comment_id: inserted.id,
       });
+    }
+
+    // Fire mention notifications for @name patterns in the comment body.
+    // We resolve names against all board collaborators via the admin client.
+    const mentionedNames = [...commentBody.matchAll(/@([\w\s]+?)(?=\s|$|[^\w\s])/g)]
+      .map(m => m[1].trim().toLowerCase())
+      .filter(Boolean);
+
+    if (mentionedNames.length > 0) {
+      const admin = createAdminClient();
+      const { data: boardMembers } = await admin
+        .from('board_members')
+        .select('user_id')
+        .eq('board_id', board_id);
+      const { data: boardRow } = await admin
+        .from('boards')
+        .select('owner_id')
+        .eq('id', board_id)
+        .single();
+
+      const collaboratorIds = [
+        ...(boardMembers ?? []).map((m: any) => m.user_id),
+        ...(boardRow ? [boardRow.owner_id] : []),
+      ].filter((id: string) => id !== user.id);
+
+      if (collaboratorIds.length > 0) {
+        const { data: collabProfiles } = await admin
+          .from('profiles')
+          .select('id, name')
+          .in('id', collaboratorIds);
+
+        const mentionNotifs = (collabProfiles ?? [])
+          .filter((p: any) => p.name && mentionedNames.includes(p.name.toLowerCase()))
+          // Don't double-notify if they already got comment_on_my_tack or reply
+          .filter((p: any) => p.id !== notifRecipientId)
+          .map((p: any) => ({
+            recipient_id: p.id,
+            actor_id: user.id,
+            type: 'mention_in_comment',
+            board_id,
+            tack_id,
+            comment_id: inserted.id,
+          }));
+
+        if (mentionNotifs.length > 0) {
+          await supabase.from('notifications').insert(mentionNotifs);
+        }
+      }
     }
 
     return NextResponse.json({ comment });

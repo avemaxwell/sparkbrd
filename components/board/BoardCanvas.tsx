@@ -41,6 +41,8 @@ export default function BoardCanvas() {
   const [textBlocks, setTextBlocks] = useState<TextBlock[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 'owner' | 'editor' | 'viewer' — resolved after board loads
+  const [memberRole, setMemberRole] = useState<'owner' | 'editor' | 'viewer' | null>(null);
 
   useBoardSync(boardId, setBoard, setTacks, setTextBlocks);
 
@@ -124,9 +126,24 @@ const screenToCanvas = (screenX: number, screenY: number) => {
 
       setBoard(boardData);
 
+      // Resolve the current user's role on this board
+      if (profile) {
+        if (boardData.owner_id === profile.id) {
+          setMemberRole('owner');
+        } else {
+          const { data: membership } = await supabase
+            .from('board_members')
+            .select('role')
+            .eq('board_id', boardId)
+            .eq('user_id', profile.id)
+            .maybeSingle();
+          setMemberRole((membership?.role as 'editor' | 'viewer') ?? 'viewer');
+        }
+      }
+
       const { data: tacksData } = await supabase
         .from("tacks")
-        .select("*")
+        .select("*, added_by_profile:profiles!tacks_added_by_fkey(id, name, avatar_url)")
         .eq("board_id", boardId)
         .order("z_index", { ascending: true });
 
@@ -143,7 +160,7 @@ const screenToCanvas = (screenX: number, screenY: number) => {
     };
 
     loadBoard();
-  }, [boardId]);
+  }, [boardId, profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Check if we should auto-open the add tack modal
   useEffect(() => {
@@ -580,6 +597,7 @@ const handleTextRotateEnd = async () => {
     const newTack = {
       board_id: boardId,
       user_id: session.session.user.id,
+      added_by: session.session.user.id,
       content_url: url,
       note: note || null,
       source: source || null,
@@ -705,6 +723,9 @@ const handleTextRotateEnd = async () => {
     );
   }
 
+  // canEdit: owner and editors can mutate the board; viewers are read-only
+  const canEdit = memberRole === 'owner' || memberRole === 'editor';
+
   // Error state
   if (error || !board) {
     return (
@@ -742,16 +763,18 @@ return (
         </div>
         
         <div className="flex items-center gap-2">
-          {/* Mode toggle */}
+          {/* Mode toggle — Edit only shown to editors/owners */}
           <div className="bg-white/80 backdrop-blur-md rounded-full p-1 flex shadow-lg">
-            <button
-              onClick={() => { setCanvasMode('edit'); setCommentDrawerTack(null); }}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                canvasMode === 'edit' ? 'bg-ink text-white shadow-sm' : 'text-ink/60 hover:text-ink'
-              }`}
-            >
-              Edit
-            </button>
+            {canEdit && (
+              <button
+                onClick={() => { setCanvasMode('edit'); setCommentDrawerTack(null); }}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  canvasMode === 'edit' ? 'bg-ink text-white shadow-sm' : 'text-ink/60 hover:text-ink'
+                }`}
+              >
+                Edit
+              </button>
+            )}
             <button
               onClick={() => setCanvasMode('comment')}
               className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
@@ -766,7 +789,7 @@ return (
 
           <NotificationBell />
 
-          {canvasMode === 'edit' && collaborationEnabled && board && profile?.id === board.owner_id && (
+          {canEdit && collaborationEnabled && memberRole === 'owner' && (
             <button
               onClick={() => setSharePanelOpen(true)}
               className="hidden sm:flex items-center gap-1.5 bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink hover:bg-white transition-colors"
@@ -780,7 +803,7 @@ return (
             </button>
           )}
 
-          {canvasMode === 'edit' && (
+          {canEdit && memberRole === 'owner' && (
             <button
               onClick={() => setSettingsOpen(true)}
               className="hidden sm:block bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink hover:bg-white transition-colors"
@@ -848,26 +871,28 @@ return (
       transform: `rotate(${tack.rotation}deg)`,
     }}
   >
-    {/* Rotation handle */}
-    <div
-      className="absolute -top-8 left-1/2 -translate-x-1/2 w-7 h-7 bg-white rounded-full cursor-grab opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md hover:bg-papaya hover:scale-110 z-10"
-      onMouseDown={(e) => handleRotateStart(e, tack.id)}
-      title="Drag to rotate"
-    >
-      <svg className="w-3.5 h-3.5 stroke-ink/60 stroke-[1.5] fill-none" viewBox="0 0 24 24">
-        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
-      </svg>
-    </div>
+    {/* Rotation handle — editors/owners only */}
+    {canEdit && (
+      <div
+        className="absolute -top-8 left-1/2 -translate-x-1/2 w-7 h-7 bg-white rounded-full cursor-grab opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md hover:bg-papaya hover:scale-110 z-10"
+        onMouseDown={(e) => handleRotateStart(e, tack.id)}
+        title="Drag to rotate"
+      >
+        <svg className="w-3.5 h-3.5 stroke-ink/60 stroke-[1.5] fill-none" viewBox="0 0 24 24">
+          <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+        </svg>
+      </div>
+    )}
     {/* Tack content */}
     {(() => {
       const isPng = /\.png(\?.*)?$/i.test(tack.content_url);
       return (
         <div
-          className={`${isPng ? '' : 'bg-white p-2'} rounded-sm shadow-xl cursor-move transition-shadow duration-300 ${
-            dragging === tack.id ? 'shadow-2xl' : 'hover:shadow-xl'
-          }`}
-          onMouseDown={(e) => handleDragStart(e, tack.id, tack.position_x, tack.position_y)}
-          onTouchStart={(e) => handleTouchStart(e, tack.id, tack.position_x, tack.position_y)}
+          className={`${isPng ? '' : 'bg-white p-2'} rounded-sm shadow-xl transition-shadow duration-300 ${
+            canEdit ? 'cursor-move' : 'cursor-default'
+          } ${dragging === tack.id ? 'shadow-2xl' : 'hover:shadow-xl'}`}
+          onMouseDown={canEdit ? (e) => handleDragStart(e, tack.id, tack.position_x, tack.position_y) : undefined}
+          onTouchStart={canEdit ? (e) => handleTouchStart(e, tack.id, tack.position_x, tack.position_y) : undefined}
           onClick={(e) => {
             if (!dragging && !touching) {
               e.stopPropagation();
@@ -894,21 +919,43 @@ return (
     })()}
     
     {/* Pin */}
-    <div 
+    <div
       className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full shadow-md pointer-events-none"
       style={{ backgroundColor: pinColorPresets[tack.pin_color] || tack.pin_color }}
     />
+
+    {/* Attribution avatar — shown when a collaborator (non-owner) added this tack */}
+    {tack.added_by_profile && tack.added_by !== board?.owner_id && (
+      <div
+        className="absolute -bottom-2 -left-2 z-10 pointer-events-none"
+        title={`Added by ${tack.added_by_profile.name ?? 'a collaborator'}`}
+      >
+        {tack.added_by_profile.avatar_url ? (
+          <img
+            src={tack.added_by_profile.avatar_url}
+            alt={tack.added_by_profile.name ?? ''}
+            className="w-6 h-6 rounded-full border-2 border-white shadow-md object-cover"
+          />
+        ) : (
+          <div className="w-6 h-6 rounded-full border-2 border-white shadow-md bg-gradient-to-br from-blush to-mustard flex items-center justify-center text-white text-[9px] font-semibold">
+            {tack.added_by_profile.name?.[0]?.toUpperCase() ?? '?'}
+          </div>
+        )}
+      </div>
+    )}
     
-    {/* Resize Handle - bigger on mobile */}
-    <div
-      className="absolute -bottom-3 -right-3 w-8 h-8 md:w-6 md:h-6 bg-papaya rounded-full cursor-se-resize opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg active:scale-110"
-      onMouseDown={(e) => handleResizeStart(e, tack.id)}
-      onTouchStart={(e) => handleResizeTouchStart(e, tack.id)}
-    >
-      <svg className="w-3 h-3 text-white" viewBox="0 0 10 10" fill="none">
-        <path d="M1 9L9 1M5 9L9 5M9 9L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-      </svg>
-    </div>
+    {/* Resize Handle — editors/owners only */}
+    {canEdit && (
+      <div
+        className="absolute -bottom-3 -right-3 w-8 h-8 md:w-6 md:h-6 bg-papaya rounded-full cursor-se-resize opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg active:scale-110"
+        onMouseDown={(e) => handleResizeStart(e, tack.id)}
+        onTouchStart={(e) => handleResizeTouchStart(e, tack.id)}
+      >
+        <svg className="w-3 h-3 text-white" viewBox="0 0 10 10" fill="none">
+          <path d="M1 9L9 1M5 9L9 5M9 9L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      </div>
+    )}
   </div>
 ))}
 {/* Text Blocks */}
@@ -916,7 +963,7 @@ return (
             <div
               key={text.id}
               id={`text-wrapper-${text.id}`}
-              className={`absolute cursor-move group ${
+              className={`absolute group ${canEdit ? 'cursor-move' : 'cursor-default'} ${
                 dragging === `text-${text.id}` || textResizing === text.id || textRotating === text.id ? 'z-50' : 'hover:z-10'
               }`}
               style={{
@@ -925,8 +972,8 @@ return (
                 width: text.width,
                 transform: `rotate(${text.rotation}deg)`,
               }}
-              onMouseDown={(e) => handleDragStart(e, `text-${text.id}`, text.position_x, text.position_y)}
-              onTouchStart={(e) => handleTouchStart(e, `text-${text.id}`, text.position_x, text.position_y)}
+              onMouseDown={canEdit ? (e) => handleDragStart(e, `text-${text.id}`, text.position_x, text.position_y) : undefined}
+              onTouchStart={canEdit ? (e) => handleTouchStart(e, `text-${text.id}`, text.position_x, text.position_y) : undefined}
               onClick={(e) => {
                 if (!dragging && !touching && !textResizing && !textRotating) {
                   e.stopPropagation();
@@ -934,16 +981,18 @@ return (
                 }
               }}
             >
-              {/* Text rotate handle */}
-              <div
-                className="absolute -top-8 left-1/2 -translate-x-1/2 w-7 h-7 bg-white rounded-full cursor-grab opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md hover:bg-papaya hover:scale-110 z-10"
-                onMouseDown={(e) => handleTextRotateStart(e, text.id)}
-                title="Drag to rotate"
-              >
-                <svg className="w-3.5 h-3.5 stroke-ink/60 stroke-[1.5] fill-none" viewBox="0 0 24 24">
-                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
-                </svg>
-              </div>
+              {/* Text rotate handle — editors/owners only */}
+              {canEdit && (
+                <div
+                  className="absolute -top-8 left-1/2 -translate-x-1/2 w-7 h-7 bg-white rounded-full cursor-grab opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md hover:bg-papaya hover:scale-110 z-10"
+                  onMouseDown={(e) => handleTextRotateStart(e, text.id)}
+                  title="Drag to rotate"
+                >
+                  <svg className="w-3.5 h-3.5 stroke-ink/60 stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                  </svg>
+                </div>
+              )}
               <p
                   className={`${
                     text.font_style === 'heading' ? 'font-serif font-bold' :
@@ -963,15 +1012,17 @@ return (
                 >
                   {text.content}
                 </p>
-              {/* Text resize handle */}
-              <div
-                className="absolute -bottom-3 -right-3 w-7 h-7 bg-papaya rounded-full cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md z-10"
-                onMouseDown={(e) => handleTextResizeStart(e, text.id)}
-              >
-                <svg className="w-3 h-3 text-white" viewBox="0 0 10 10" fill="none">
-                  <path d="M1 9L9 1M5 9L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </div>
+              {/* Text resize handle — editors/owners only */}
+              {canEdit && (
+                <div
+                  className="absolute -bottom-3 -right-3 w-7 h-7 bg-papaya rounded-full cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md z-10"
+                  onMouseDown={(e) => handleTextResizeStart(e, text.id)}
+                >
+                  <svg className="w-3 h-3 text-white" viewBox="0 0 10 10" fill="none">
+                    <path d="M1 9L9 1M5 9L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                </div>
+              )}
             </div>
           ))}
 
@@ -985,12 +1036,16 @@ return (
         <div className="fixed inset-0 z-20 flex items-center justify-center pointer-events-none">
           <div className="text-center bg-white/80 backdrop-blur-md rounded-2xl px-8 py-6 shadow-xl pointer-events-auto">
             <p className="text-lg text-ink mb-4 font-serif">This board is empty</p>
-            <button
-              onClick={() => setAddModalOpen(true)}
-              className="px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors"
-            >
-              Tack your first image
-            </button>
+            {canEdit ? (
+              <button
+                onClick={() => setAddModalOpen(true)}
+                className="px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors"
+              >
+                Tack your first image
+              </button>
+            ) : (
+              <p className="text-sm text-ink/40">Nothing here yet.</p>
+            )}
           </div>
         </div>
       )}
@@ -1022,33 +1077,36 @@ return (
         </button>
       </div>
 
-      {/* Bottom buttons */}
-      <div
-        className="fixed left-6 z-40 flex gap-2"
-        style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
-      >
-        <button
-          onClick={() => setAddTextModalOpen(true)}
-          className="bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink hover:bg-white transition-colors flex items-center gap-2"
-        >
-          <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
-            <path d="M4 7V4h16v3M9 20h6M12 4v16"/>
-          </svg>
-          <span className="hidden sm:inline">Add Text</span>
-          <span className="sm:hidden">Text</span>
-        </button>
+      {/* Bottom buttons — editors/owners only */}
+      {canEdit && (
+        <>
+          <div
+            className="fixed left-6 z-40 flex gap-2"
+            style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+          >
+            <button
+              onClick={() => setAddTextModalOpen(true)}
+              className="bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink hover:bg-white transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
+                <path d="M4 7V4h16v3M9 20h6M12 4v16"/>
+              </svg>
+              <span className="hidden sm:inline">Add Text</span>
+              <span className="sm:hidden">Text</span>
+            </button>
+          </div>
 
-      </div>
-
-      <button
-        onClick={() => setAddModalOpen(true)}
-        className="fixed right-6 w-14 h-14 rounded-full bg-papaya text-white flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-transform z-40"
-        style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
-      >
-        <svg className="w-6 h-6 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
-          <path d="M12 5v14M5 12h14"/>
-        </svg>
-      </button>
+          <button
+            onClick={() => setAddModalOpen(true)}
+            className="fixed right-6 w-14 h-14 rounded-full bg-papaya text-white flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-transform z-40"
+            style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+          >
+            <svg className="w-6 h-6 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+          </button>
+        </>
+      )}
 
       {/* Modals */}
       {settingsOpen && (
