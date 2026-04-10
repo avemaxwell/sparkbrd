@@ -1876,7 +1876,7 @@ function AddTackModal({
               <div className="mb-4">
                 <label className="text-sm text-ink-soft mb-2 block">Page URL</label>
                 <div className="flex gap-2">
-                  <input type="url" value={scrapeUrl} onChange={(e) => setScrapeUrl(e.target.value)} placeholder="marthastewart.com, apartmenttherapy.com…" className="flex-1 bg-ink/5 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-papaya/30" />
+                  <input type="url" value={scrapeUrl} onChange={(e) => setScrapeUrl(e.target.value)} placeholder="Paste a page URL to find images" className="flex-1 bg-ink/5 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-papaya/30" />
                   <button type="button" onClick={handleScrape} disabled={!scrapeUrl || scraping} className="px-4 py-2 bg-ink text-white rounded-xl text-sm font-medium hover:bg-ink/80 transition-colors disabled:opacity-50">{scraping ? "Finding..." : "Find Images"}</button>
                 </div>
               </div>

@@ -164,7 +164,15 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
-      return NextResponse.json({ error: `Could not access that page (${response.status})` }, { status: 400 });
+      const hint =
+        response.status === 402 || response.status === 403
+          ? 'This site blocks automated access. Try copying the image URL directly instead.'
+          : response.status === 429
+          ? 'This site is rate-limiting requests. Try again in a moment.'
+          : response.status >= 500
+          ? 'The site is having issues right now. Try again later.'
+          : `This page couldn't be reached (${response.status}).`;
+      return NextResponse.json({ error: hint }, { status: 400 });
     }
 
     const contentType = response.headers.get('content-type') || '';
