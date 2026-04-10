@@ -5,18 +5,21 @@ const IMAGE_EXTENSIONS = /\.(jpe?g|png|gif|webp|avif|bmp|tiff?)(\?.*)?$/i;
 
 // Patterns that indicate non-content images to skip
 const SKIP_PATTERNS = [
-  /\d+x\d+/,           // dimension strings like 1x1, 2x2 (tracking pixels)
+  /\b1x1\b|\b2x2\b|\b0x0\b/,   // tracking pixel dimensions
   /pixel/i,
   /tracker/i,
   /analytics/i,
   /beacon/i,
-  /\.gif(\?.*)?$/i,    // skip GIFs (usually animations or trackers)
-  /^data:/,            // skip inline base64
+  /\.gif(\?.*)?$/i,
+  /^data:/,
   /spacer/i,
   /placeholder/i,
-  /blank/i,
-  /loading/i,
+  /blank\.(?:png|jpg|gif)/i,
+  /loading\.(?:png|jpg|gif|svg)/i,
   /spinner/i,
+  /logo\.(?:png|jpg|svg)/i,      // skip logos
+  /favicon/i,
+  /icon\.(?:png|jpg|svg)/i,
 ];
 
 // Known image CDN / hosting hostnames — accept even without extension
@@ -37,16 +40,40 @@ const IMAGE_CDN_HOSTS = [
   'supabase.in/storage',
   'imagekit.io',
   'res.cloudinary.com',
+  // Dotdash Meredith (Martha Stewart, AllRecipes, Real Simple, etc.)
+  'meredithcorp.io',
+  'dotdash-meredith',
+  'dotdashmeredith',
+  // Hearst (House Beautiful, Elle Decor, etc.)
+  'hearstapps.com',
+  'hips.hearstapps.com',
+  // Condé Nast
+  'condenastdigital.com',
+  'assets.vogue.com',
+  'media.gq.com',
+  // News / media CDNs
+  's-nbcnews.com',
+  'media.cnn.com',
+  'static01.nyt.com',
+  'images.wsj.net',
+  'wp.com',
+  // General purpose CDNs
+  'akamaized.net',
+  'fastly.net',
+  'imgix.net',
+  'media.istockphoto.com',
+  'images.getty',
+  'gettyimages.com',
+  'shutterstatic.com',
+  'assets.epicurious.com',
+  'cdn.britannica.com',
 ];
 
 function isLikelyImage(imageUrl: string): boolean {
   try {
     const u = new URL(imageUrl);
-
-    // Skip data URIs
     if (u.protocol === 'data:') return false;
 
-    // Skip obvious non-images
     for (const pattern of SKIP_PATTERNS) {
       if (pattern.test(imageUrl)) return false;
     }
@@ -59,8 +86,11 @@ function isLikelyImage(imageUrl: string): boolean {
     // Accept URLs with image extensions
     if (IMAGE_EXTENSIONS.test(u.pathname)) return true;
 
-    // Accept URLs where query params contain image extension hints (e.g. ?format=jpg)
+    // Accept URLs where query params contain image extension hints
     if (/format=(jpe?g|png|webp|avif)/i.test(u.search)) return true;
+
+    // Accept URLs that look like image resizers (w=, h=, width=, quality=)
+    if (/[?&](w|h|width|height|quality|q)=\d/.test(u.search) && /image/i.test(u.pathname)) return true;
 
     return false;
   } catch {
@@ -70,7 +100,7 @@ function isLikelyImage(imageUrl: string): boolean {
 
 function resolveUrl(src: string, pageUrl: string): string | null {
   try {
-    if (src.startsWith('data:')) return null;
+    if (!src || src.startsWith('data:')) return null;
     if (src.startsWith('//')) return 'https:' + src;
     if (src.startsWith('http')) return src;
     const base = new URL(pageUrl);
@@ -78,6 +108,23 @@ function resolveUrl(src: string, pageUrl: string): string | null {
     return base.origin + '/' + src;
   } catch {
     return null;
+  }
+}
+
+// Recursively walk any JSON value and collect image-looking strings
+function extractImagesFromJson(obj: unknown, addImage: (src: string) => void): void {
+  if (typeof obj === 'string') {
+    if (obj.startsWith('http') && obj.length < 2000 && isLikelyImage(obj)) addImage(obj);
+    return;
+  }
+  if (Array.isArray(obj)) {
+    for (const v of obj) extractImagesFromJson(v, addImage);
+    return;
+  }
+  if (obj && typeof obj === 'object') {
+    for (const v of Object.values(obj as Record<string, unknown>)) {
+      extractImagesFromJson(v, addImage);
+    }
   }
 }
 
@@ -89,7 +136,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 });
     }
 
-    // Validate the input URL
     let parsedUrl: URL;
     try {
       parsedUrl = new URL(url);
@@ -102,22 +148,30 @@ export async function POST(request: Request) {
 
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
       },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(12000),
     });
 
     if (!response.ok) {
-      return NextResponse.json({ error: 'Failed to fetch URL' }, { status: 400 });
+      return NextResponse.json({ error: `Could not access that page (${response.status})` }, { status: 400 });
     }
 
     const contentType = response.headers.get('content-type') || '';
+    if (contentType.startsWith('image/')) {
+      return NextResponse.json({ images: [url], source: parsedUrl.hostname.replace('www.', '') });
+    }
     if (!contentType.includes('text/html')) {
-      // The URL itself is an image — return it directly
-      if (contentType.startsWith('image/')) {
-        return NextResponse.json({ images: [url], source: parsedUrl.hostname.replace('www.', '') });
-      }
       return NextResponse.json({ error: 'URL did not return an HTML page' }, { status: 400 });
     }
 
@@ -137,44 +191,87 @@ export async function POST(request: Request) {
       images.push(resolved);
     };
 
-    // og:image first — highest quality, intentional
-    $('meta[property="og:image"], meta[name="twitter:image"]').each((_, el) => {
+    // ── 1. Meta tags (og:image, twitter:image) ─────────────────────────────
+    $('meta[property="og:image"], meta[name="twitter:image"], meta[property="og:image:secure_url"]').each((_, el) => {
       addImage($(el).attr('content'));
     });
 
-    // srcset — extract all URLs
+    // ── 2. JSON-LD structured data ─────────────────────────────────────────
+    $('script[type="application/ld+json"]').each((_, el) => {
+      try {
+        const data = JSON.parse($(el).html() || '');
+        extractImagesFromJson(data, addImage);
+      } catch { /* malformed JSON, skip */ }
+    });
+
+    // ── 3. __NEXT_DATA__ (Next.js SSR pages) ──────────────────────────────
+    const nextDataEl = $('#__NEXT_DATA__');
+    if (nextDataEl.length) {
+      try {
+        const nextData = JSON.parse(nextDataEl.html() || '');
+        extractImagesFromJson(nextData, addImage);
+      } catch { /* malformed, skip */ }
+    }
+
+    // ── 4. Other inline JSON in script tags (Nuxt, SvelteKit, etc.) ───────
+    $('script[type="application/json"], script#__NUXT_DATA__, script#__SVELTE__').each((_, el) => {
+      try {
+        const data = JSON.parse($(el).html() || '');
+        extractImagesFromJson(data, addImage);
+      } catch { /* skip */ }
+    });
+
+    // ── 5. srcset attributes ───────────────────────────────────────────────
     $('img[srcset], source[srcset]').each((_, el) => {
       const srcset = $(el).attr('srcset') || '';
       for (const part of srcset.split(',')) {
-        const trimmed = part.trim().split(/\s+/)[0];
-        addImage(trimmed);
+        addImage(part.trim().split(/\s+/)[0]);
       }
     });
 
-    // Standard img src + data-src (lazy loading)
+    // ── 6. Standard img src + common lazy-load attributes ─────────────────
     $('img').each((_, el) => {
-      addImage($(el).attr('src'));
-      addImage($(el).attr('data-src'));
-      addImage($(el).attr('data-lazy-src'));
-      addImage($(el).attr('data-original'));
+      const $el = $(el);
+      for (const attr of ['src', 'data-src', 'data-lazy-src', 'data-original',
+                          'data-img-src', 'data-lazy', 'data-delayed-url',
+                          'data-srcset', 'data-hi-res-src']) {
+        addImage($el.attr(attr));
+      }
     });
 
-    // CSS background images in style attributes
+    // ── 7. picture source tags ─────────────────────────────────────────────
+    $('source[src]').each((_, el) => addImage($(el).attr('src')));
+
+    // ── 8. CSS background images in style attributes ───────────────────────
     $('[style]').each((_, el) => {
       const style = $(el).attr('style') || '';
       const match = style.match(/url\(['"]?([^'")\s]+)['"]?\)/i);
       if (match) addImage(match[1]);
     });
 
+    // ── 9. Scan all script content for image URLs via regex ────────────────
+    //      Catches client-side rendered pages that embed image URLs in JS bundles.
+    if (images.length < 5) {
+      $('script:not([src])').each((_, el) => {
+        const scriptContent = $(el).html() || '';
+        // Only scan reasonably-sized inline scripts
+        if (scriptContent.length > 500000) return;
+        const matches = scriptContent.matchAll(/https?:\/\/[^\s"'`\\,\]>]{10,500}/g);
+        for (const m of matches) {
+          addImage(m[0].replace(/[);,\]}>'"\\]+$/, ''));
+        }
+      });
+    }
+
     const source = parsedUrl.hostname.replace('www.', '');
 
     return NextResponse.json({
-      images: images.slice(0, 40),
+      images: images.slice(0, 60),
       source,
     });
 
   } catch (error) {
     console.error('Scrape error:', error);
-    return NextResponse.json({ error: 'Failed to scrape images' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch images from that page' }, { status: 500 });
   }
 }

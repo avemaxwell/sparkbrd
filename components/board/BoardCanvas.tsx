@@ -1735,9 +1735,13 @@ function AddTackModal({
     setSelectedImages(new Set());
     setAiWarning(null);
     try {
-      const response = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: scrapeUrl }) });
+      // Normalize URL: prepend https:// if no protocol present
+      const normalizedUrl = /^https?:\/\//i.test(scrapeUrl.trim())
+        ? scrapeUrl.trim()
+        : `https://${scrapeUrl.trim()}`;
+      const response = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: normalizedUrl }) });
       const data = await response.json();
-      if (data.error) { console.error('Scrape error:', data.error); alert('Could not fetch images from this URL'); }
+      if (data.error) { console.error('Scrape error:', data.error); alert(data.error); }
       else { setScrapedImages(data.images || []); setScrapedSource(data.source || ''); }
     } catch (error) { console.error('Scrape failed:', error); alert('Failed to fetch images'); }
     setScraping(false);
@@ -1872,7 +1876,7 @@ function AddTackModal({
               <div className="mb-4">
                 <label className="text-sm text-ink-soft mb-2 block">Page URL</label>
                 <div className="flex gap-2">
-                  <input type="url" value={scrapeUrl} onChange={(e) => setScrapeUrl(e.target.value)} placeholder="https://example.com/article" className="flex-1 bg-ink/5 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-papaya/30" />
+                  <input type="url" value={scrapeUrl} onChange={(e) => setScrapeUrl(e.target.value)} placeholder="marthastewart.com, apartmenttherapy.com…" className="flex-1 bg-ink/5 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-papaya/30" />
                   <button type="button" onClick={handleScrape} disabled={!scrapeUrl || scraping} className="px-4 py-2 bg-ink text-white rounded-xl text-sm font-medium hover:bg-ink/80 transition-colors disabled:opacity-50">{scraping ? "Finding..." : "Find Images"}</button>
                 </div>
               </div>
