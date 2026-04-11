@@ -6,13 +6,13 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
     const limit = Math.min(parseInt(searchParams.get('limit') || '40'), 80);
+    const q = searchParams.get('q')?.trim() ?? '';
 
     // Get current user (optional — personalization only if logged in)
     const { data: { user } } = await supabase.auth.getUser();
 
-    // Fetch tacks from public boards, joined with board owner info
-    // Exclude the current user's own tacks from the feed
-    const { data: publicTacks, error } = await supabase
+    // Fetch tacks from public boards
+    let query = supabase
       .from('tacks')
       .select(`
         id,
@@ -20,20 +20,51 @@ export async function GET(request: Request) {
         title,
         source,
         board_id,
+        tags,
         boards!inner(id, name, owner_id, is_public)
       `)
       .eq('boards.is_public', true)
-      .order('created_at', { ascending: false })
-      .limit(200);
+      .order('created_at', { ascending: false });
+
+    // If searching, filter server-side on title, source, and tags
+    if (q) {
+      query = query.or(`title.ilike.%${q}%,source.ilike.%${q}%`);
+    } else {
+      query = query.limit(200);
+    }
+
+    const { data: publicTacks, error } = await query;
 
     if (error || !publicTacks || publicTacks.length === 0) {
       return NextResponse.json({ tacks: [], personalized: false });
     }
 
+    // Tag-based client filter when searching (tags is an array column)
+    const filtered = q
+      ? publicTacks.filter(t => {
+          const lower = q.toLowerCase();
+          if (t.title?.toLowerCase().includes(lower)) return true;
+          if (t.source?.toLowerCase().includes(lower)) return true;
+          if (Array.isArray(t.tags) && t.tags.some((tag: string) => tag.toLowerCase().includes(lower))) return true;
+          return false;
+        })
+      : publicTacks;
+
+    // If searching, skip personalization — just return deduped results
+    if (q) {
+      const seen = new Set<string>();
+      const feed = filtered.filter(t => {
+        if (seen.has(t.content_url)) return false;
+        seen.add(t.content_url);
+        return true;
+      }).slice(0, limit);
+      return NextResponse.json({ tacks: feed, personalized: false });
+    }
+
     // If not logged in — return latest public tacks, deduped by URL
     if (!user) {
       const seen = new Set<string>();
-      const feed = publicTacks.filter(t => {
+      const feed = filtered.filter(t => {
         if (seen.has(t.content_url)) return false;
         seen.add(t.content_url);
         return true;
@@ -69,7 +100,7 @@ export async function GET(request: Request) {
     }
 
     // Score each public tack by interest overlap
-    const scored = publicTacks
+    const scored = filtered
       .filter(t => !myUrls.has(t.content_url)) // never show things they already have
       .map(t => {
         let score = 0;

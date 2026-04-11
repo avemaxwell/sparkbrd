@@ -1,15 +1,15 @@
 // Plan limits configuration
 export const PLAN_LIMITS = {
   free: {
-    max_boards: 10,
-    max_tacks_per_board: 50,
+    max_boards: 5,
+    max_tacks_per_board: 25,
     custom_colors: false,
     export_boards: false,
     collaboration: false,
     no_branding: false,
   },
   pro: {
-    max_boards: Infinity,
+    max_boards: 50,
     max_tacks_per_board: 200,
     custom_colors: true,
     export_boards: true,
@@ -58,11 +58,11 @@ export function getUpgradeMessage(plan: Plan | null | undefined, feature: Featur
   const userPlan = plan || 'free';
   
   if (feature === 'max_boards') {
-    return userPlan === 'free' 
-      ? 'Upgrade to Pro for unlimited boards'
+    return userPlan === 'free'
+      ? 'Upgrade to Pro for up to 50 boards'
       : "You've reached your board limit";
   }
-  
+
   if (feature === 'max_tacks_per_board') {
     if (userPlan === 'free') return 'Upgrade to Pro for 200 tacks per board';
     if (userPlan === 'pro') return 'Upgrade to Team for unlimited tacks';

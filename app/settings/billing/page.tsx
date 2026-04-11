@@ -101,13 +101,13 @@ export default function BillingPage() {
                 <svg className="w-5 h-5 stroke-green-600 stroke-2 fill-none flex-shrink-0 mt-0.5" viewBox="0 0 24 24">
                   <polyline points="20 6 9 17 4 12"/>
                 </svg>
-                <span className="text-ink/70">10 boards</span>
+                <span className="text-ink/70">5 boards</span>
               </li>
               <li className="flex items-start gap-3">
                 <svg className="w-5 h-5 stroke-green-600 stroke-2 fill-none flex-shrink-0 mt-0.5" viewBox="0 0 24 24">
                   <polyline points="20 6 9 17 4 12"/>
                 </svg>
-                <span className="text-ink/70">50 tacks per board</span>
+                <span className="text-ink/70">25 tacks per board</span>
               </li>
               <li className="flex items-start gap-3">
                 <svg className="w-5 h-5 stroke-green-600 stroke-2 fill-none flex-shrink-0 mt-0.5" viewBox="0 0 24 24">
@@ -137,7 +137,7 @@ export default function BillingPage() {
             <div className="mb-6">
               <h2 className="text-2xl font-semibold mb-2">Pro</h2>
               <div className="flex items-baseline gap-1">
-                <span className="text-5xl font-bold">$8</span>
+                <span className="text-5xl font-bold">$10</span>
                 <span className="text-ink/60">/mo</span>
               </div>
             </div>
@@ -147,7 +147,7 @@ export default function BillingPage() {
                 <svg className="w-5 h-5 stroke-green-600 stroke-2 fill-none flex-shrink-0 mt-0.5" viewBox="0 0 24 24">
                   <polyline points="20 6 9 17 4 12"/>
                 </svg>
-                <span className="text-ink/70">Unlimited boards</span>
+                <span className="text-ink/70">50 boards</span>
               </li>
               <li className="flex items-start gap-3">
                 <svg className="w-5 h-5 stroke-green-600 stroke-2 fill-none flex-shrink-0 mt-0.5" viewBox="0 0 24 24">

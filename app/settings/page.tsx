@@ -294,6 +294,11 @@ function ProfileSection({ onUpdate }: { onUpdate: () => void }) {
 // ============================================================================
 
 function AccountSection({ profile }: { profile: any }) {
+  const [showDowngradeConfirm, setShowDowngradeConfirm] = useState(false);
+  const [downgrading, setDowngrading] = useState(false);
+  const [downgradeResult, setDowngradeResult] = useState<{ deleted_boards: { id: string; name: string }[] } | null>(null);
+  const { refreshProfile } = useUser();
+
   const planDetails = {
     free: {
       name: "Free",
@@ -303,7 +308,7 @@ function AccountSection({ profile }: { profile: any }) {
     },
     pro: {
       name: "Pro",
-      price: "$8/mo",
+      price: "$10/mo",
       color: "text-papaya",
       bgColor: "bg-papaya/10",
     },
@@ -316,9 +321,29 @@ function AccountSection({ profile }: { profile: any }) {
   };
 
   const currentPlan = planDetails[profile.plan as keyof typeof planDetails] || planDetails.free;
-  const limits = profile.plan_limits || { max_boards: 10, max_tacks_per_board: 50 };
+  const limits = profile.plan_limits || { max_boards: 5, max_tacks_per_board: 25 };
   const boardsUsed = profile.board_count || 0;
   const boardsPercent = limits.max_boards === -1 ? 0 : (boardsUsed / limits.max_boards) * 100;
+  const FREE_BOARD_LIMIT = 5;
+  const boardsToDelete = Math.max(0, boardsUsed - FREE_BOARD_LIMIT);
+
+  const handleDowngrade = async () => {
+    setDowngrading(true);
+    try {
+      const res = await fetch('/api/downgrade', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        setDowngradeResult(data);
+        setShowDowngradeConfirm(false);
+        refreshProfile();
+      } else {
+        alert(data.error ?? 'Downgrade failed. Please try again.');
+      }
+    } catch {
+      alert('Downgrade failed. Please try again.');
+    }
+    setDowngrading(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -336,14 +361,23 @@ function AccountSection({ profile }: { profile: any }) {
               <span className="text-ink-soft">{currentPlan.price}</span>
             </div>
           </div>
-          {profile.plan === "free" && (
-            <Link
-              href="/settings/billing"
-              className="px-5 py-2.5 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors"
-            >
-              Upgrade
-            </Link>
-          )}
+          <div className="flex items-center gap-2">
+            {profile.plan === "free" ? (
+              <Link
+                href="/settings/billing"
+                className="px-5 py-2.5 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors"
+              >
+                Upgrade
+              </Link>
+            ) : (
+              <button
+                onClick={() => setShowDowngradeConfirm(true)}
+                className="px-5 py-2.5 bg-ink/5 text-ink/60 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors"
+              >
+                Downgrade to Free
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Usage Stats */}
@@ -374,6 +408,65 @@ function AccountSection({ profile }: { profile: any }) {
         </div>
       </div>
 
+      {/* Downgrade success notice */}
+      {downgradeResult && (
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
+          <p className="text-sm font-medium text-green-800 mb-1">You&apos;ve been moved to the Free plan.</p>
+          {downgradeResult.deleted_boards.length > 0 ? (
+            <>
+              <p className="text-xs text-green-700 mb-2">
+                The following boards were deleted to stay within the 5-board limit:
+              </p>
+              <ul className="text-xs text-green-700 space-y-0.5 list-disc list-inside">
+                {downgradeResult.deleted_boards.map(b => (
+                  <li key={b.id}>{b.name}</li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="text-xs text-green-700">No boards were deleted — you were within the limit.</p>
+          )}
+        </div>
+      )}
+
+      {/* Downgrade confirmation dialog */}
+      {showDowngradeConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowDowngradeConfirm(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+            <h3 className="font-serif text-xl mb-2">Downgrade to Free?</h3>
+            <p className="text-sm text-ink/60 mb-4">
+              Your plan will be cancelled and you&apos;ll be moved to the Free plan immediately.
+            </p>
+            {boardsToDelete > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+                <p className="text-sm text-amber-800 font-medium">
+                  {boardsToDelete} board{boardsToDelete !== 1 ? 's' : ''} will be deleted
+                </p>
+                <p className="text-xs text-amber-700 mt-1">
+                  You have {boardsUsed} boards. The Free plan allows 5. Your {boardsToDelete} least-recently-updated board{boardsToDelete !== 1 ? 's' : ''} will be permanently deleted.
+                </p>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={handleDowngrade}
+                disabled={downgrading}
+                className="flex-1 px-4 py-2.5 bg-ink text-white rounded-full text-sm font-medium hover:bg-ink/80 transition-colors disabled:opacity-50"
+              >
+                {downgrading ? 'Downgrading…' : 'Yes, downgrade'}
+              </button>
+              <button
+                onClick={() => setShowDowngradeConfirm(false)}
+                className="flex-1 px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Plan Comparison */}
       <div className="bg-white rounded-2xl shadow-sm p-6">
         <h3 className="font-serif text-xl mb-4">Compare Plans</h3>
@@ -386,11 +479,11 @@ function AccountSection({ profile }: { profile: any }) {
             <ul className="text-sm text-ink-soft space-y-2">
               <li className="flex items-center gap-2">
                 <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                10 boards
+                5 boards
               </li>
               <li className="flex items-center gap-2">
                 <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                50 tacks per board
+                25 tacks per board
               </li>
               <li className="flex items-center gap-2">
                 <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
@@ -405,11 +498,11 @@ function AccountSection({ profile }: { profile: any }) {
               Popular
             </div>
             <p className="font-semibold mb-1">Pro</p>
-            <p className="text-2xl font-bold mb-3">$8<span className="text-sm font-normal text-ink-soft">/mo</span></p>
+            <p className="text-2xl font-bold mb-3">$10<span className="text-sm font-normal text-ink-soft">/mo</span></p>
             <ul className="text-sm text-ink-soft space-y-2">
               <li className="flex items-center gap-2">
                 <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                Unlimited boards
+                50 boards
               </li>
               <li className="flex items-center gap-2">
                 <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
