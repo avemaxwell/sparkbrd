@@ -9,6 +9,14 @@ import { usePlan } from "@/hooks/usePlan";
 import { canCreateBoard, getUpgradeMessage } from "@/lib/plan-limits";
 import UpgradeModal from "@/components/UpgradeModal";
 
+interface Team {
+  id: string;
+  name: string;
+  slug: string;
+  avatar_color: string;
+  _member_role: string;
+}
+
 type SharedBoard = Board & { _role: 'editor' | 'viewer'; _ownerName: string | null };
 
 const BOARD_GRADIENTS = [
@@ -129,9 +137,10 @@ export default function BoardsSection() {
   const router = useRouter();
   const [ownedBoards, setOwnedBoards] = useState<Board[]>([]);
   const [sharedBoards, setSharedBoards] = useState<SharedBoard[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [boardImages, setBoardImages] = useState<Record<string, string[]>>({});
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const { plan, isFreePlan } = usePlan();
+  const { plan, isFreePlan, isTeamPlan } = usePlan();
 
   useEffect(() => {
     const fetchBoards = async () => {
@@ -173,6 +182,13 @@ export default function BoardsSection() {
       }
 
       setSharedBoards(sharedRaw);
+
+      // Teams
+      const teamsRes = await fetch('/api/teams');
+      if (teamsRes.ok) {
+        const { teams: teamsData } = await teamsRes.json();
+        setTeams(teamsData ?? []);
+      }
 
       // Fetch preview images for all boards
       const allBoards = [...fetchedOwned, ...sharedRaw];
@@ -318,6 +334,52 @@ export default function BoardsSection() {
                     ))}
                   </div>
                 </>
+              )}
+
+              {/* ── Team workspaces ── */}
+              {teams.length > 0 && (
+                <>
+                  <div className="mb-6 mt-10">
+                    <h2 className="font-serif text-2xl md:text-3xl text-ink/90 leading-none">Team Workspaces</h2>
+                    <p className="text-ink/40 text-sm mt-1.5">Shared with your teams</p>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {teams.map(team => (
+                      <Link
+                        key={team.id}
+                        href={`/team/${team.slug}`}
+                        className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-sm border border-ink/5 hover:shadow-md hover:-translate-y-0.5 transition-all"
+                      >
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-semibold text-base flex-shrink-0"
+                          style={{ backgroundColor: team.avatar_color }}
+                        >
+                          {team.name[0]?.toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm text-ink leading-none">{team.name}</p>
+                          <p className="text-[11px] text-ink/40 mt-0.5 capitalize">{team._member_role}</p>
+                        </div>
+                        <svg className="w-4 h-4 stroke-ink/25 stroke-[1.5] fill-none ml-1" viewBox="0 0 24 24">
+                          <path d="M9 18l6-6-6-6"/>
+                        </svg>
+                      </Link>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* ── Create team prompt for team plan users with no teams ── */}
+              {isTeamPlan && teams.length === 0 && (
+                <div className="mt-10 p-6 border-2 border-dashed border-ink/10 rounded-2xl flex flex-col items-center gap-3 text-center">
+                  <p className="text-ink/60 text-sm font-medium">You have a Team plan — create your first workspace</p>
+                  <Link
+                    href="/settings?tab=team"
+                    className="px-4 py-2 bg-papaya text-white text-sm rounded-full hover:bg-papaya/90 transition-colors"
+                  >
+                    Create team workspace
+                  </Link>
+                </div>
               )}
             </>
           )}
