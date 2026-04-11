@@ -374,7 +374,7 @@ export default function BoardsSection() {
                 <div className="mt-10 p-6 border-2 border-dashed border-ink/10 rounded-2xl flex flex-col items-center gap-3 text-center">
                   <p className="text-ink/60 text-sm font-medium">You have a Team plan — create your first workspace</p>
                   <Link
-                    href="/settings?tab=team"
+                    href="/team/new"
                     className="px-4 py-2 bg-papaya text-white text-sm rounded-full hover:bg-papaya/90 transition-colors"
                   >
                     Create team workspace
