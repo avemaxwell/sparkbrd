@@ -2,9 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { resetUserCache } from "@/hooks/useUser";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 const PLANS = [
   {
@@ -39,7 +37,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  const [submitted, setSubmitted] = useState(false);
   const supabase = createClient();
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -50,18 +48,47 @@ export default function SignupPage() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name } },
+      options: {
+        data: { name },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
 
     if (error) {
       setError(error.message);
       setLoading(false);
     } else {
-      resetUserCache();
-      router.push("/");
-      router.refresh();
+      setSubmitted(true);
     }
   };
+
+  if (submitted) {
+    return (
+      <div className="min-h-screen bg-cork-warm flex items-center justify-center px-4">
+        <div className="w-full max-w-md text-center">
+          <Link href="/" className="font-serif text-4xl">
+            Spark<span className="text-papaya">urio</span>
+          </Link>
+          <div className="mt-8 bg-white rounded-2xl p-8 shadow-xl">
+            <div className="w-14 h-14 bg-papaya/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-7 h-7 stroke-papaya stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+            </div>
+            <h2 className="font-serif text-2xl text-ink mb-2">Check your email</h2>
+            <p className="text-sm text-ink/50 mb-1">
+              We sent a confirmation link to
+            </p>
+            <p className="text-sm font-medium text-ink mb-5">{email}</p>
+            <p className="text-xs text-ink/40">
+              Click the link in the email to activate your account. Check your spam folder if you don&apos;t see it.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-cork-warm py-12 px-4">
