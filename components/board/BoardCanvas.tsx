@@ -171,6 +171,20 @@ const screenToCanvas = (screenX: number, screenY: number) => {
     }
   }, [boardId]);
 
+  // Auto-open CommentDrawer for a specific tack (from notification click: ?tack=<id>)
+  const tackParamHandled = useRef(false);
+  useEffect(() => {
+    if (tackParamHandled.current || tacks.length === 0) return;
+    const tackId = new URLSearchParams(window.location.search).get('tack');
+    if (!tackId) return;
+    const found = tacks.find(t => t.id === tackId);
+    if (found) {
+      setCommentDrawerTack(found);
+      tackParamHandled.current = true;
+      window.history.replaceState({}, '', `/board/${boardId}`);
+    }
+  }, [tacks, boardId]);
+
   // Bring an element to the front (highest z_index) on interaction
   const bringToFront = (id: string, type: 'tack' | 'text') => {
     if (!canEdit) return;
@@ -621,6 +635,7 @@ const handleTextRotateEnd = async () => {
     const { data: session } = await supabase.auth.getSession();
     if (!session?.session?.user) return;
     
+    const maxZ = Math.max(0, ...tacks.map(t => t.z_index ?? 0), ...textBlocks.map(t => t.z_index ?? 0));
     const newTack = {
       board_id: boardId,
       user_id: session.session.user.id,
@@ -634,7 +649,7 @@ const handleTextRotateEnd = async () => {
       width: 250,
       height: 300,
       rotation: Math.floor(Math.random() * 6) - 3,
-      z_index: tacks.length,
+      z_index: maxZ + 1,
     };
     
     const { data, error } = await supabase
@@ -688,7 +703,7 @@ const handleTextRotateEnd = async () => {
       position_y: Math.round(150 + Math.random() * 200),
       width: 300,
       rotation: 0,
-      z_index: tacks.length + textBlocks.length,
+      z_index: Math.max(0, ...tacks.map(t => t.z_index ?? 0), ...textBlocks.map(t => t.z_index ?? 0)) + 1,
       nowrap: false,
     };
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/hooks/useUser";
 
@@ -38,8 +39,15 @@ function notifText(n: NotificationItem): string {
   }
 }
 
+function notifUrl(n: NotificationItem): string | null {
+  if (!n.board_id) return null;
+  if (n.tack_id) return `/board/${n.board_id}?tack=${n.tack_id}`;
+  return `/board/${n.board_id}`;
+}
+
 export default function NotificationBell() {
   const { profile } = useUser();
+  const router = useRouter();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
@@ -141,10 +149,13 @@ export default function NotificationBell() {
               {notifications.length === 0 ? (
                 <p className="px-4 py-6 text-sm text-ink/40 text-center">No notifications yet</p>
               ) : (
-                notifications.map(n => (
+                notifications.map(n => {
+                  const url = notifUrl(n);
+                  return (
                   <div
                     key={n.id}
-                    className={`flex items-start gap-3 px-4 py-3 transition-colors ${!n.is_read ? 'bg-papaya/5' : 'hover:bg-ink/3'}`}
+                    onClick={() => { if (url) { setOpen(false); router.push(url); } }}
+                    className={`flex items-start gap-3 px-4 py-3 transition-colors ${url ? 'cursor-pointer' : ''} ${!n.is_read ? 'bg-papaya/5' : 'hover:bg-ink/3'}`}
                   >
                     {n.actor.avatar_url ? (
                       <img src={n.actor.avatar_url} alt={n.actor.name ?? ''} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
@@ -175,7 +186,8 @@ export default function NotificationBell() {
                       <div className="w-2 h-2 rounded-full bg-papaya flex-shrink-0 mt-1" />
                     )}
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
