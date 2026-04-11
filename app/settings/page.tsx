@@ -476,50 +476,55 @@ function AccountSection({ profile }: { profile: any }) {
           <div className={`p-4 rounded-xl border-2 ${profile.plan === "free" ? "border-papaya" : "border-ink/10"}`}>
             <p className="font-semibold mb-1">Free</p>
             <p className="text-2xl font-bold mb-3">$0</p>
-            <ul className="text-sm text-ink-soft space-y-2">
-              <li className="flex items-center gap-2">
-                <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                5 boards
-              </li>
-              <li className="flex items-center gap-2">
-                <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                25 tacks per board
-              </li>
-              <li className="flex items-center gap-2">
-                <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                Basic backgrounds
-              </li>
+            <ul className="text-sm space-y-2">
+              {[
+                { label: "5 boards", locked: false },
+                { label: "25 tacks per board", locked: false },
+                { label: "Basic backgrounds", locked: false },
+                { label: "50 boards", locked: true, badge: "Pro" },
+                { label: "200 tacks per board", locked: true, badge: "Pro" },
+                { label: "Custom colors", locked: true, badge: "Pro" },
+                { label: "No branding", locked: true, badge: "Pro" },
+                { label: "Export boards", locked: true, badge: "Pro" },
+                { label: "Real-time collaboration", locked: true, badge: "Team" },
+              ].map(({ label, locked, badge }) => (
+                <li key={label} className={`flex items-center gap-2 ${locked ? "opacity-40" : ""}`}>
+                  {locked ? (
+                    <svg className="w-4 h-4 stroke-ink/30 stroke-2 fill-none flex-shrink-0" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  ) : (
+                    <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none flex-shrink-0" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  )}
+                  <span className={locked ? "text-ink/40 line-through text-xs" : "text-ink-soft"}>{label}</span>
+                  {badge && <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-papaya/10 text-papaya/70">{badge}</span>}
+                </li>
+              ))}
             </ul>
           </div>
 
           {/* Pro */}
           <div className={`p-4 rounded-xl border-2 ${profile.plan === "pro" ? "border-papaya" : "border-ink/10"} relative`}>
-            <div className="absolute -top-2 -right-2 px-2 py-0.5 bg-papaya text-white text-xs font-medium rounded-full">
-              Popular
-            </div>
+            <div className="absolute -top-2 -right-2 px-2 py-0.5 bg-papaya text-white text-xs font-medium rounded-full">Popular</div>
             <p className="font-semibold mb-1">Pro</p>
             <p className="text-2xl font-bold mb-3">$10<span className="text-sm font-normal text-ink-soft">/mo</span></p>
-            <ul className="text-sm text-ink-soft space-y-2">
-              <li className="flex items-center gap-2">
-                <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                50 boards
-              </li>
-              <li className="flex items-center gap-2">
-                <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                200 tacks per board
-              </li>
-              <li className="flex items-center gap-2">
-                <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                Custom colors
-              </li>
-              <li className="flex items-center gap-2">
-                <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                No branding
-              </li>
-              <li className="flex items-center gap-2">
-                <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                Export boards
-              </li>
+            <ul className="text-sm space-y-2">
+              {[
+                { label: "50 boards", locked: false },
+                { label: "200 tacks per board", locked: false },
+                { label: "Custom colors", locked: false },
+                { label: "No branding", locked: false },
+                { label: "Export boards", locked: false },
+                { label: "Real-time collaboration", locked: true, badge: "Team" },
+              ].map(({ label, locked, badge }) => (
+                <li key={label} className={`flex items-center gap-2 ${locked ? "opacity-40" : ""}`}>
+                  {locked ? (
+                    <svg className="w-4 h-4 stroke-ink/30 stroke-2 fill-none flex-shrink-0" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  ) : (
+                    <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none flex-shrink-0" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  )}
+                  <span className={locked ? "text-ink/40 line-through text-xs" : "text-ink-soft"}>{label}</span>
+                  {badge && <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-papaya/10 text-papaya/70">{badge}</span>}
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -528,22 +533,12 @@ function AccountSection({ profile }: { profile: any }) {
             <p className="font-semibold mb-1">Team</p>
             <p className="text-2xl font-bold mb-3">$15<span className="text-sm font-normal text-ink-soft">/mo</span></p>
             <ul className="text-sm text-ink-soft space-y-2">
-              <li className="flex items-center gap-2">
-                <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                Everything in Pro
-              </li>
-              <li className="flex items-center gap-2">
-                <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                Unlimited tacks
-              </li>
-              <li className="flex items-center gap-2">
-                <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                Real-time collaboration
-              </li>
-              <li className="flex items-center gap-2">
-                <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                Team workspace
-              </li>
+              {["Everything in Pro", "Unlimited boards", "Unlimited tacks", "Real-time collaboration", "Team workspace"].map(label => (
+                <li key={label} className="flex items-center gap-2">
+                  <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none flex-shrink-0" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  {label}
+                </li>
+              ))}
             </ul>
           </div>
         </div>

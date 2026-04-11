@@ -1210,16 +1210,18 @@ return (
 // SETTINGS SIDEBAR
 // ============================================================================
 
-function SettingsSidebar({ 
-  board, 
-  onClose, 
-  onUpdate 
-}: { 
-  board: Board; 
-  onClose: () => void; 
+function SettingsSidebar({
+  board,
+  onClose,
+  onUpdate
+}: {
+  board: Board;
+  onClose: () => void;
   onUpdate: (updates: Partial<Board>) => void;
 }) {
   const supabase = createClient();
+  const { profile: settingsProfile } = useUser();
+  const canCustomizeColors = hasFeature(settingsProfile?.plan as Plan | undefined, 'custom_colors');
   
   const initialColors = board.background_color?.split(",") || ["#fef3e2", "#fce7f3"];
   
@@ -1381,39 +1383,72 @@ function SettingsSidebar({
           </div>
 
           <div className="p-6 border-b border-ink/5">
-            <p className="text-xs font-medium text-ink-soft uppercase tracking-wide mb-4">Quick Palettes</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {colorPresets.map((preset, i) => (
-                <button key={i} onClick={() => { setColor1(preset.c1); setColor2(preset.c2); }} title={preset.name}>
-                  <div className="h-12 rounded-lg overflow-hidden border-2 border-transparent hover:border-papaya transition-all">
-                    {renderPatternPreview(bgStyle, preset.c1, preset.c2)}
-                  </div>
-                  <p className="text-xs text-ink-soft mt-1 truncate text-center">{preset.name}</p>
-                </button>
-              ))}
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs font-medium text-ink-soft uppercase tracking-wide">Quick Palettes</p>
+              {!canCustomizeColors && (
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-papaya/10 text-papaya/80">Pro</span>
+              )}
             </div>
+            {canCustomizeColors ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {colorPresets.map((preset, i) => (
+                  <button key={i} onClick={() => { setColor1(preset.c1); setColor2(preset.c2); }} title={preset.name}>
+                    <div className="h-12 rounded-lg overflow-hidden border-2 border-transparent hover:border-papaya transition-all">
+                      {renderPatternPreview(bgStyle, preset.c1, preset.c2)}
+                    </div>
+                    <p className="text-xs text-ink-soft mt-1 truncate text-center">{preset.name}</p>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pointer-events-none select-none">
+                {colorPresets.map((preset, i) => (
+                  <div key={i} className="opacity-30">
+                    <div className="h-12 rounded-lg overflow-hidden border-2 border-transparent">
+                      {renderPatternPreview(bgStyle, preset.c1, preset.c2)}
+                    </div>
+                    <p className="text-xs text-ink-soft mt-1 truncate text-center">{preset.name}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="p-6">
-            <p className="text-xs font-medium text-ink-soft uppercase tracking-wide mb-4">Custom Colors</p>
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <input type="color" value={color1} onChange={(e) => setColor1(e.target.value)} className="w-12 h-12 rounded-lg cursor-pointer border-2 border-ink/10 p-1" />
-                <div className="flex-1">
-                  <p className="text-xs text-ink-soft mb-1">Color 1</p>
-                  <input type="text" value={color1} onChange={(e) => setColor1(e.target.value)} className="w-full px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/20" />
-                </div>
-              </div>
-              {bgStyle !== "solid" && (
-                <div className="flex items-center gap-3">
-                  <input type="color" value={color2} onChange={(e) => setColor2(e.target.value)} className="w-12 h-12 rounded-lg cursor-pointer border-2 border-ink/10 p-1" />
-                  <div className="flex-1">
-                    <p className="text-xs text-ink-soft mb-1">Color 2</p>
-                    <input type="text" value={color2} onChange={(e) => setColor2(e.target.value)} className="w-full px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/20" />
-                  </div>
-                </div>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs font-medium text-ink-soft uppercase tracking-wide">Custom Colors</p>
+              {!canCustomizeColors && (
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-papaya/10 text-papaya/80">Pro</span>
               )}
             </div>
+            {canCustomizeColors ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <input type="color" value={color1} onChange={(e) => setColor1(e.target.value)} className="w-12 h-12 rounded-lg cursor-pointer border-2 border-ink/10 p-1" />
+                  <div className="flex-1">
+                    <p className="text-xs text-ink-soft mb-1">Color 1</p>
+                    <input type="text" value={color1} onChange={(e) => setColor1(e.target.value)} className="w-full px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/20" />
+                  </div>
+                </div>
+                {bgStyle !== "solid" && (
+                  <div className="flex items-center gap-3">
+                    <input type="color" value={color2} onChange={(e) => setColor2(e.target.value)} className="w-12 h-12 rounded-lg cursor-pointer border-2 border-ink/10 p-1" />
+                    <div className="flex-1">
+                      <p className="text-xs text-ink-soft mb-1">Color 2</p>
+                      <input type="text" value={color2} onChange={(e) => setColor2(e.target.value)} className="w-full px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/20" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="rounded-xl bg-ink/3 border border-ink/8 px-4 py-5 flex items-center gap-3">
+                <svg className="w-5 h-5 stroke-ink/30 stroke-[1.5] fill-none flex-shrink-0" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-ink/50">Custom colors are a Pro feature</p>
+                  <a href="/settings/billing" className="text-xs text-papaya hover:underline">Upgrade to Pro →</a>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1464,6 +1499,8 @@ function TackDetailModal({
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const { profile: tackProfile } = useUser();
+  const canCustomPin = hasFeature(tackProfile?.plan as Plan | undefined, 'custom_colors');
 
   // Retack state (read-only view)
   type RetackState = 'idle' | 'picking' | 'saving' | 'done' | 'error';
@@ -1598,11 +1635,18 @@ function TackDetailModal({
                   {Object.entries(pinColorPresets).map(([name, color]) => (
                     <button key={name} onClick={() => handlePinColorChange(name)} className={`w-8 h-8 rounded-full ${pinColor === name ? 'ring-2 ring-offset-2 ring-ink' : ''} hover:scale-110 transition-transform`} style={{ backgroundColor: color }} />
                   ))}
-                  <button onClick={() => setShowColorPicker(!showColorPicker)} className={`w-8 h-8 rounded-full border-2 border-dashed border-ink/30 flex items-center justify-center hover:border-ink/50 transition-colors ${!pinColorPresets[pinColor] ? 'ring-2 ring-offset-2 ring-ink' : ''}`} style={{ backgroundColor: !pinColorPresets[pinColor] ? pinColor : 'transparent' }}>
-                    {pinColorPresets[pinColor] && <svg className="w-4 h-4 stroke-ink/50 stroke-2 fill-none" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>}
-                  </button>
+                  {canCustomPin ? (
+                    <button onClick={() => setShowColorPicker(!showColorPicker)} className={`w-8 h-8 rounded-full border-2 border-dashed border-ink/30 flex items-center justify-center hover:border-ink/50 transition-colors ${!pinColorPresets[pinColor] ? 'ring-2 ring-offset-2 ring-ink' : ''}`} style={{ backgroundColor: !pinColorPresets[pinColor] ? pinColor : 'transparent' }}>
+                      {pinColorPresets[pinColor] && <svg className="w-4 h-4 stroke-ink/50 stroke-2 fill-none" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>}
+                    </button>
+                  ) : (
+                    <a href="/settings/billing" title="Custom colors — Pro feature" className="w-8 h-8 rounded-full border-2 border-dashed border-ink/15 flex items-center justify-center relative group">
+                      <svg className="w-3.5 h-3.5 stroke-ink/25 stroke-[1.5] fill-none" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      <span className="absolute -top-8 left-1/2 -translate-x-1/2 text-[10px] bg-ink text-white px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Pro feature</span>
+                    </a>
+                  )}
                 </div>
-                {showColorPicker && (
+                {showColorPicker && canCustomPin && (
                   <div className="mt-3 flex items-center gap-2">
                     <input type="color" value={customColor || "#E24E42"} onChange={(e) => { setCustomColor(e.target.value); setPinColor(e.target.value); }} className="w-10 h-10 rounded-lg cursor-pointer border-0 p-0" />
                     <input type="text" value={customColor} onChange={(e) => { setCustomColor(e.target.value); if (e.target.value.match(/^#[0-9A-Fa-f]{6}$/)) setPinColor(e.target.value); }} placeholder="#E24E42" className="flex-1 px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/30" />
