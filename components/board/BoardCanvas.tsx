@@ -716,6 +716,9 @@ const handleTextRotateEnd = async () => {
     if (!error && data) {
       setTextBlocks(prev => [...prev, data]);
       setAddTextModalOpen(false);
+    } else if (error) {
+      console.error("Add text block error:", error);
+      alert(`Failed to add text: ${error.message}`);
     }
   };
 
