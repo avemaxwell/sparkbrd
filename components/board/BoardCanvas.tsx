@@ -617,7 +617,7 @@ const handleTextRotateEnd = async () => {
       .single();
       
     if (!error && data) {
-      setTacks([...tacks, data]);
+      setTacks(prev => [...prev, data]);
       setAddModalOpen(false);
       // Generate AI tags in the background for searchability
       const insertedId = data.id;
@@ -672,7 +672,7 @@ const handleTextRotateEnd = async () => {
       .single();
 
     if (!error && data) {
-      setTextBlocks([...textBlocks, data]);
+      setTextBlocks(prev => [...prev, data]);
       setAddTextModalOpen(false);
     }
   };
