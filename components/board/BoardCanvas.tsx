@@ -1136,6 +1136,7 @@ return (
       {selectedTack && (
         <TackDetailModal
           tack={selectedTack}
+          canEdit={canEdit}
           onClose={() => setSelectedTack(null)}
           onUpdate={(tackId, updates) => {
             setTacks(tacks.map(t => t.id === tackId ? { ...t, ...updates } : t));
@@ -1444,11 +1445,13 @@ function SettingsSidebar({
 
 function TackDetailModal({
   tack,
+  canEdit,
   onClose,
   onUpdate,
   onDelete,
 }: {
   tack: Tack;
+  canEdit: boolean;
   onClose: () => void;
   onUpdate: (tackId: string, updates: Partial<Tack>) => void;
   onDelete: (tackId: string) => void;
@@ -1465,6 +1468,7 @@ function TackDetailModal({
   const supabase = createClient();
 
   useEffect(() => {
+    if (!canEdit) return;
     const timeout = setTimeout(async () => {
       if (title !== (tack.title || "") || note !== (tack.note || "") || rotation !== tack.rotation || pinColor !== tack.pin_color) {
         setSaving(true);
@@ -1518,74 +1522,90 @@ function TackDetailModal({
         
         <div className="w-full md:w-96 p-6 flex flex-col overflow-y-auto">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm text-ink-soft">{saving ? "Saving..." : "Tack details"}</span>
+            <span className="text-sm text-ink-soft">{canEdit ? (saving ? "Saving..." : "Tack details") : "View tack"}</span>
             <button onClick={onClose} className="w-8 h-8 rounded-full hover:bg-ink/5 flex items-center justify-center">
               <svg className="w-5 h-5 stroke-[#1A1A1A] stroke-[1.5] fill-none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
             </button>
           </div>
 
-          <div className="mb-4">
-            <label className="block text-xs text-ink-soft mb-1">Title</label>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Give this tack a name..." className="w-full px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/30" />
-          </div>
-
-          <div className="mb-4">
-            <div className="flex items-baseline justify-between mb-1">
-              <label className="block text-xs text-ink-soft">Note</label>
-              <span className="text-[10px] text-ink/30">Searched by title, note &amp; tags</span>
-            </div>
-            <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Describe what catches your eye — colors, mood, subject, style. The more specific, the more findable." rows={3} className="w-full px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/30 resize-none" />
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-xs text-ink-soft mb-2">Rotation</label>
-            <div className="flex items-center gap-3">
-              <button onClick={() => setRotation(r => r - 5)} className="w-8 h-8 rounded-lg bg-ink/5 flex items-center justify-center hover:bg-ink/10 transition-colors">
-                <svg className="w-4 h-4 stroke-ink stroke-2 fill-none" viewBox="0 0 24 24"><path d="M2.5 2v6h6M2.66 15a10 10 0 1 0 1.26-8"/></svg>
-              </button>
-              <input type="range" min="-45" max="45" value={rotation} onChange={(e) => setRotation(parseInt(e.target.value))} className="flex-1 accent-papaya" />
-              <button onClick={() => setRotation(r => r + 5)} className="w-8 h-8 rounded-lg bg-ink/5 flex items-center justify-center hover:bg-ink/10 transition-colors">
-                <svg className="w-4 h-4 stroke-ink stroke-2 fill-none" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M21.34 15a10 10 0 1 1-1.26-8"/></svg>
-              </button>
-              <button onClick={() => setRotation(0)} className="px-2 py-1 text-xs text-ink-soft hover:text-ink">Reset</button>
-            </div>
-            <p className="text-xs text-ink-soft text-center mt-1">{rotation}°</p>
-          </div>
-
-          <div className="mb-6">
-            <label className="block text-xs text-ink-soft mb-2">Pin color</label>
-            <div className="flex gap-2 flex-wrap">
-              {Object.entries(pinColorPresets).map(([name, color]) => (
-                <button key={name} onClick={() => handlePinColorChange(name)} className={`w-8 h-8 rounded-full ${pinColor === name ? 'ring-2 ring-offset-2 ring-ink' : ''} hover:scale-110 transition-transform`} style={{ backgroundColor: color }} />
-              ))}
-              <button onClick={() => setShowColorPicker(!showColorPicker)} className={`w-8 h-8 rounded-full border-2 border-dashed border-ink/30 flex items-center justify-center hover:border-ink/50 transition-colors ${!pinColorPresets[pinColor] ? 'ring-2 ring-offset-2 ring-ink' : ''}`} style={{ backgroundColor: !pinColorPresets[pinColor] ? pinColor : 'transparent' }}>
-                {pinColorPresets[pinColor] && <svg className="w-4 h-4 stroke-ink/50 stroke-2 fill-none" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>}
-              </button>
-            </div>
-            {showColorPicker && (
-              <div className="mt-3 flex items-center gap-2">
-                <input type="color" value={customColor || "#E24E42"} onChange={(e) => { setCustomColor(e.target.value); setPinColor(e.target.value); }} className="w-10 h-10 rounded-lg cursor-pointer border-0 p-0" />
-                <input type="text" value={customColor} onChange={(e) => { setCustomColor(e.target.value); if (e.target.value.match(/^#[0-9A-Fa-f]{6}$/)) setPinColor(e.target.value); }} placeholder="#E24E42" className="flex-1 px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/30" />
+          {canEdit ? (
+            <>
+              <div className="mb-4">
+                <label className="block text-xs text-ink-soft mb-1">Title</label>
+                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Give this tack a name..." className="w-full px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/30" />
               </div>
-            )}
-          </div>
+
+              <div className="mb-4">
+                <div className="flex items-baseline justify-between mb-1">
+                  <label className="block text-xs text-ink-soft">Note</label>
+                  <span className="text-[10px] text-ink/30">Searched by title, note &amp; tags</span>
+                </div>
+                <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Describe what catches your eye — colors, mood, subject, style. The more specific, the more findable." rows={3} className="w-full px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/30 resize-none" />
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-xs text-ink-soft mb-2">Rotation</label>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setRotation(r => r - 5)} className="w-8 h-8 rounded-lg bg-ink/5 flex items-center justify-center hover:bg-ink/10 transition-colors">
+                    <svg className="w-4 h-4 stroke-ink stroke-2 fill-none" viewBox="0 0 24 24"><path d="M2.5 2v6h6M2.66 15a10 10 0 1 0 1.26-8"/></svg>
+                  </button>
+                  <input type="range" min="-45" max="45" value={rotation} onChange={(e) => setRotation(parseInt(e.target.value))} className="flex-1 accent-papaya" />
+                  <button onClick={() => setRotation(r => r + 5)} className="w-8 h-8 rounded-lg bg-ink/5 flex items-center justify-center hover:bg-ink/10 transition-colors">
+                    <svg className="w-4 h-4 stroke-ink stroke-2 fill-none" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M21.34 15a10 10 0 1 1-1.26-8"/></svg>
+                  </button>
+                  <button onClick={() => setRotation(0)} className="px-2 py-1 text-xs text-ink-soft hover:text-ink">Reset</button>
+                </div>
+                <p className="text-xs text-ink-soft text-center mt-1">{rotation}°</p>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-xs text-ink-soft mb-2">Pin color</label>
+                <div className="flex gap-2 flex-wrap">
+                  {Object.entries(pinColorPresets).map(([name, color]) => (
+                    <button key={name} onClick={() => handlePinColorChange(name)} className={`w-8 h-8 rounded-full ${pinColor === name ? 'ring-2 ring-offset-2 ring-ink' : ''} hover:scale-110 transition-transform`} style={{ backgroundColor: color }} />
+                  ))}
+                  <button onClick={() => setShowColorPicker(!showColorPicker)} className={`w-8 h-8 rounded-full border-2 border-dashed border-ink/30 flex items-center justify-center hover:border-ink/50 transition-colors ${!pinColorPresets[pinColor] ? 'ring-2 ring-offset-2 ring-ink' : ''}`} style={{ backgroundColor: !pinColorPresets[pinColor] ? pinColor : 'transparent' }}>
+                    {pinColorPresets[pinColor] && <svg className="w-4 h-4 stroke-ink/50 stroke-2 fill-none" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>}
+                  </button>
+                </div>
+                {showColorPicker && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <input type="color" value={customColor || "#E24E42"} onChange={(e) => { setCustomColor(e.target.value); setPinColor(e.target.value); }} className="w-10 h-10 rounded-lg cursor-pointer border-0 p-0" />
+                    <input type="text" value={customColor} onChange={(e) => { setCustomColor(e.target.value); if (e.target.value.match(/^#[0-9A-Fa-f]{6}$/)) setPinColor(e.target.value); }} placeholder="#E24E42" className="flex-1 px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/30" />
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              {tack.title && <p className="text-base font-medium text-ink mb-2">{tack.title}</p>}
+              {tack.note && <p className="text-sm text-ink/70 mb-4 leading-relaxed">{tack.note}</p>}
+            </>
+          )}
 
           {tack.source && <p className="text-xs text-ink-soft mb-4">Source: {tack.source}</p>}
 
           <div className="mt-auto pt-4 border-t border-ink/5">
-            {confirmDelete ? (
-              <div className="flex gap-2">
-                <button onClick={handleDelete} className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-full text-sm font-medium hover:bg-red-600 transition-colors">Yes, delete</button>
-                <button onClick={() => setConfirmDelete(false)} className="flex-1 px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors">Cancel</button>
-              </div>
+            {canEdit ? (
+              confirmDelete ? (
+                <div className="flex gap-2">
+                  <button onClick={handleDelete} className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-full text-sm font-medium hover:bg-red-600 transition-colors">Yes, delete</button>
+                  <button onClick={() => setConfirmDelete(false)} className="flex-1 px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors">Cancel</button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button onClick={handleDownload} className="flex-1 px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download
+                  </button>
+                  <button onClick={() => setConfirmDelete(true)} className="flex-1 px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-red-50 hover:text-red-500 transition-colors">Delete</button>
+                </div>
+              )
             ) : (
-              <div className="flex gap-2">
-                <button onClick={handleDownload} className="flex-1 px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors flex items-center justify-center gap-2">
-                  <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Download
-                </button>
-                <button onClick={() => setConfirmDelete(true)} className="flex-1 px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-red-50 hover:text-red-500 transition-colors">Delete</button>
-              </div>
+              <button onClick={handleDownload} className="w-full px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors flex items-center justify-center gap-2">
+                <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download
+              </button>
             )}
           </div>
         </div>
