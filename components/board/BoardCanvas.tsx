@@ -1630,7 +1630,7 @@ function TackDetailModal({
               </div>
 
               <div className="mb-6">
-                <label className="block text-xs text-ink-soft mb-2">Pin color</label>
+                <label className="block text-xs text-ink-soft mb-2">Tack color</label>
                 <div className="flex gap-2 flex-wrap">
                   {Object.entries(pinColorPresets).map(([name, color]) => (
                     <button key={name} onClick={() => handlePinColorChange(name)} className={`w-8 h-8 rounded-full ${pinColor === name ? 'ring-2 ring-offset-2 ring-ink' : ''} hover:scale-110 transition-transform`} style={{ backgroundColor: color }} />
@@ -1762,7 +1762,7 @@ function PinColorPicker({
 }) {
   return (
     <div className="mb-6">
-      <label className="text-sm text-ink-soft mb-2 block">Pin color</label>
+      <label className="text-sm text-ink-soft mb-2 block">Tack color</label>
       <div className="flex gap-2 flex-wrap">
         {Object.entries(pinColorPresets).map(([name, color]) => (
           <button key={name} type="button" onClick={() => { setPinColor(name); setShowCustomPinColor(false); }} className={`w-8 h-8 rounded-full ${pinColor === name && !showCustomPinColor ? 'ring-2 ring-offset-2 ring-ink' : ''} hover:scale-110 transition-transform`} style={{ backgroundColor: color }} />
