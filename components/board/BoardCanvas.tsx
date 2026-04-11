@@ -171,6 +171,23 @@ const screenToCanvas = (screenX: number, screenY: number) => {
     }
   }, [boardId]);
 
+  // Bring an element to the front (highest z_index) on interaction
+  const bringToFront = (id: string, type: 'tack' | 'text') => {
+    if (!canEdit) return;
+    const allZ = [
+      ...tacks.map(t => t.z_index ?? 0),
+      ...textBlocks.map(t => t.z_index ?? 0),
+    ];
+    const newZ = (allZ.length > 0 ? Math.max(...allZ) : 0) + 1;
+    if (type === 'tack') {
+      setTacks(prev => prev.map(t => t.id === id ? { ...t, z_index: newZ } : t));
+      supabase.from('tacks').update({ z_index: newZ }).eq('id', id).then(() => {});
+    } else {
+      setTextBlocks(prev => prev.map(t => t.id === id ? { ...t, z_index: newZ } : t));
+      supabase.from('text_blocks').update({ z_index: newZ }).eq('id', id).then(() => {});
+    }
+  };
+
   // Drag handlers
   const handleDragStart = (e: React.MouseEvent, tackId: string, currentX: number, currentY: number) => {
     if (canvasMode === 'comment') return;
@@ -181,6 +198,11 @@ const screenToCanvas = (screenX: number, screenY: number) => {
       x: canvasPos.x - currentX,
       y: canvasPos.y - currentY,
     });
+    if (tackId.startsWith('text-')) {
+      bringToFront(tackId.replace('text-', ''), 'text');
+    } else {
+      bringToFront(tackId, 'tack');
+    }
   };
 
 const handleDrag = (e: React.MouseEvent) => {
@@ -440,6 +462,11 @@ const handleTouchStart = (e: React.TouchEvent, tackId: string, currentX: number,
   setDragging(tackId);
   setTouching(true);
   setDragOffset({ x: canvasPos.x - currentX, y: canvasPos.y - currentY });
+  if (tackId.startsWith('text-')) {
+    bringToFront(tackId.replace('text-', ''), 'text');
+  } else {
+    bringToFront(tackId, 'tack');
+  }
 };
 
 // Touch start on resize handle
@@ -861,14 +888,13 @@ return (
   <div
     key={tack.id}
     id={`tack-wrapper-${tack.id}`}
-    className={`absolute group ${
-      dragging === tack.id || resizing === tack.id || rotating === tack.id ? 'z-50' : 'hover:z-10'
-    }`}
+    className="absolute group"
     style={{
       left: tack.position_x,
       top: tack.position_y,
       width: tack.width,
       transform: `rotate(${tack.rotation}deg)`,
+      zIndex: tack.z_index ?? 0,
     }}
   >
     {/* Rotation handle — editors/owners only */}
@@ -963,14 +989,13 @@ return (
             <div
               key={text.id}
               id={`text-wrapper-${text.id}`}
-              className={`absolute group ${canEdit ? 'cursor-move' : 'cursor-default'} ${
-                dragging === `text-${text.id}` || textResizing === text.id || textRotating === text.id ? 'z-50' : 'hover:z-10'
-              }`}
+              className={`absolute group ${canEdit ? 'cursor-move' : 'cursor-default'}`}
               style={{
                 left: text.position_x,
                 top: text.position_y,
                 width: text.width,
                 transform: `rotate(${text.rotation}deg)`,
+                zIndex: text.z_index ?? 0,
               }}
               onMouseDown={canEdit ? (e) => handleDragStart(e, `text-${text.id}`, text.position_x, text.position_y) : undefined}
               onTouchStart={canEdit ? (e) => handleTouchStart(e, `text-${text.id}`, text.position_x, text.position_y) : undefined}
