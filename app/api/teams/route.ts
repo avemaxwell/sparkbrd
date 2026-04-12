@@ -56,6 +56,17 @@ export async function POST(request: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+    // Enforce team plan for the creator
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('plan')
+      .eq('id', user.id)
+      .single();
+
+    if (profile?.plan !== 'team') {
+      return NextResponse.json({ error: 'Creating a team workspace requires a Team plan. Upgrade in settings.' }, { status: 403 });
+    }
+
     const { name } = await request.json();
     if (!name?.trim()) {
       return NextResponse.json({ error: 'Team name is required' }, { status: 400 });
