@@ -971,7 +971,6 @@ return (
             className={`w-full pointer-events-none ${isPng ? '' : 'rounded-sm'}`}
             style={{ height: 'auto', maxHeight: '400px', objectFit: 'contain' }}
             draggable={false}
-            loading="lazy"
           />
           {tack.title && !isPng && (
             <p className="mt-2 text-xs font-medium text-ink truncate">{tack.title}</p>
