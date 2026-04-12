@@ -34,19 +34,27 @@ export async function GET(_req: Request, { params }: Params) {
       if (!membership) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Members with profiles
+    // Members
     const { data: membersRaw } = await admin
       .from('team_members')
-      .select('id, user_id, role, created_at, profiles(id, name, avatar_url, email)')
+      .select('id, user_id, role, created_at')
       .eq('team_id', id)
       .order('created_at', { ascending: true });
+
+    // Fetch profiles separately (team_members.user_id → auth.users, not profiles)
+    const memberUserIds = (membersRaw ?? []).map((m: any) => m.user_id);
+    const { data: memberProfiles } = memberUserIds.length > 0
+      ? await admin.from('profiles').select('id, name, avatar_url, email').in('id', memberUserIds)
+      : { data: [] };
+
+    const profileMap = Object.fromEntries((memberProfiles ?? []).map((p: any) => [p.id, p]));
 
     const members = (membersRaw ?? []).map((m: any) => ({
       id: m.id,
       user_id: m.user_id,
       role: m.role,
       created_at: m.created_at,
-      profile: m.profiles,
+      profile: profileMap[m.user_id] ?? null,
     }));
 
     // Owner profile

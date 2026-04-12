@@ -368,7 +368,7 @@ export default function TeamSettingsPage() {
                         {m.profile?.name ?? m.profile?.email ?? 'Unknown'}
                         {isMe && <span className="ml-1.5 text-xs text-ink/40">(you)</span>}
                       </p>
-                      <p className="text-xs text-ink/40 leading-none mt-0.5 truncate">{m.profile?.email}</p>
+                      <p className="text-xs text-ink/40 mt-0.5 truncate">{m.profile?.email}</p>
                     </div>
                     {isThisOwner ? (
                       <span className="text-xs font-medium text-ink/40 px-2 py-1 bg-ink/5 rounded-full capitalize">Owner</span>
