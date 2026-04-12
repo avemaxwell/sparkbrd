@@ -809,7 +809,7 @@ return (
     onMouseLeave={() => { handleMouseUp(); clearCursor(); }}
   >
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-30 px-4 py-3 flex items-center justify-between">
+      <header className="fixed top-0 left-0 right-0 z-30 px-4 flex items-center justify-between" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: '0.75rem' }}>
         <div className="flex items-center gap-3">
           <Link 
             href="/" 
@@ -868,9 +868,13 @@ return (
           {canEdit && memberRole === 'owner' && (
             <button
               onClick={() => setSettingsOpen(true)}
-              className="hidden sm:block bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink hover:bg-white transition-colors"
+              className="bg-white/80 backdrop-blur-md rounded-full shadow-lg text-ink hover:bg-white transition-colors w-10 h-10 sm:w-auto sm:h-auto flex items-center justify-center sm:px-4 sm:py-2.5"
             >
-              Edit board
+              <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none sm:hidden" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+              <span className="hidden sm:inline text-sm font-medium">Edit board</span>
             </button>
           )}
 
@@ -1393,7 +1397,7 @@ function SettingsSidebar({
   return (
     <>
       <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40" onClick={onClose} />
-      <div className="fixed top-0 right-0 h-full w-full sm:w-96 bg-white shadow-2xl z-50 flex flex-col overflow-hidden">
+      <div className="fixed top-0 right-0 h-full w-full sm:w-96 bg-white shadow-2xl z-50 flex flex-col overflow-hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="p-6 border-b border-ink/5">
           <div className="flex items-center justify-between">
             <div>
@@ -1443,9 +1447,9 @@ function SettingsSidebar({
               <button
                 type="button"
                 onClick={() => setIsPublic(!isPublic)}
-                className={`relative w-12 h-7 rounded-full transition-colors duration-200 flex-shrink-0 ${isPublic ? 'bg-papaya' : 'bg-ink/20'}`}
+                className={`relative inline-flex w-11 h-6 rounded-full transition-colors duration-200 flex-shrink-0 ${isPublic ? 'bg-papaya' : 'bg-ink/20'}`}
               >
-                <span className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${isPublic ? 'translate-x-6' : 'translate-x-1'}`} />
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${isPublic ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
             </div>
           </div>
