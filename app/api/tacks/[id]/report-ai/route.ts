@@ -112,7 +112,7 @@ export async function POST(request: Request, { params }: Params) {
             type: 'tack_hidden_ai',
             board_id: tack.board_id,
             tack_id: tackId,
-          }).catch(() => {});
+          }).then(null, () => {});
         }
 
         return NextResponse.json({ flagged: true, hidden: true });
