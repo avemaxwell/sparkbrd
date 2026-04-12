@@ -71,8 +71,9 @@ export default function TermsPage() {
             <ul className="list-disc pl-5 mt-2 space-y-1.5">
               <li>Post content you do not have the right to share</li>
               <li>Post content that is illegal, defamatory, obscene, or harassing</li>
+              <li>Post nudity, pornography, or sexually explicit content of any kind</li>
               <li>Post AI-generated imagery in violation of our content guidelines</li>
-              <li>Attempt to circumvent our AI detection or moderation systems</li>
+              <li>Attempt to circumvent our AI detection or content moderation systems</li>
               <li>Use the Service to transmit spam or unsolicited communications</li>
               <li>Attempt to gain unauthorized access to any part of the Service</li>
               <li>Scrape or harvest data from the Service without our written permission</li>
@@ -82,14 +83,27 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-serif text-xl text-ink/80 mb-3">6. Third-Party Content and Images</h2>
+            <h2 className="font-serif text-xl text-ink/80 mb-3">6. Child Safety and CSAM</h2>
+            <p>
+              The sexual exploitation of minors is strictly prohibited on the Service. You may not upload, share, or otherwise distribute any content that sexually exploits or depicts a minor (any person under 18 years of age) in a sexual manner. This includes but is not limited to child sexual abuse material (CSAM).
+            </p>
+            <p className="mt-3">
+              We use automated systems to detect such content. Any image identified as CSAM or potentially exploiting a minor is immediately blocked and logged for review.
+            </p>
+            <p className="mt-3">
+              Pursuant to 18 U.S.C. § 2258A, we are legally required to report any known or apparent CSAM to the National Center for Missing &amp; Exploited Children (NCMEC) via the CyberTipline at <strong className="text-ink/70">www.cybertipline.org</strong>. We cooperate fully with law enforcement investigations. Violation of this section may result in immediate account termination and referral to appropriate authorities.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="font-serif text-xl text-ink/80 mb-3">7. Third-Party Content and Images</h2>
             <p>
               The Service enables users to import images from third-party websites. We do not host, control, or endorse such third-party content. You are solely responsible for ensuring you have the right to use any image you import. We are not liable for copyright infringement or other intellectual property claims arising from content you import from third-party sources.
             </p>
           </section>
 
           <section>
-            <h2 className="font-serif text-xl text-ink/80 mb-3">7. DMCA / Copyright</h2>
+            <h2 className="font-serif text-xl text-ink/80 mb-3">8. DMCA / Copyright</h2>
             <p>
               We respect intellectual property rights. If you believe content on the Service infringes your copyright, please send a notice to the contact address below containing: (a) identification of the copyrighted work; (b) identification of the infringing material and its location on the Service; (c) your contact information; (d) a statement of good faith belief that the use is unauthorized; and (e) a statement, under penalty of perjury, that the information is accurate and you are the copyright owner or authorized to act on their behalf.
             </p>
@@ -99,28 +113,28 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-serif text-xl text-ink/80 mb-3">8. AI Detection</h2>
+            <h2 className="font-serif text-xl text-ink/80 mb-3">9. AI Detection</h2>
             <p>
               The Service uses automated systems to detect AI-generated imagery. These systems are provided on a best-effort basis and are not guaranteed to be accurate or complete. We make no warranty that AI detection will identify all AI-generated images or that it will not produce false positives. Content moderation decisions are made at our sole discretion and are final.
             </p>
           </section>
 
           <section>
-            <h2 className="font-serif text-xl text-ink/80 mb-3">9. Termination</h2>
+            <h2 className="font-serif text-xl text-ink/80 mb-3">10. Termination</h2>
             <p>
-              We may suspend or terminate your account and access to the Service at any time, with or without cause, and with or without notice. You may delete your account at any time through your account settings. Upon termination, your right to use the Service ceases immediately. Sections 4, 10, 11, 12, and 13 survive termination.
+              We may suspend or terminate your account and access to the Service at any time, with or without cause, and with or without notice. You may delete your account at any time through your account settings. Upon termination, your right to use the Service ceases immediately. Sections 4, 11, 12, 13, and 14 survive termination.
             </p>
           </section>
 
           <section>
-            <h2 className="font-serif text-xl text-ink/80 mb-3">10. Disclaimer of Warranties</h2>
+            <h2 className="font-serif text-xl text-ink/80 mb-3">11. Disclaimer of Warranties</h2>
             <p className="uppercase text-sm font-medium text-ink/60 tracking-wide">
               THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND ANY WARRANTIES ARISING FROM COURSE OF DEALING OR USAGE OF TRADE. WE DO NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED, ERROR-FREE, OR FREE OF VIRUSES OR OTHER HARMFUL COMPONENTS. WE DO NOT WARRANT THAT ANY CONTENT ON THE SERVICE IS ACCURATE, COMPLETE, OR SUITABLE FOR ANY PURPOSE.
             </p>
           </section>
 
           <section>
-            <h2 className="font-serif text-xl text-ink/80 mb-3">11. Limitation of Liability</h2>
+            <h2 className="font-serif text-xl text-ink/80 mb-3">12. Limitation of Liability</h2>
             <p className="uppercase text-sm font-medium text-ink/60 tracking-wide">
               TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, SPARKURIO AND ITS OWNERS, OFFICERS, EMPLOYEES, AGENTS, LICENSORS, AND SERVICE PROVIDERS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES, INCLUDING LOSS OF PROFITS, DATA, GOODWILL, OR OTHER INTANGIBLE LOSSES, ARISING OUT OF OR RELATING TO YOUR USE OF OR INABILITY TO USE THE SERVICE, EVEN IF WE HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
             </p>
@@ -130,14 +144,14 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-serif text-xl text-ink/80 mb-3">12. Indemnification</h2>
+            <h2 className="font-serif text-xl text-ink/80 mb-3">13. Indemnification</h2>
             <p>
               You agree to defend, indemnify, and hold harmless Sparkurio and its owners, officers, employees, agents, licensors, and service providers from and against any claims, liabilities, damages, judgments, awards, losses, costs, expenses, or fees (including reasonable attorneys' fees) arising out of or relating to: (a) your use of the Service; (b) your User Content; (c) your violation of these Terms; or (d) your violation of any third-party right, including any intellectual property or privacy right.
             </p>
           </section>
 
           <section>
-            <h2 className="font-serif text-xl text-ink/80 mb-3">13. Governing Law and Dispute Resolution</h2>
+            <h2 className="font-serif text-xl text-ink/80 mb-3">14. Governing Law and Dispute Resolution</h2>
             <p>
               These Terms are governed by and construed in accordance with the laws of the State of Kansas, without regard to conflict of law principles. Any dispute arising under these Terms shall be resolved exclusively in the state or federal courts located in Ellsworth County, Kansas, and you consent to personal jurisdiction in those courts.
             </p>
@@ -147,14 +161,14 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-serif text-xl text-ink/80 mb-3">14. Changes to These Terms</h2>
+            <h2 className="font-serif text-xl text-ink/80 mb-3">15. Changes to These Terms</h2>
             <p>
               We may update these Terms at any time. If we make material changes, we will notify you by updating the "Last updated" date above and, where appropriate, providing additional notice. Your continued use of the Service after any changes constitutes acceptance of the updated Terms.
             </p>
           </section>
 
           <section>
-            <h2 className="font-serif text-xl text-ink/80 mb-3">15. Contact</h2>
+            <h2 className="font-serif text-xl text-ink/80 mb-3">16. Contact</h2>
             <p>
               Questions about these Terms may be directed to:<br />
               <a href="mailto:admin@sparkurio.com" className="text-papaya hover:text-papaya/70 transition-colors">admin@sparkurio.com</a>

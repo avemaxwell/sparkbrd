@@ -1899,12 +1899,13 @@ function AddTackModal({
   const [aiWarning, setAiWarning] = useState<string | null>(null);
   const [aiHardBlocked, setAiHardBlocked] = useState(false);
   const [showAiConfirm, setShowAiConfirm] = useState(false);
+  const [showExplicitBlock, setShowExplicitBlock] = useState(false);
   const [pendingUpload, setPendingUpload] = useState<{url: string, note: string, pinColor: string, source?: string} | null>(null);
   
   const supabase = createClient();
 
-  // Returns: 'ok' | 'hard_blocked' | 'soft_warned'
-  const checkForAI = async (imageUrl: string): Promise<'ok' | 'hard_blocked' | 'soft_warned'> => {
+  // Returns: 'ok' | 'hard_blocked' | 'soft_warned' | 'explicit_blocked'
+  const checkForAI = async (imageUrl: string): Promise<'ok' | 'hard_blocked' | 'soft_warned' | 'explicit_blocked'> => {
     setChecking(true);
     setAiWarning(null);
     try {
@@ -1915,6 +1916,10 @@ function AddTackModal({
       });
       const data = await response.json();
 
+      if (data.explicitBlocked) {
+        setChecking(false);
+        return 'explicit_blocked';
+      }
       if (data.blocked) {
         // Hard block — known AI platform or high-confidence detection
         setAiWarning(data.reason || 'This image appears to be AI-generated and cannot be uploaded.');
@@ -2024,6 +2029,7 @@ function AddTackModal({
     const aiResult = await checkForAI(imgUrl);
     const finalPinColor = showCustomPinColor && customPinColor ? customPinColor : pinColor;
 
+    if (aiResult === 'explicit_blocked') { setShowExplicitBlock(true); return; }
     if (aiResult === 'hard_blocked') {
       setAiHardBlocked(true);
       setShowAiConfirm(true);
@@ -2048,6 +2054,7 @@ function AddTackModal({
     const aiResult = await checkForAI(url);
     const finalPinColor = showCustomPinColor && customPinColor ? customPinColor : pinColor;
 
+    if (aiResult === 'explicit_blocked') { setShowExplicitBlock(true); return; }
     if (aiResult === 'hard_blocked') {
       setAiHardBlocked(true);
       setShowAiConfirm(true);
@@ -2239,6 +2246,39 @@ function AddTackModal({
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Explicit Content Modal */}
+      {showExplicitBlock && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 stroke-red-600 stroke-2 fill-none" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-ink mb-1">Content not allowed</h3>
+                <p className="text-sm text-ink/60">This image contains explicit or inappropriate content and cannot be uploaded.</p>
+              </div>
+            </div>
+            <div className="rounded-xl p-4 mb-4 bg-red-50">
+              <p className="text-sm text-ink/70">
+                <strong className="text-ink">Sparkurio does not permit nudity, sexually explicit content, or any content that exploits or sexualizes minors.</strong>{' '}
+                If you believe this was flagged in error, please contact{' '}
+                <a href="mailto:admin@sparkurio.com" className="text-papaya">admin@sparkurio.com</a>.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowExplicitBlock(false)}
+              className="w-full px-4 py-3 bg-ink text-white rounded-full text-sm font-medium hover:bg-ink/90 transition-colors"
+            >
+              Choose a different image
+            </button>
           </div>
         </div>
       )}
