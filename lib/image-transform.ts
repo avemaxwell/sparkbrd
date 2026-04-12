@@ -2,15 +2,28 @@
  * Image optimization via Next.js built-in image optimizer (/_next/image).
  * Free on Vercel — resizes and serves WebP/AVIF automatically.
  *
- * Only applies to images from known/configured domains (see next.config.ts).
- * Unknown external origins are returned as-is; the browser handles them.
+ * Only applies to images we host in Supabase Storage. External/scraped URLs
+ * are returned as-is so the browser fetches them directly — routing them
+ * through Vercel's image proxy causes failures due to hotlink protection on
+ * many third-party domains.
  *
  * Next.js width values must match the `imageSizes` or `deviceSizes` in config.
- * We use: 256, 384, 640, 750, 828, 1080, 1200
+ * We use: 128, 256, 384, 640, 750, 828, 1080, 1200
  */
+
+const SUPABASE_HOST = process.env.NEXT_PUBLIC_SUPABASE_URL
+  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
+  : 'vqaaxqvyepouqcrxduiw.supabase.co';
 
 function nextImageUrl(url: string, width: number, quality = 80): string {
   if (!url) return url;
+  try {
+    const { hostname } = new URL(url);
+    // Only optimize images we control — external URLs pass through as-is
+    if (hostname !== SUPABASE_HOST) return url;
+  } catch {
+    return url;
+  }
   return `/_next/image?url=${encodeURIComponent(url)}&w=${width}&q=${quality}`;
 }
 

@@ -1989,10 +1989,15 @@ function AddTackModal({
     reader.readAsDataURL(file);
     // Compress before upload: resize to max 1600px, re-encode as JPEG 85%
     let uploadBlob: Blob = file;
-    try { uploadBlob = await compressImage(file); } catch { /* fall back to original */ }
-    const ext = "jpg";
-    const fileName = `${boardId}/${Date.now()}-${file.name.replace(/\.[^.]+$/, "")}.${ext}`;
-    const { error } = await supabase.storage.from("tacks").upload(fileName, uploadBlob, { contentType: "image/jpeg" });
+    let uploadContentType = file.type || "image/jpeg";
+    let uploadExt = file.name.split(".").pop() ?? "jpg";
+    try {
+      uploadBlob = await compressImage(file);
+      uploadContentType = "image/jpeg";
+      uploadExt = "jpg";
+    } catch { /* fall back to original file, type, and extension */ }
+    const fileName = `${boardId}/${Date.now()}-${file.name.replace(/\.[^.]+$/, "")}.${uploadExt}`;
+    const { error } = await supabase.storage.from("tacks").upload(fileName, uploadBlob, { contentType: uploadContentType });
     if (error) { console.error("Upload error:", error); setUploading(false); return; }
     const { data: { publicUrl } } = supabase.storage.from("tacks").getPublicUrl(fileName);
     setUrl(publicUrl);
