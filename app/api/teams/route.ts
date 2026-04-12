@@ -75,9 +75,8 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
     const baseSlug = slugify(name.trim());
 
-    // Ensure slug uniqueness
+    // Ensure slug uniqueness — append a random 5-digit code on conflict
     let slug = baseSlug;
-    let attempt = 0;
     while (true) {
       const { data: existing } = await admin
         .from('teams')
@@ -85,8 +84,7 @@ export async function POST(request: Request) {
         .eq('slug', slug)
         .maybeSingle();
       if (!existing) break;
-      attempt++;
-      slug = `${baseSlug}-${attempt}`;
+      slug = `${baseSlug}-${Math.floor(10000 + Math.random() * 90000)}`;
     }
 
     const { data: team, error } = await admin
