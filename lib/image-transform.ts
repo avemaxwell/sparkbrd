@@ -1,36 +1,30 @@
-const SUPABASE_STORAGE_PREFIX = 'https://vqaaxqvyepouqcrxduiw.supabase.co/storage/v1/object/public/';
-const SUPABASE_TRANSFORM_PREFIX = 'https://vqaaxqvyepouqcrxduiw.supabase.co/storage/v1/render/image/public/';
-
 /**
- * Returns an optimized image URL using Supabase Storage image transforms.
- * Only applies to images stored in our Supabase Storage — external URLs
- * (scraped, pasted image URLs) are returned unchanged.
+ * Image optimization via Next.js built-in image optimizer (/_next/image).
+ * Free on Vercel — resizes and serves WebP/AVIF automatically.
  *
- * @param url      The original content_url stored in the database
- * @param width    Target display width in pixels
- * @param quality  JPEG quality 1–100 (default 80)
+ * Only applies to images from known/configured domains (see next.config.ts).
+ * Unknown external origins are returned as-is; the browser handles them.
+ *
+ * Next.js width values must match the `imageSizes` or `deviceSizes` in config.
+ * We use: 256, 384, 640, 750, 828, 1080, 1200
  */
-export function tackImageUrl(url: string, width: number, quality = 80): string {
-  if (!url) return url;
-  if (!url.startsWith(SUPABASE_STORAGE_PREFIX)) return url; // external URL — pass through
 
-  const path = url.slice(SUPABASE_STORAGE_PREFIX.length);
-  return `${SUPABASE_TRANSFORM_PREFIX}${path}?width=${width}&quality=${quality}`;
+function nextImageUrl(url: string, width: number, quality = 80): string {
+  if (!url) return url;
+  return `/_next/image?url=${encodeURIComponent(url)}&w=${width}&q=${quality}`;
 }
 
-// Preset sizes used across the app:
+/** Canvas board view — tack at displayed size (max ~800px wide on screen) */
+export const tackCanvas = (url: string) => nextImageUrl(url, 828, 80);
 
-/** Canvas board view — tack thumbnail at its displayed width (max 400px) */
-export const tackCanvas = (url: string) => tackImageUrl(url, 800, 80);
+/** Detail/edit modal — full-quality enlarged view */
+export const tackDetail = (url: string) => nextImageUrl(url, 1200, 90);
 
-/** Detail/edit modal — full-quality view */
-export const tackDetail = (url: string) => tackImageUrl(url, 1200, 90);
+/** Board card collage — stacked preview thumbnails */
+export const tackCollage = (url: string) => nextImageUrl(url, 384, 75);
 
-/** Board card collage — tiny stacked preview images */
-export const tackCollage = (url: string) => tackImageUrl(url, 400, 70);
+/** Discovery feed / comment drawer — medium thumbnail */
+export const tackThumb = (url: string) => nextImageUrl(url, 256, 75);
 
-/** Discovery feed / notifications — small thumbnail */
-export const tackThumb = (url: string) => tackImageUrl(url, 300, 70);
-
-/** Activity feed thumbnail — very small */
-export const tackMini = (url: string) => tackImageUrl(url, 120, 65);
+/** Activity feed — tiny inline thumbnail */
+export const tackMini = (url: string) => nextImageUrl(url, 128, 70);

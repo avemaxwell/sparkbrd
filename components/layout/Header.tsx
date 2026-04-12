@@ -129,7 +129,7 @@ export default function Header() {
                       </Link>
                     </div>
                     <div className="p-2 border-t border-ink/5">
-                      <button 
+                      <button
                         onClick={() => {
                           setDropdownOpen(false);
                           signOut();
@@ -143,6 +143,22 @@ export default function Header() {
                         </svg>
                         Sign out
                       </button>
+                    </div>
+                    <div className="px-4 pb-3 flex gap-3">
+                      <Link
+                        href="/terms"
+                        onClick={() => setDropdownOpen(false)}
+                        className="text-[11px] text-ink/30 hover:text-ink/50 transition-colors"
+                      >
+                        Terms
+                      </Link>
+                      <Link
+                        href="/privacy"
+                        onClick={() => setDropdownOpen(false)}
+                        className="text-[11px] text-ink/30 hover:text-ink/50 transition-colors"
+                      >
+                        Privacy
+                      </Link>
                     </div>
                   </div>
                 </>
