@@ -67,7 +67,9 @@ export async function POST(_req: Request, { params }: Params) {
 
     // Verify email matches (case-insensitive) using auth user email (always present)
     if (user.email?.toLowerCase() !== invitation.email.toLowerCase()) {
-      return NextResponse.json({ error: 'This invitation was sent to a different email address' }, { status: 403 });
+      return NextResponse.json({
+        error: `This invitation was sent to ${invitation.email}, but you are signed in as ${user.email}. Please sign in with the correct account.`
+      }, { status: 403 });
     }
 
     // Verify user has team plan
