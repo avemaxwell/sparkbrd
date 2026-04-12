@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { usePlan } from "@/hooks/usePlan";
@@ -8,6 +8,14 @@ import Link from "next/link";
 import ColorPicker from "@/components/ui/ColorPicker";
 
 export default function NewBoardPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white flex items-center justify-center"><div className="w-8 h-8 border-2 border-ink/20 border-t-papaya rounded-full animate-spin"/></div>}>
+      <NewBoardForm />
+    </Suspense>
+  );
+}
+
+function NewBoardForm() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [bgStyle, setBgStyle] = useState("gradient");
