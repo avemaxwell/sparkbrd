@@ -65,11 +65,13 @@ export async function POST(_req: Request, { params }: Params) {
       return NextResponse.json({ error: 'This invitation has expired' }, { status: 410 });
     }
 
-    // Verify email matches (case-insensitive) and user has team plan
-    const { data: profile } = await admin.from('profiles').select('email, plan').eq('id', user.id).single();
-    if (profile?.email?.toLowerCase() !== invitation.email.toLowerCase()) {
+    // Verify email matches (case-insensitive) using auth user email (always present)
+    if (user.email?.toLowerCase() !== invitation.email.toLowerCase()) {
       return NextResponse.json({ error: 'This invitation was sent to a different email address' }, { status: 403 });
     }
+
+    // Verify user has team plan
+    const { data: profile } = await admin.from('profiles').select('plan').eq('id', user.id).single();
     if (profile?.plan !== 'team') {
       return NextResponse.json({ error: 'You need a Team plan to join a team workspace. Upgrade in settings.' }, { status: 403 });
     }

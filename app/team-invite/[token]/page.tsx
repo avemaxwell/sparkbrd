@@ -75,8 +75,8 @@ export default function TeamInvitePage() {
     <div className="min-h-screen bg-gradient-to-br from-[#fef3e2] to-[#fce7f3] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="font-serif text-2xl text-ink">
-            Sparkurio
+          <Link href="/">
+            <img src="/logo.png" alt="Sparkurio" className="h-10 mx-auto" />
           </Link>
         </div>
 
