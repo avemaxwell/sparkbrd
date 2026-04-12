@@ -12,28 +12,28 @@ interface SendInviteEmailOptions {
   inviterName: string;
   boardName: string;
   inviteUrl: string;
-  role: 'editor' | 'viewer';
-  /** True when the invitee has a Sparkurio account but is on the free plan. */
+  role: string;
   needsUpgrade: boolean;
 }
 
 export async function sendInviteEmail(opts: SendInviteEmailOptions) {
   const { to, inviterName, boardName, inviteUrl, role, needsUpgrade } = opts;
 
-  const subject = needsUpgrade
-    ? `${inviterName} invited you to collaborate on Sparkurio — upgrade to join`
+  const isTeamInvite = role === 'admin' || role === 'member';
+  const subject = isTeamInvite
+    ? `${inviterName} invited you to join ${boardName} on Sparkurio`
     : `${inviterName} invited you to a board on Sparkurio`;
 
-  const ctaLabel = needsUpgrade ? 'Upgrade &amp; join board' : 'Accept invitation';
+  const ctaLabel = 'Accept invitation';
 
   const upgradeNote = needsUpgrade
     ? `<p style="margin:0 0 24px;color:#666;font-size:14px;line-height:1.6;">
-        You&rsquo;ll need a <strong>Pro account</strong> to edit boards on Sparkurio.
+        You&rsquo;ll need a <strong>Team plan</strong> to join this workspace.
         Tap the button below to upgrade &mdash; it only takes a minute.
       </p>`
     : '';
 
-  const roleLabel = role === 'editor' ? 'Can edit' : 'View only';
+  const roleLabel = role === 'admin' ? 'Admin' : role === 'member' ? 'Member' : role === 'editor' ? 'Can edit' : 'View only';
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -54,17 +54,17 @@ export async function sendInviteEmail(opts: SendInviteEmailOptions) {
         <tr>
           <td style="padding:32px 40px 40px;">
             <h1 style="margin:0 0 8px;font-size:22px;font-weight:400;color:#1a1a1a;">
-              You&rsquo;re invited to collaborate
+              You&rsquo;re invited to ${isTeamInvite ? 'join a team' : 'collaborate'}
             </h1>
             <p style="margin:0 0 24px;color:#666;font-size:14px;line-height:1.6;">
-              <strong>${inviterName}</strong> invited you to ${role === 'editor' ? 'edit' : 'view'} a board on Sparkurio.
+              <strong>${inviterName}</strong> invited you to ${isTeamInvite ? 'join their team workspace' : `${role === 'editor' ? 'edit' : 'view'} a board`} on Sparkurio.
             </p>
 
-            <!-- Board card -->
+            <!-- Team/Board card -->
             <table width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;border-radius:12px;margin-bottom:24px;">
               <tr>
                 <td style="padding:20px 24px;">
-                  <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#999;">Board</p>
+                  <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#999;">${isTeamInvite ? 'Team' : 'Board'}</p>
                   <p style="margin:0 0 8px;font-size:18px;color:#1a1a1a;">${boardName}</p>
                   <span style="display:inline-block;padding:3px 10px;background:#E24E42;border-radius:99px;font-size:11px;color:#fff;">${roleLabel}</span>
                 </td>
@@ -97,8 +97,8 @@ export async function sendInviteEmail(opts: SendInviteEmailOptions) {
 </body>
 </html>`;
 
-  const text = needsUpgrade
-    ? `${inviterName} invited you to ${role === 'editor' ? 'edit' : 'view'} "${boardName}" on Sparkurio. You'll need a Pro account to edit — upgrade now: ${inviteUrl}`
+  const text = isTeamInvite
+    ? `${inviterName} invited you to join "${boardName}" on Sparkurio. Accept here: ${inviteUrl}`
     : `${inviterName} invited you to ${role === 'editor' ? 'edit' : 'view'} "${boardName}" on Sparkurio. Accept here: ${inviteUrl}`;
 
   await resend.emails.send({ from: FROM, to, subject, html, text });

@@ -160,12 +160,20 @@ export default function TeamPage() {
           {/* Team header */}
           <div className="flex items-start justify-between mb-10">
             <div className="flex items-center gap-4">
-              <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-2xl font-semibold flex-shrink-0"
-                style={{ backgroundColor: data.team.avatar_color }}
-              >
-                {data.team.name[0]?.toUpperCase()}
-              </div>
+              {(data.team as any).avatar_url ? (
+                <img
+                  src={(data.team as any).avatar_url}
+                  alt={data.team.name}
+                  className="w-14 h-14 rounded-2xl object-cover flex-shrink-0"
+                />
+              ) : (
+                <div
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-2xl font-semibold flex-shrink-0"
+                  style={{ backgroundColor: data.team.avatar_color }}
+                >
+                  {data.team.name[0]?.toUpperCase()}
+                </div>
+              )}
               <div>
                 <h1 className="font-serif text-3xl md:text-4xl text-ink/90 leading-none">{data.team.name}</h1>
                 <p className="text-ink/40 text-sm mt-1.5">

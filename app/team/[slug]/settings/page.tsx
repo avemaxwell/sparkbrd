@@ -67,8 +67,11 @@ export default function TeamSettingsPage() {
   // Edit state
   const [teamName, setTeamName] = useState('');
   const [avatarColor, setAvatarColor] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   // Invite state
   const [inviteEmail, setInviteEmail] = useState('');
@@ -95,6 +98,7 @@ export default function TeamSettingsPage() {
     setData(teamData);
     setTeamName(teamData.team.name);
     setAvatarColor(teamData.team.avatar_color);
+    setAvatarUrl((teamData.team as any).avatar_url ?? null);
     setLoading(false);
   };
 
@@ -103,6 +107,30 @@ export default function TeamSettingsPage() {
   const canManage = data?.current_user_role === 'owner' || data?.current_user_role === 'admin';
   const isOwner = data?.current_user_role === 'owner';
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !data) return;
+    setUploading(true);
+    const { createClient } = await import('@/lib/supabase/client');
+    const supabase = createClient();
+    const ext = file.name.split('.').pop();
+    const path = `${data.team.id}/logo.${ext}`;
+    const { error } = await supabase.storage.from('team-avatars').upload(path, file, { upsert: true });
+    if (error) {
+      setSaveMsg('Upload failed: ' + error.message);
+      setUploading(false);
+      return;
+    }
+    const { data: urlData } = supabase.storage.from('team-avatars').getPublicUrl(path);
+    setAvatarUrl(urlData.publicUrl);
+    setUploading(false);
+  };
+
+  const handleRemoveLogo = () => {
+    setAvatarUrl(null);
+    if (logoInputRef.current) logoInputRef.current.value = '';
+  };
+
   const handleSave = async () => {
     if (!data) return;
     setSaving(true);
@@ -110,7 +138,7 @@ export default function TeamSettingsPage() {
     const res = await fetch(`/api/teams/${data.team.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: teamName, avatar_color: avatarColor }),
+      body: JSON.stringify({ name: teamName, avatar_color: avatarColor, avatar_url: avatarUrl }),
     });
     setSaving(false);
     if (res.ok) {
@@ -236,11 +264,22 @@ export default function TeamSettingsPage() {
               <h2 className="font-medium text-ink mb-5">Team profile</h2>
 
               <div className="flex items-center gap-4 mb-6">
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-2xl font-semibold flex-shrink-0"
-                  style={{ backgroundColor: avatarColor }}
-                >
-                  {teamName[0]?.toUpperCase() ?? 'T'}
+                {/* Avatar preview */}
+                <div className="relative flex-shrink-0">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={teamName}
+                      className="w-14 h-14 rounded-2xl object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-2xl font-semibold"
+                      style={{ backgroundColor: avatarColor }}
+                    >
+                      {teamName[0]?.toUpperCase() ?? 'T'}
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1">
                   <label className="block text-xs text-ink/50 mb-1">Team name</label>
@@ -253,8 +292,40 @@ export default function TeamSettingsPage() {
                 </div>
               </div>
 
+              {/* Logo upload */}
               <div className="mb-6">
-                <label className="block text-xs text-ink/50 mb-2">Avatar color</label>
+                <label className="block text-xs text-ink/50 mb-2">Team logo</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={uploading}
+                    className="px-3 py-2 text-sm border border-ink/15 rounded-xl hover:bg-ink/5 transition-colors disabled:opacity-50"
+                  >
+                    {uploading ? 'Uploading…' : avatarUrl ? 'Change logo' : 'Upload logo'}
+                  </button>
+                  {avatarUrl && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveLogo}
+                      className="text-sm text-red-400 hover:text-red-600 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  )}
+                  <p className="text-xs text-ink/30">PNG, JPG up to 5MB</p>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-xs text-ink/50 mb-2">Avatar color {avatarUrl ? '(used as fallback)' : ''}</label>
                 <div className="flex flex-wrap gap-2">
                   {AVATAR_COLORS.map(c => (
                     <button

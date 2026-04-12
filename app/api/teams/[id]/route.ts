@@ -107,9 +107,10 @@ export async function PATCH(request: Request, { params }: Params) {
     }
 
     const body = await request.json();
-    const updates: Record<string, string> = {};
+    const updates: Record<string, string | null> = {};
     if (body.name?.trim()) updates.name = body.name.trim();
     if (body.avatar_color) updates.avatar_color = body.avatar_color;
+    if ('avatar_url' in body) updates.avatar_url = body.avatar_url ?? null;
 
     const { data: updated } = await admin.from('teams').update(updates).eq('id', id).select().single();
     return NextResponse.json({ team: updated });
