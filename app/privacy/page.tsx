@@ -101,16 +101,10 @@ export default function PrivacyPage() {
           <section>
             <h2 className="font-serif text-xl text-ink/80 mb-3">5. Third-Party Services</h2>
             <p>
-              The Service integrates with or links to third-party services and websites, including but not limited to:
+              We work with third-party service providers to operate the Service, including providers of cloud hosting and storage, user authentication, transactional email delivery, and automated content moderation. These providers process data on our behalf and are contractually required to protect it.
             </p>
-            <ul className="list-disc pl-5 mt-2 space-y-1.5">
-              <li><strong className="text-ink/70">Supabase</strong> — database, storage, and authentication</li>
-              <li><strong className="text-ink/70">Vercel</strong> — hosting and image optimization</li>
-              <li><strong className="text-ink/70">Resend</strong> — transactional email delivery</li>
-              <li><strong className="text-ink/70">Anthropic (Claude API)</strong> — AI-based image content moderation</li>
-            </ul>
             <p className="mt-3">
-              When you import images from third-party websites, those websites may log your request. We are not responsible for the privacy practices of third-party services. We encourage you to review their privacy policies.
+              When you import images from third-party websites, those websites may log your request. We are not responsible for the privacy practices of any third-party service. We encourage you to review the privacy policies of any external sites you visit.
             </p>
           </section>
 
