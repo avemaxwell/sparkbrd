@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { logTeamActivity } from '@/lib/team-activity';
 
 type Params = { params: Promise<{ token: string }> };
 
@@ -104,6 +105,16 @@ export async function POST(_req: Request, { params }: Params) {
     await admin.from('team_invitations').delete().eq('id', invitation.id);
 
     const { data: team } = await admin.from('teams').select('id, name, slug').eq('id', invitation.team_id).single();
+
+    // Log member joined activity
+    const { data: actorProfile } = await admin.from('profiles').select('name, avatar_url').eq('id', user.id).single();
+    await logTeamActivity({
+      teamId: invitation.team_id,
+      userId: user.id,
+      type: 'member_joined',
+      actorName: actorProfile?.name ?? null,
+      actorAvatar: actorProfile?.avatar_url ?? null,
+    });
 
     return NextResponse.json({ success: true, team });
   } catch (err) {

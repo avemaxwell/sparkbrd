@@ -111,6 +111,7 @@ export default function TeamSettingsPage() {
     const file = e.target.files?.[0];
     if (!file || !data) return;
     setUploading(true);
+    setSaveMsg('');
     const { createClient } = await import('@/lib/supabase/client');
     const supabase = createClient();
     const ext = file.name.split('.').pop();
@@ -122,13 +123,35 @@ export default function TeamSettingsPage() {
       return;
     }
     const { data: urlData } = supabase.storage.from('team-avatars').getPublicUrl(path);
-    setAvatarUrl(urlData.publicUrl);
+    const newUrl = urlData.publicUrl;
+    setAvatarUrl(newUrl);
+
+    // Auto-save so the logo takes effect immediately
+    const res = await fetch(`/api/teams/${data.team.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: teamName, avatar_color: avatarColor, avatar_url: newUrl }),
+    });
     setUploading(false);
+    if (res.ok) {
+      setSaveMsg('Logo saved!');
+      await loadData();
+      setTimeout(() => setSaveMsg(''), 3000);
+    } else {
+      setSaveMsg('Logo uploaded but save failed — click Save changes.');
+    }
   };
 
-  const handleRemoveLogo = () => {
+  const handleRemoveLogo = async () => {
+    if (!data) return;
     setAvatarUrl(null);
     if (logoInputRef.current) logoInputRef.current.value = '';
+    await fetch(`/api/teams/${data.team.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: teamName, avatar_color: avatarColor, avatar_url: null }),
+    });
+    await loadData();
   };
 
   const handleSave = async () => {

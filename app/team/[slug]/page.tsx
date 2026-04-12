@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import BottomNav from "@/components/layout/BottomNav";
+import ActivityFeed from "@/components/team/ActivityFeed";
 import { useUser } from "@/hooks/useUser";
 
 const BOARD_GRADIENTS = [
@@ -154,8 +155,10 @@ export default function TeamPage() {
   return (
     <main className="min-h-screen bg-[#FDFCFB] pb-20 lg:pb-0">
       <Header />
-      <div className="pt-24 md:pt-28 px-6 pb-16">
-        <div className="max-w-7xl mx-auto">
+      <div className="pt-24 md:pt-28 pb-16">
+        <div className="max-w-screen-2xl mx-auto flex gap-0 lg:gap-6 px-6">
+          {/* Main content */}
+          <div className="flex-1 min-w-0">
 
           {/* Team header */}
           <div className="flex items-start justify-between mb-10">
@@ -317,6 +320,14 @@ export default function TeamPage() {
               </div>
             )}
           </div>
+          </div>{/* end main content */}
+
+          {/* Activity feed — right panel */}
+          <aside className="hidden lg:flex flex-col w-72 xl:w-80 flex-shrink-0 sticky top-24 self-start" style={{ height: 'calc(100vh - 7rem)' }}>
+            <div className="flex-1 bg-white rounded-2xl border border-ink/8 shadow-sm overflow-hidden flex flex-col">
+              <ActivityFeed teamId={data.team.id} />
+            </div>
+          </aside>
         </div>
       </div>
       <BottomNav />

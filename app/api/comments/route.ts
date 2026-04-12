@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { logTeamActivity } from '@/lib/team-activity';
 
 async function attachProfiles(supabase: Awaited<ReturnType<typeof createClient>>, comments: Array<{ user_id: string; [key: string]: unknown }>) {
   const userIds = [...new Set(comments.map(c => c.user_id))];
@@ -210,6 +211,23 @@ export async function POST(request: Request) {
           await supabase.from('notifications').insert(mentionNotifs);
         }
       }
+    }
+
+    // Log to team activity feed if this board belongs to a team
+    const admin2 = createAdminClient();
+    const { data: boardRow } = await admin2.from('boards').select('team_id, name').eq('id', board_id).single();
+    if (boardRow?.team_id) {
+      await logTeamActivity({
+        teamId: boardRow.team_id,
+        userId: user.id,
+        type: 'comment_posted',
+        actorName: profile?.name ?? null,
+        actorAvatar: profile?.avatar_url ?? null,
+        boardId: board_id,
+        boardName: boardRow.name,
+        tackId: tack_id,
+        commentBody: commentBody.trim().slice(0, 120),
+      });
     }
 
     return NextResponse.json({ comment });

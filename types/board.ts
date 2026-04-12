@@ -6,6 +6,7 @@ export interface Board {
   background_color: string | null;
   owner_id: string;
   is_public: boolean;
+  team_id: string | null;
 }
 
 export interface Tack {

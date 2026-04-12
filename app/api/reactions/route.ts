@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { logTeamActivity } from '@/lib/team-activity';
 
 const VALID_REACTIONS = ['❤️', '🔥', '✨', '👀', '😍'];
 
@@ -87,6 +88,26 @@ export async function POST(request: Request) {
           board_id: tack.board_id,
           tack_id: canonicalId,
         });
+      }
+
+      // Log to team activity feed
+      if (tack?.board_id) {
+        const admin = createAdminClient();
+        const { data: boardRow } = await admin.from('boards').select('team_id, name').eq('id', tack.board_id).single();
+        const { data: actorProfile } = await admin.from('profiles').select('name, avatar_url').eq('id', user.id).single();
+        if (boardRow?.team_id) {
+          await logTeamActivity({
+            teamId: boardRow.team_id,
+            userId: user.id,
+            type: 'reaction_added',
+            actorName: actorProfile?.name ?? null,
+            actorAvatar: actorProfile?.avatar_url ?? null,
+            boardId: tack.board_id,
+            boardName: boardRow.name,
+            tackId: canonicalId,
+            tackThumbnail: (tack as any).content_url ?? null,
+          });
+        }
       }
     }
 

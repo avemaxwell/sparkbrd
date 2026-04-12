@@ -71,6 +71,19 @@ function NewBoardForm() {
       return;
     }
 
+    // Log to team activity feed if this is a team board
+    if (teamId) {
+      fetch(`/api/teams/${teamId}/activity`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'board_created',
+          board_id: data.id,
+          board_name: data.name,
+        }),
+      }).catch(() => {});
+    }
+
     router.push(`/board/${data.id}`);
   };
 

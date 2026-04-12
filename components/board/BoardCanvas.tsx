@@ -676,6 +676,21 @@ const handleTextRotateEnd = async () => {
           }
         })
         .catch(() => {});
+
+      // Log to team activity feed if this is a team board
+      if (board.team_id) {
+        fetch(`/api/teams/${board.team_id}/activity`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'tack_added',
+            board_id: boardId,
+            board_name: board.name,
+            tack_id: insertedId,
+            tack_thumbnail: insertedUrl,
+          }),
+        }).catch(() => {});
+      }
     } else {
       console.error("Add tack error:", error);
     }
