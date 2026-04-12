@@ -25,6 +25,7 @@ export interface Tack {
   origin_item_id: string | null;
   added_by: string | null;
   added_by_profile: { id: string; name: string | null; avatar_url: string | null } | null;
+  hidden_as_ai: boolean;
 }
 
 export interface TextBlock {

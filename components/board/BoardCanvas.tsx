@@ -918,7 +918,7 @@ return (
           }}
         >
           {/* Tacks */}
-          {tacks.map((tack) => (
+          {tacks.filter((tack) => !tack.hidden_as_ai).map((tack) => (
   <div
     key={tack.id}
     id={`tack-wrapper-${tack.id}`}
@@ -1004,6 +1004,28 @@ return (
       </div>
     )}
     
+    {/* Flag as AI — shown to any user who didn't add the tack */}
+    {profile && tack.added_by !== profile.id && (
+      <button
+        className="absolute top-1 right-1 w-6 h-6 bg-white/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-sm hover:bg-red-50 z-10"
+        title="Report as AI-generated"
+        onClick={async (e) => {
+          e.stopPropagation();
+          const res = await fetch(`/api/tacks/${tack.id}/report-ai`, { method: 'POST' });
+          const d = await res.json();
+          if (res.status === 429) alert('You\'ve reached the daily flag limit.');
+          else if (d.alreadyReported) alert('You\'ve already flagged this image.');
+          else if (d.hidden) alert('This image has been removed after review.');
+          else if (d.flagged) alert('Thanks — flagged for review.');
+          else if (d.error) alert(d.error);
+        }}
+      >
+        <svg className="w-3 h-3 stroke-red-400 stroke-[1.5] fill-none" viewBox="0 0 24 24">
+          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>
+        </svg>
+      </button>
+    )}
+
     {/* Resize Handle — editors/owners only */}
     {canEdit && (
       <div
@@ -1873,36 +1895,43 @@ function AddTackModal({
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
   const [checking, setChecking] = useState(false);
   const [aiWarning, setAiWarning] = useState<string | null>(null);
+  const [aiHardBlocked, setAiHardBlocked] = useState(false);
   const [showAiConfirm, setShowAiConfirm] = useState(false);
   const [pendingUpload, setPendingUpload] = useState<{url: string, note: string, pinColor: string, source?: string} | null>(null);
   
   const supabase = createClient();
 
-  const checkForAI = async (imageUrl: string): Promise<boolean> => {
+  // Returns: 'ok' | 'hard_blocked' | 'soft_warned'
+  const checkForAI = async (imageUrl: string): Promise<'ok' | 'hard_blocked' | 'soft_warned'> => {
     setChecking(true);
     setAiWarning(null);
     try {
-      const response = await fetch('/api/check-ai', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ imageUrl }) 
+      const response = await fetch('/api/check-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl }),
       });
       const data = await response.json();
-      
-      // If likely AI, show warning modal - don't block
-      if (data.isLikelyAI || data.blocked) {
+
+      if (data.blocked) {
+        // Hard block — known AI platform or high-confidence detection
+        setAiWarning(data.reason || 'This image appears to be AI-generated and cannot be uploaded.');
+        setChecking(false);
+        return 'hard_blocked';
+      }
+      if (data.softWarned) {
+        // Soft warn — moderate confidence, allow override
         setAiWarning(data.reason || 'This image may be AI-generated.');
         setChecking(false);
-        return false; // Signal to show confirmation
+        return 'soft_warned';
       }
-      
-      // Otherwise allow upload
+
       setChecking(false);
-      return true;
+      return 'ok';
     } catch (error) {
       console.error('AI check failed:', error);
       setChecking(false);
-      return true; // Allow upload if check fails
+      return 'ok'; // Fail open if detection itself errors
     }
   };
 
@@ -1916,6 +1945,7 @@ function AddTackModal({
   const handleCancelUpload = () => {
     setShowAiConfirm(false);
     setAiWarning(null);
+    setAiHardBlocked(false);
     if (mode === "upload") {
       setPreviewUrl(null);
       setUrl("");
@@ -1966,16 +1996,21 @@ function AddTackModal({
       return; 
     }
     
-    const isOk = await checkForAI(imgUrl);
+    const aiResult = await checkForAI(imgUrl);
     const finalPinColor = showCustomPinColor && customPinColor ? customPinColor : pinColor;
-    
-    if (!isOk) {
-      // Show confirmation modal
+
+    if (aiResult === 'hard_blocked') {
+      setAiHardBlocked(true);
+      setShowAiConfirm(true);
+      return;
+    }
+    if (aiResult === 'soft_warned') {
+      setAiHardBlocked(false);
       setPendingUpload({ url: imgUrl, note: note.trim(), pinColor: finalPinColor, source: scrapedSource });
       setShowAiConfirm(true);
       return;
     }
-    
+
     const newSelected = new Set(selectedImages);
     newSelected.add(imgUrl);
     setSelectedImages(newSelected);
@@ -1985,16 +2020,21 @@ function AddTackModal({
     e.preventDefault();
     if (!url.trim()) return;
     
-    const isOk = await checkForAI(url);
+    const aiResult = await checkForAI(url);
     const finalPinColor = showCustomPinColor && customPinColor ? customPinColor : pinColor;
-    
-    if (!isOk) {
-      // Show confirmation modal
+
+    if (aiResult === 'hard_blocked') {
+      setAiHardBlocked(true);
+      setShowAiConfirm(true);
+      return;
+    }
+    if (aiResult === 'soft_warned') {
+      setAiHardBlocked(false);
       setPendingUpload({ url: url.trim(), note: note.trim(), pinColor: finalPinColor });
       setShowAiConfirm(true);
       return;
     }
-    
+
     onAdd(url.trim(), note.trim(), finalPinColor);
   };
 
@@ -2116,45 +2156,64 @@ function AddTackModal({
         </div>
       </div>
 
-      {/* AI Confirmation Modal */}
+      {/* AI Detection Modal */}
       {showAiConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
           <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
             <div className="flex items-start gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 stroke-yellow-600 stroke-2 fill-none" viewBox="0 0 24 24">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                  <line x1="12" y1="9" x2="12" y2="13"/>
-                  <line x1="12" y1="17" x2="12.01" y2="17"/>
-                </svg>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${aiHardBlocked ? 'bg-red-100' : 'bg-yellow-100'}`}>
+                {aiHardBlocked ? (
+                  <svg className="w-5 h-5 stroke-red-600 stroke-2 fill-none" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 stroke-yellow-600 stroke-2 fill-none" viewBox="0 0 24 24">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                )}
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold text-ink mb-1">This may be AI-generated</h3>
+                <h3 className="font-semibold text-ink mb-1">
+                  {aiHardBlocked ? 'AI-generated content not allowed' : 'This may be AI-generated'}
+                </h3>
                 <p className="text-sm text-ink-soft">{aiWarning}</p>
               </div>
             </div>
-            
-            <div className="bg-ink/5 rounded-xl p-4 mb-4">
+
+            <div className={`rounded-xl p-4 mb-4 ${aiHardBlocked ? 'bg-red-50' : 'bg-ink/5'}`}>
               <p className="text-sm text-ink-soft">
-                <strong className="text-ink">Sparkurio is for human-made inspiration.</strong> We're building a space free from AI-generated content. Uploading AI imagery violates our community standards.
+                <strong className="text-ink">Sparkurio is for human-made inspiration.</strong>{' '}
+                {aiHardBlocked
+                  ? 'This image has been identified as AI-generated with high confidence and cannot be uploaded. Please choose a human-created image instead.'
+                  : "We're building a space free from AI-generated content. If this is your own human-made work, you may proceed."}
               </p>
             </div>
 
-            <div className="flex gap-3">
-              <button 
+            {aiHardBlocked ? (
+              <button
                 onClick={handleCancelUpload}
-                className="flex-1 px-4 py-3 bg-ink text-white rounded-full text-sm font-medium hover:bg-ink/90 transition-colors"
+                className="w-full px-4 py-3 bg-ink text-white rounded-full text-sm font-medium hover:bg-ink/90 transition-colors"
               >
-                Go back
+                Choose a different image
               </button>
-              <button 
-                onClick={proceedWithUpload}
-                className="flex-1 px-4 py-3 bg-ink/10 text-ink rounded-full text-sm font-medium hover:bg-ink/20 transition-colors"
-              >
-                Upload anyway
-              </button>
-            </div>
+            ) : (
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCancelUpload}
+                  className="flex-1 px-4 py-3 bg-ink text-white rounded-full text-sm font-medium hover:bg-ink/90 transition-colors"
+                >
+                  Go back
+                </button>
+                <button
+                  onClick={proceedWithUpload}
+                  className="flex-1 px-4 py-3 bg-ink/10 text-ink rounded-full text-sm font-medium hover:bg-ink/20 transition-colors"
+                >
+                  It&apos;s human-made
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

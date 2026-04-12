@@ -54,8 +54,9 @@ export async function POST(request: Request) {
     if (heuristic.flagged) {
       return NextResponse.json({
         isLikelyAI: true,
-        confidence: 0.9,
-        blocked: true,
+        confidence: 0.95,
+        blocked: true,       // hard block — known AI platform
+        softWarned: false,
         reason: heuristic.reason,
       });
     }
@@ -108,12 +109,16 @@ Be strict. If there are telltale signs of AI generation — unnaturally perfect 
       return NextResponse.json({ isLikelyAI: false, confidence: 0, blocked: false, reason: null });
     }
 
-    const blocked = parsed.isAI && parsed.confidence >= 0.7;
+    // Hard block: high-confidence AI detection (≥ 0.75) — no override allowed
+    // Soft warn: moderate confidence (0.45–0.75) — user can override
+    const hardBlocked = parsed.isAI && parsed.confidence >= 0.75;
+    const softWarned  = parsed.isAI && parsed.confidence >= 0.45 && !hardBlocked;
 
     return NextResponse.json({
       isLikelyAI: parsed.isAI,
       confidence: parsed.confidence,
-      blocked,
+      blocked: hardBlocked,
+      softWarned,
       reason: parsed.reason,
     });
 
