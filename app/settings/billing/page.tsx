@@ -30,24 +30,23 @@ function Badge({ label }: { label: string }) {
 export default function BillingPage() {
   const { profile, loading } = useUser();
   const [upgrading, setUpgrading] = useState(false);
+  const [pendingPriceId, setPendingPriceId] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
-  const handleUpgrade = async (priceId: string) => {
+  const boardsUsed = profile?.board_count ?? 0;
+
+  const proceedToCheckout = async (priceId: string) => {
     setUpgrading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/login');
-        return;
-      }
-
+      if (!session) { router.push('/login'); return; }
       const response = await fetch('/api/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ priceId }),
       });
-
       const { url } = await response.json();
       if (url) window.location.href = url;
     } catch (error) {
@@ -55,6 +54,16 @@ export default function BillingPage() {
       alert('Failed to start checkout. Please try again.');
     }
     setUpgrading(false);
+  };
+
+  // Downgrades need a confirmation warning; upgrades go straight to checkout
+  const handlePlanClick = (priceId: string, isDowngrade: boolean) => {
+    if (isDowngrade) {
+      setPendingPriceId(priceId);
+      setShowConfirm(true);
+    } else {
+      proceedToCheckout(priceId);
+    }
   };
 
   if (loading) {
@@ -185,7 +194,7 @@ export default function BillingPage() {
               </div>
             ) : (
               <button
-                onClick={() => handleUpgrade('price_1T6yOFFGrjyNBgsd4j26d5Ve')}
+                onClick={() => handlePlanClick('price_1T6yOFFGrjyNBgsd4j26d5Ve', currentPlan === 'team')}
                 disabled={upgrading}
                 className="w-full px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors disabled:opacity-50"
               >
@@ -218,7 +227,7 @@ export default function BillingPage() {
               </div>
             ) : (
               <button
-                onClick={() => handleUpgrade('price_1T6yOoFGrjyNBgsdRbarGcc3')}
+                onClick={() => handlePlanClick('price_1T6yOoFGrjyNBgsdRbarGcc3', false)}
                 disabled={upgrading}
                 className="w-full px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors disabled:opacity-50"
               >
@@ -247,6 +256,44 @@ export default function BillingPage() {
           </div>
         </div>
       </div>
+
+      {/* Downgrade confirmation modal */}
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowConfirm(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+            <h3 className="font-serif text-xl mb-2">Downgrade to Pro?</h3>
+            <p className="text-sm text-ink/60 mb-4">
+              You&apos;ll be switched to the Pro plan. Your team workspace will be removed.
+            </p>
+            {boardsUsed > 50 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+                <p className="text-sm text-amber-800 font-medium">
+                  {boardsUsed - 50} board{boardsUsed - 50 !== 1 ? 's' : ''} will be deleted
+                </p>
+                <p className="text-xs text-amber-700 mt-1">
+                  You have {boardsUsed} boards. The Pro plan allows 50. Your oldest boards will be permanently deleted first.
+                </p>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowConfirm(false); if (pendingPriceId) proceedToCheckout(pendingPriceId); }}
+                disabled={upgrading}
+                className="flex-1 px-4 py-2.5 bg-ink text-white rounded-full text-sm font-medium hover:bg-ink/80 transition-colors disabled:opacity-50"
+              >
+                {upgrading ? 'Processing…' : 'Yes, downgrade'}
+              </button>
+              <button
+                onClick={() => { setShowConfirm(false); setPendingPriceId(null); }}
+                className="flex-1 px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
