@@ -16,7 +16,7 @@ export async function GET(_req: Request, { params }: Params) {
     // Fetch team — readable if owner or member
     const { data: team } = await supabase
       .from('teams')
-      .select('id, name, slug, avatar_color, owner_id, created_at')
+      .select('id, name, slug, avatar_color, avatar_url, owner_id, created_at')
       .eq('id', id)
       .single();
 
