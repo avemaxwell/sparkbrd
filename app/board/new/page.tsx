@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { usePlan } from "@/hooks/usePlan";
 import Link from "next/link";
@@ -16,8 +16,10 @@ export default function NewBoardPage() {
   const [creating, setCreating] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
   const [isAuthed, setIsAuthed] = useState(false);
-  
+
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const teamId = searchParams.get('team');
   const supabase = createClient();
   const { canCreateBoard, boardsRemaining, isFreePlan, planDetails } = usePlan();
 
@@ -50,6 +52,7 @@ export default function NewBoardPage() {
         vibe: bgStyle,
         background_color: `${color1},${color2}`,
         owner_id: session.user.id,
+        ...(teamId ? { team_id: teamId } : {}),
       })
       .select()
       .single();
@@ -208,7 +211,12 @@ export default function NewBoardPage() {
       
       <div className="relative bg-white rounded-2xl shadow-xl p-8 max-w-xl w-full border border-ink/5">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="font-serif text-2xl">Create a new board</h1>
+          <div>
+            <h1 className="font-serif text-2xl">Create a new board</h1>
+            {teamId && (
+              <p className="text-xs text-ink/50 mt-1">This board will be added to your team workspace.</p>
+            )}
+          </div>
           <Link href="/" className="w-10 h-10 rounded-full hover:bg-ink/5 flex items-center justify-center transition-colors">
             <svg className="w-5 h-5 stroke-ink stroke-[1.5] fill-none" viewBox="0 0 24 24">
               <path d="M18 6L6 18M6 6l12 12"/>

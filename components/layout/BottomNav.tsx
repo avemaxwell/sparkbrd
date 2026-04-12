@@ -9,9 +9,9 @@ export default function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-cork-warm border-t border-ink/5 px-2 pb-[env(safe-area-inset-bottom)] flex justify-around z-50 lg:hidden">
       <NavItem href="/"        icon="home"    label="Home"    active={pathname === "/"} />
-      <NavItem href="/search"  icon="search"  label="Search"  active={pathname === "/search"} />
       <NavItem href="/explore" icon="explore" label="Explore" active={pathname === "/explore"} />
       <NavItem href="/boards"  icon="boards"  label="Boards"  active={pathname === "/boards"} />
+      <NavItem href="/search"  icon="search"  label="Search"  active={pathname === "/search"} />
       <NavItem href="/profile" icon="profile" label="Profile" active={pathname === "/profile" || pathname === "/settings"} />
     </nav>
   );
