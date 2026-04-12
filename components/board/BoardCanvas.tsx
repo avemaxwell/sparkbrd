@@ -9,6 +9,7 @@ import type { Plan } from "../../lib/plan-limits";
 import UpgradeModal from "@/components/UpgradeModal";
 import { useUser } from "@/hooks/useUser";
 import CommentDrawer from "@/components/board/CommentDrawer";
+import BoardActivityFeed from "@/components/board/BoardActivityFeed";
 import NotificationBell from "@/components/board/NotificationBell";
 import SharePanel from "@/components/board/SharePanel";
 import { useBoardPresence } from "@/hooks/useBoardPresence";
@@ -689,7 +690,7 @@ const handleTextRotateEnd = async () => {
             tack_id: insertedId,
             tack_thumbnail: insertedUrl,
           }),
-        }).catch(() => {});
+        }).then(r => { if (!r.ok) r.json().then(d => console.error('Activity log failed:', d)); }).catch(console.error);
       }
     } else {
       console.error("Add tack error:", error);
@@ -1236,9 +1237,12 @@ return (
       {sidebarOpen && (
         <>
           <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setSidebarOpen(false)} />
-          <div className="fixed top-0 right-0 h-full w-full sm:w-80 bg-white shadow-2xl z-50 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-serif text-xl">Activity</h2>
+          <div className="fixed top-0 right-0 h-full w-full sm:w-80 bg-white shadow-2xl z-50 flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-ink/5 flex-shrink-0">
+              <div>
+                <h2 className="font-medium text-sm text-ink">Activity &amp; Discussion</h2>
+                <p className="text-[11px] text-ink/40 mt-0.5">Live updates · board chat</p>
+              </div>
               <button
                 onClick={() => setSidebarOpen(false)}
                 className="w-8 h-8 rounded-full hover:bg-ink/5 flex items-center justify-center"
@@ -1248,7 +1252,9 @@ return (
                 </svg>
               </button>
             </div>
-            <p className="text-ink-soft text-sm">No activity yet</p>
+            <div className="flex-1 overflow-hidden">
+              <BoardActivityFeed boardId={boardId} />
+            </div>
           </div>
         </>
       )}

@@ -18,7 +18,7 @@ interface ActivityItem {
 
 interface DiscussionPost {
   id: string;
-  team_id: string;
+  board_id: string;
   activity_id: string | null;
   parent_id: string | null;
   user_id: string | null;
@@ -41,8 +41,8 @@ function relativeTime(iso: string): string {
 function activityText(item: ActivityItem): string {
   const name = item.actor_name ?? 'Someone';
   switch (item.type) {
-    case 'tack_added':     return item.board_name ? `${name} tacked an image on ${item.board_name}` : `${name} tacked an image`;
-    case 'board_created':  return item.board_name ? `${name} created "${item.board_name}"` : `${name} created a board`;
+    case 'tack_added':     return `${name} tacked an image`;
+    case 'board_created':  return `${name} created this board`;
     case 'comment_posted': return `${name} commented`;
     case 'reaction_added': return `${name} reacted`;
     case 'member_joined':  return `${name} joined the team`;
@@ -61,8 +61,6 @@ function ActivityIcon({ type }: { type: string }) {
       return <svg className={base} viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>;
     case 'reaction_added':
       return <svg className={base} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>;
-    case 'member_joined':
-      return <svg className={base} viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>;
     default:
       return <svg className={base} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>;
   }
@@ -93,27 +91,16 @@ function DiscussionPostRow({ post }: { post: DiscussionPost }) {
   );
 }
 
-interface ReplyBoxProps {
+function ReplyBox({ onSubmit, placeholder = 'Write a reply…', autoFocus }: {
   onSubmit: (text: string) => Promise<void>;
   placeholder?: string;
   autoFocus?: boolean;
-}
-
-function ReplyBox({ onSubmit, placeholder = 'Write a reply…', autoFocus }: ReplyBoxProps) {
+}) {
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    if (autoFocus) ref.current?.focus();
-  }, [autoFocus]);
-
-  const handleKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
-    }
-  };
+  useEffect(() => { if (autoFocus) ref.current?.focus(); }, [autoFocus]);
 
   const handleSubmit = async () => {
     if (!text.trim() || submitting) return;
@@ -129,7 +116,7 @@ function ReplyBox({ onSubmit, placeholder = 'Write a reply…', autoFocus }: Rep
         ref={ref}
         value={text}
         onChange={e => setText(e.target.value)}
-        onKeyDown={handleKey}
+        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
         placeholder={placeholder}
         rows={1}
         className="flex-1 resize-none text-[11px] bg-ink/5 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-papaya/40 placeholder:text-ink/30 leading-snug"
@@ -149,7 +136,7 @@ function ReplyBox({ onSubmit, placeholder = 'Write a reply…', autoFocus }: Rep
   );
 }
 
-export default function ActivityFeed({ teamId }: { teamId: string }) {
+export default function BoardActivityFeed({ boardId }: { boardId: string }) {
   const [items, setItems] = useState<ActivityItem[]>([]);
   const [posts, setPosts] = useState<DiscussionPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -157,12 +144,11 @@ export default function ActivityFeed({ teamId }: { teamId: string }) {
   const [chatText, setChatText] = useState('');
   const [chatSubmitting, setChatSubmitting] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const chatRef = useRef<HTMLTextAreaElement>(null);
 
   const fetchAll = useCallback(async () => {
     const [actRes, discRes] = await Promise.all([
-      fetch(`/api/teams/${teamId}/activity`),
-      fetch(`/api/teams/${teamId}/discussion`),
+      fetch(`/api/boards/${boardId}/activity`),
+      fetch(`/api/boards/${boardId}/discussion`),
     ]);
     if (actRes.ok) {
       const { activity } = await actRes.json();
@@ -173,41 +159,37 @@ export default function ActivityFeed({ teamId }: { teamId: string }) {
       setPosts(fetchedPosts ?? []);
     }
     setLoading(false);
-  }, [teamId]);
+  }, [boardId]);
 
-  useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // Realtime subscriptions
+  // Realtime: listen for new team_activity and board_discussion rows for this board
   useEffect(() => {
     const supabase = createClient();
 
-    const activityChannel = supabase
-      .channel(`team-activity:${teamId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'team_activity', filter: `team_id=eq.${teamId}` }, () => fetchAll())
+    const actChannel = supabase
+      .channel(`board-activity:${boardId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'team_activity', filter: `board_id=eq.${boardId}` }, () => fetchAll())
       .subscribe();
 
-    const discussionChannel = supabase
-      .channel(`team-discussion:${teamId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_discussion', filter: `team_id=eq.${teamId}` }, () => fetchAll())
+    const discChannel = supabase
+      .channel(`board-discussion:${boardId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'board_discussion', filter: `board_id=eq.${boardId}` }, () => fetchAll())
       .subscribe();
 
     return () => {
-      supabase.removeChannel(activityChannel);
-      supabase.removeChannel(discussionChannel);
+      supabase.removeChannel(actChannel);
+      supabase.removeChannel(discChannel);
     };
-  }, [teamId, fetchAll]);
+  }, [boardId, fetchAll]);
 
   // Scroll to bottom on new content
   useEffect(() => {
-    if (!loading) {
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-    }
+    if (!loading) setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
   }, [items.length, posts.length, loading]);
 
   const postReply = async (activityId: string | null, parentId: string | null, text: string) => {
-    await fetch(`/api/teams/${teamId}/discussion`, {
+    await fetch(`/api/boards/${boardId}/discussion`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: text, activity_id: activityId, parent_id: parentId }),
@@ -218,7 +200,7 @@ export default function ActivityFeed({ teamId }: { teamId: string }) {
   const postChat = async () => {
     if (!chatText.trim() || chatSubmitting) return;
     setChatSubmitting(true);
-    await fetch(`/api/teams/${teamId}/discussion`, {
+    await fetch(`/api/boards/${boardId}/discussion`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: chatText.trim() }),
@@ -231,19 +213,16 @@ export default function ActivityFeed({ teamId }: { teamId: string }) {
   const toggleThread = (id: string) => {
     setExpandedThreads(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   };
 
-  // Build a chronological merged list: reversed activity (oldest→newest) + standalone posts
   const chronoItems = [...items].reverse();
   const topLevelPosts = posts.filter(p => !p.activity_id && !p.parent_id);
   const repliesFor = (actId: string) => posts.filter(p => p.activity_id === actId && !p.parent_id);
   const repliesToPost = (postId: string) => posts.filter(p => p.parent_id === postId);
 
-  // Merge chronologically: both lists sorted by created_at ascending
   type FeedItem =
     | { kind: 'activity'; data: ActivityItem }
     | { kind: 'post'; data: DiscussionPost };
@@ -256,15 +235,9 @@ export default function ActivityFeed({ teamId }: { teamId: string }) {
   const hasAnything = items.length > 0 || posts.length > 0;
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-ink/5 flex-shrink-0">
-        <h3 className="font-medium text-sm text-ink">Activity &amp; Discussion</h3>
-        <p className="text-[11px] text-ink/40 mt-0.5">Live updates · team chat</p>
-      </div>
-
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Feed */}
-      <div className="flex-1 overflow-y-auto py-2 px-3 space-y-0.5">
+      <div className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
         {loading && (
           <div className="flex justify-center py-8">
             <div className="w-5 h-5 border-2 border-ink/10 border-t-papaya rounded-full animate-spin" />
@@ -274,7 +247,7 @@ export default function ActivityFeed({ teamId }: { teamId: string }) {
         {!loading && !hasAnything && (
           <div className="text-center py-10 px-4">
             <p className="text-xs text-ink/40">No activity yet.</p>
-            <p className="text-[11px] text-ink/30 mt-1">Activity will appear here as your team works. Start the conversation below!</p>
+            <p className="text-[11px] text-ink/30 mt-1">Activity and discussion for this board will appear here.</p>
           </div>
         )}
 
@@ -286,7 +259,6 @@ export default function ActivityFeed({ teamId }: { teamId: string }) {
 
             return (
               <div key={`act-${item.id}`} className="rounded-xl hover:bg-ink/3 transition-colors">
-                {/* Activity row */}
                 <div className="flex gap-2.5 px-2 pt-2 pb-1">
                   <Avatar name={item.actor_name} avatar_url={item.actor_avatar} size={7} />
                   <div className="flex-1 min-w-0">
@@ -294,12 +266,6 @@ export default function ActivityFeed({ teamId }: { teamId: string }) {
                       <span className="text-ink/35 flex-shrink-0"><ActivityIcon type={item.type} /></span>
                       <p className="text-[11px] text-ink/75 leading-snug">{activityText(item)}</p>
                     </div>
-                    {item.board_name && item.board_id && (
-                      <a href={`/board/${item.board_id}${item.tack_id ? `?tack=${item.tack_id}` : ''}`}
-                        className="text-[10px] text-papaya hover:underline truncate block mt-0.5">
-                        {item.board_name}
-                      </a>
-                    )}
                     {item.comment_body && (
                       <p className="text-[10px] text-ink/50 mt-0.5 line-clamp-2 italic">"{item.comment_body}"</p>
                     )}
@@ -309,9 +275,7 @@ export default function ActivityFeed({ teamId }: { teamId: string }) {
                         onClick={() => toggleThread(item.id)}
                         className="text-[10px] text-ink/40 hover:text-papaya transition-colors"
                       >
-                        {replies.length > 0
-                          ? `${replies.length} repl${replies.length === 1 ? 'y' : 'ies'}`
-                          : 'Reply'}
+                        {replies.length > 0 ? `${replies.length} repl${replies.length === 1 ? 'y' : 'ies'}` : 'Reply'}
                       </button>
                     </div>
                   </div>
@@ -325,13 +289,11 @@ export default function ActivityFeed({ teamId }: { teamId: string }) {
                   )}
                 </div>
 
-                {/* Inline thread */}
                 {(isExpanded || replies.length > 0) && (
                   <div className="ml-9 mr-2 pb-2 border-l-2 border-ink/8 pl-3">
                     {replies.map(r => (
                       <div key={r.id}>
                         <DiscussionPostRow post={r} />
-                        {/* Nested replies to reply */}
                         {repliesToPost(r.id).map(nested => (
                           <div key={nested.id} className="ml-6 border-l border-ink/8 pl-2">
                             <DiscussionPostRow post={nested} />
@@ -341,7 +303,7 @@ export default function ActivityFeed({ teamId }: { teamId: string }) {
                     ))}
                     <ReplyBox
                       onSubmit={text => postReply(item.id, null, text)}
-                      placeholder="Reply to this…"
+                      placeholder="Reply…"
                       autoFocus={isExpanded && replies.length === 0}
                     />
                   </div>
@@ -350,7 +312,6 @@ export default function ActivityFeed({ teamId }: { teamId: string }) {
             );
           }
 
-          // Standalone discussion post
           const post = entry.data;
           const nested = repliesToPost(post.id);
           const isExpanded = expandedThreads.has(`post-${post.id}`);
@@ -379,11 +340,7 @@ export default function ActivityFeed({ teamId }: { teamId: string }) {
               {(isExpanded || nested.length > 0) && (
                 <div className="ml-9 mr-2 pb-2 border-l-2 border-ink/8 pl-3">
                   {nested.map(r => <DiscussionPostRow key={r.id} post={r} />)}
-                  <ReplyBox
-                    onSubmit={text => postReply(null, post.id, text)}
-                    placeholder="Reply…"
-                    autoFocus={isExpanded && nested.length === 0}
-                  />
+                  <ReplyBox onSubmit={text => postReply(null, post.id, text)} placeholder="Reply…" autoFocus={isExpanded && nested.length === 0} />
                 </div>
               )}
             </div>
@@ -397,12 +354,9 @@ export default function ActivityFeed({ teamId }: { teamId: string }) {
       <div className="flex-shrink-0 px-3 py-3 border-t border-ink/5">
         <div className="flex gap-2 items-end">
           <textarea
-            ref={chatRef}
             value={chatText}
             onChange={e => setChatText(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postChat(); }
-            }}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postChat(); } }}
             placeholder="Post a message…"
             rows={1}
             className="flex-1 resize-none text-xs bg-ink/5 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-papaya/30 placeholder:text-ink/30 leading-snug"
