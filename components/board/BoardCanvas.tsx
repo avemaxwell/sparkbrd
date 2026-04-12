@@ -1959,25 +1959,6 @@ function AddTackModal({
     setPendingUpload(null);
   };
 
-  const compressImage = (file: File, maxPx = 1600, quality = 0.85): Promise<Blob> =>
-    new Promise((resolve, reject) => {
-      const img = new Image();
-      const objectUrl = URL.createObjectURL(file);
-      img.onload = () => {
-        URL.revokeObjectURL(objectUrl);
-        const { naturalWidth: w, naturalHeight: h } = img;
-        const scale = w > maxPx || h > maxPx ? maxPx / Math.max(w, h) : 1;
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.round(w * scale);
-        canvas.height = Math.round(h * scale);
-        const ctx = canvas.getContext("2d")!;
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("canvas.toBlob failed")), "image/jpeg", quality);
-      };
-      img.onerror = reject;
-      img.src = objectUrl;
-    });
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1986,17 +1967,8 @@ function AddTackModal({
     const reader = new FileReader();
     reader.onload = () => setPreviewUrl(reader.result as string);
     reader.readAsDataURL(file);
-    // Compress before upload: resize to max 1600px, re-encode as JPEG 85%
-    let uploadBlob: Blob = file;
-    let uploadContentType = file.type || "image/jpeg";
-    let uploadExt = file.name.split(".").pop() ?? "jpg";
-    try {
-      uploadBlob = await compressImage(file);
-      uploadContentType = "image/jpeg";
-      uploadExt = "jpg";
-    } catch { /* fall back to original file, type, and extension */ }
-    const fileName = `${boardId}/${Date.now()}-${file.name.replace(/\.[^.]+$/, "")}.${uploadExt}`;
-    const { error } = await supabase.storage.from("tacks").upload(fileName, uploadBlob, { contentType: uploadContentType });
+    const fileName = `${boardId}/${Date.now()}-${file.name}`;
+    const { error } = await supabase.storage.from("tacks").upload(fileName, file);
     if (error) { console.error("Upload error:", error); setUploading(false); return; }
     const { data: { publicUrl } } = supabase.storage.from("tacks").getPublicUrl(fileName);
     setUrl(publicUrl);
