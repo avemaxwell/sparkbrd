@@ -16,19 +16,24 @@ export default function NewTeamPage() {
     setLoading(true);
     setError(null);
 
-    const res = await fetch("/api/teams", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim() }),
-    }).then(r => r.json());
+    try {
+      const res = await fetch("/api/teams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim() }),
+      }).then(r => r.json());
 
-    if (res.error) {
-      setError(res.error);
+      if (res.error) {
+        setError(res.error);
+        setLoading(false);
+        return;
+      }
+
+      router.push(`/team/${res.team.slug}`);
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
       setLoading(false);
-      return;
     }
-
-    router.push(`/team/${res.team.slug}`);
   };
 
   return (
