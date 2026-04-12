@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { tackMini } from "@/lib/image-transform";
 
 interface ActivityItem {
   id: string;
@@ -281,7 +282,7 @@ export default function BoardActivityFeed({ boardId }: { boardId: string }) {
                   </div>
                   {item.tack_thumbnail && (
                     <img
-                      src={item.tack_thumbnail}
+                      src={tackMini(item.tack_thumbnail)}
                       alt=""
                       className="w-10 h-10 object-cover rounded-lg bg-ink/5 flex-shrink-0"
                       onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}

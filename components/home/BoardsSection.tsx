@@ -8,6 +8,7 @@ import { Board } from "@/types/board";
 import { usePlan } from "@/hooks/usePlan";
 import { canCreateBoard, getUpgradeMessage } from "@/lib/plan-limits";
 import UpgradeModal from "@/components/UpgradeModal";
+import { tackCollage } from "@/lib/image-transform";
 
 interface Team {
   id: string;
@@ -58,7 +59,7 @@ function BoardCard({
             {images.slice(0, 3).map((imgUrl, i) => (
               <img
                 key={i}
-                src={imgUrl}
+                src={tackCollage(imgUrl)}
                 alt=""
                 className="absolute inset-3 w-[calc(100%-24px)] h-[calc(100%-24px)] object-cover rounded-sm shadow-lg pointer-events-none"
                 style={{ transform: `rotate(${COLLAGE_ANGLES[i] ?? 0}deg)`, zIndex: i }}
@@ -112,7 +113,7 @@ function BoardCardMobile({
           {images.slice(0, 3).map((imgUrl, i) => (
             <img
               key={i}
-              src={imgUrl}
+              src={tackCollage(imgUrl)}
               alt=""
               className="absolute inset-2 w-[calc(100%-16px)] h-[calc(100%-16px)] object-cover rounded-sm shadow-md pointer-events-none"
               style={{ transform: `rotate(${COLLAGE_ANGLES[i] ?? 0}deg)`, zIndex: i }}

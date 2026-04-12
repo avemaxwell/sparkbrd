@@ -17,6 +17,7 @@ import { useBoardSync } from "@/hooks/useBoardSync";
 import PresenceAvatars from "@/components/board/PresenceAvatars";
 import CollaboratorCursors from "@/components/board/CollaboratorCursors";
 import type { Board, Tack, TextBlock } from "@/types/board";
+import { tackCanvas, tackDetail, tackMini } from "@/lib/image-transform";
 
 const pinColorPresets: Record<string, string> = {
   papaya: "#E24E42",
@@ -965,11 +966,12 @@ return (
           }}
         >
           <img
-            src={tack.content_url}
+            src={tackCanvas(tack.content_url)}
             alt={tack.title || ""}
             className={`w-full pointer-events-none ${isPng ? '' : 'rounded-sm'}`}
             style={{ height: 'auto', maxHeight: '400px', objectFit: 'contain' }}
             draggable={false}
+            loading="lazy"
           />
           {tack.title && !isPng && (
             <p className="mt-2 text-xs font-medium text-ink truncate">{tack.title}</p>
@@ -1673,7 +1675,7 @@ function TackDetailModal({
       <div className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row">
         <div className="flex-1 bg-ink/5 flex items-center justify-center p-6 min-h-[300px]">
           <div style={{ transform: `rotate(${rotation}deg)`, transition: 'transform 0.2s' }}>
-            <img src={tack.content_url} alt={title} className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg" />
+            <img src={tackDetail(tack.content_url)} alt={title} className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg" />
           </div>
         </div>
         

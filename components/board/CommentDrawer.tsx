@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { tackThumb } from "@/lib/image-transform";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -324,7 +325,7 @@ export default function CommentDrawer({ tack, boardId, currentUserId, onClose }:
         {/* Header: tack preview */}
         <div className="flex items-start gap-3 p-4 border-b border-ink/5 flex-shrink-0">
           <img
-            src={tack.content_url}
+            src={tackThumb(tack.content_url)}
             alt={tack.title ?? ''}
             className="w-16 h-16 object-cover rounded-xl flex-shrink-0 bg-ink/5"
             onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}

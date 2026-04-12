@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { tackThumb } from "@/lib/image-transform";
 import { useUser } from "@/hooks/useUser";
 import { PLACEHOLDER_TACKS } from "@/lib/placeholder-images";
 import RetackButton from "@/components/tacks/RetackButton";
@@ -130,7 +131,7 @@ export default function DiscoverySection() {
                   >
                     <Link href={`/board/${tack.board_id}`} className="block relative overflow-hidden">
                       <img
-                        src={tack.content_url}
+                        src={tackThumb(tack.content_url)}
                         alt={tack.title || ''}
                         className="w-full h-auto object-cover transition-transform duration-500 ease-out group-hover:scale-105"
                         loading="lazy"

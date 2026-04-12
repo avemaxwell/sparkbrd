@@ -7,6 +7,7 @@ import Header from "@/components/layout/Header";
 import BottomNav from "@/components/layout/BottomNav";
 import ActivityFeed from "@/components/team/ActivityFeed";
 import { useUser } from "@/hooks/useUser";
+import { tackCollage } from "@/lib/image-transform";
 
 const BOARD_GRADIENTS = [
   "from-papaya/30 to-mustard/20",
@@ -291,7 +292,7 @@ export default function TeamPage() {
                             {images.slice(0, 3).map((imgUrl, i) => (
                               <img
                                 key={i}
-                                src={imgUrl}
+                                src={tackCollage(imgUrl)}
                                 alt=""
                                 className="absolute inset-3 w-[calc(100%-24px)] h-[calc(100%-24px)] object-cover rounded-sm shadow-lg pointer-events-none"
                                 style={{ transform: `rotate(${COLLAGE_ANGLES[i] ?? 0}deg)`, zIndex: i }}
