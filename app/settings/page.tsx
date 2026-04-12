@@ -362,21 +362,20 @@ function AccountSection({ profile }: { profile: any }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {profile.plan === "free" ? (
-              <Link
-                href="/settings/billing"
-                className="px-5 py-2.5 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors"
-              >
-                Upgrade
-              </Link>
-            ) : (
+            {profile.plan !== "free" && (
               <button
                 onClick={() => setShowDowngradeConfirm(true)}
-                className="px-5 py-2.5 bg-ink/5 text-ink/60 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors"
+                className="px-4 py-2 bg-ink/5 text-ink/60 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors"
               >
                 Downgrade to Free
               </button>
             )}
+            <Link
+              href="/settings/billing"
+              className="px-4 py-2 bg-papaya text-white rounded-full text-sm font-medium hover:bg-papaya/90 transition-colors"
+            >
+              {profile.plan === "free" ? "Upgrade" : "Change plan"}
+            </Link>
           </div>
         </div>
 
@@ -436,7 +435,7 @@ function AccountSection({ profile }: { profile: any }) {
           <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
             <h3 className="font-serif text-xl mb-2">Downgrade to Free?</h3>
             <p className="text-sm text-ink/60 mb-4">
-              Your plan will be cancelled and you&apos;ll be moved to the Free plan immediately.
+              You&apos;ll be moved to the Free plan immediately. To switch to Pro instead, use &ldquo;Change plan.&rdquo;
             </p>
             {boardsToDelete > 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
@@ -543,16 +542,14 @@ function AccountSection({ profile }: { profile: any }) {
           </div>
         </div>
 
-        {profile.plan === "free" && (
-          <div className="mt-6 text-center">
-            <Link
-              href="/settings/billing"
-              className="inline-block px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors"
-            >
-              Upgrade Now
-            </Link>
-          </div>
-        )}
+        <div className="mt-6 text-center">
+          <Link
+            href="/settings/billing"
+            className="inline-block px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors"
+          >
+            {profile.plan === "free" ? "Upgrade Now" : "Change Plan"}
+          </Link>
+        </div>
       </div>
     </div>
   );
