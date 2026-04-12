@@ -138,6 +138,7 @@ export default function BoardsSection() {
   const [ownedBoards, setOwnedBoards] = useState<Board[]>([]);
   const [sharedBoards, setSharedBoards] = useState<SharedBoard[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [teamNameMap, setTeamNameMap] = useState<Record<string, string>>({});
   const [boardImages, setBoardImages] = useState<Record<string, string[]>>({});
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { plan, isFreePlan, isTeamPlan } = usePlan();
@@ -188,6 +189,9 @@ export default function BoardsSection() {
       if (teamsRes.ok) {
         const { teams: teamsData } = await teamsRes.json();
         setTeams(teamsData ?? []);
+        const map: Record<string, string> = {};
+        for (const t of teamsData ?? []) map[t.id] = t.name;
+        setTeamNameMap(map);
       }
 
       // Fetch preview images for all boards
@@ -285,7 +289,15 @@ export default function BoardsSection() {
               {ownedBoards.length > 0 && (
                 <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 mb-12">
                   {ownedBoards.map((board, index) => (
-                    <BoardCard key={board.id} board={board} index={index} boardImages={boardImages} />
+                    <BoardCard
+                      key={board.id}
+                      board={board}
+                      index={index}
+                      boardImages={boardImages}
+                      badge={board.team_id && teamNameMap[board.team_id] ? (
+                        <p className="text-[10px] text-white/60 mt-0.5 truncate">Team · {teamNameMap[board.team_id]}</p>
+                      ) : undefined}
+                    />
                   ))}
                 </div>
               )}

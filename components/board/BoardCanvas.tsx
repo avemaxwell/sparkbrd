@@ -1689,12 +1689,12 @@ function TackDetailModal({
 
               <div className="mb-6">
                 <label className="block text-xs text-ink-soft mb-2">Tack color</label>
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex gap-2 flex-wrap py-1">
                   {Object.entries(pinColorPresets).map(([name, color]) => (
-                    <button key={name} onClick={() => handlePinColorChange(name)} className={`w-8 h-8 rounded-full ${pinColor === name ? 'ring-2 ring-offset-2 ring-ink' : ''} hover:scale-110 transition-transform`} style={{ backgroundColor: color }} />
+                    <button key={name} onClick={() => handlePinColorChange(name)} className={`w-8 h-8 rounded-full ${pinColor === name ? 'outline outline-2 outline-offset-2 outline-ink' : ''} hover:scale-110 transition-transform`} style={{ backgroundColor: color }} />
                   ))}
                   {canCustomPin ? (
-                    <button onClick={() => setShowColorPicker(!showColorPicker)} className={`w-8 h-8 rounded-full border-2 border-dashed border-ink/30 flex items-center justify-center hover:border-ink/50 transition-colors ${!pinColorPresets[pinColor] ? 'ring-2 ring-offset-2 ring-ink' : ''}`} style={{ backgroundColor: !pinColorPresets[pinColor] ? pinColor : 'transparent' }}>
+                    <button onClick={() => setShowColorPicker(!showColorPicker)} className={`w-8 h-8 rounded-full border-2 border-dashed border-ink/30 flex items-center justify-center hover:border-ink/50 transition-colors ${!pinColorPresets[pinColor] ? 'outline outline-2 outline-offset-2 outline-ink' : ''}`} style={{ backgroundColor: !pinColorPresets[pinColor] ? pinColor : 'transparent' }}>
                       {pinColorPresets[pinColor] && <svg className="w-4 h-4 stroke-ink/50 stroke-2 fill-none" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>}
                     </button>
                   ) : (
@@ -1821,11 +1821,11 @@ function PinColorPicker({
   return (
     <div className="mb-6">
       <label className="text-sm text-ink-soft mb-2 block">Tack color</label>
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap py-1">
         {Object.entries(pinColorPresets).map(([name, color]) => (
-          <button key={name} type="button" onClick={() => { setPinColor(name); setShowCustomPinColor(false); }} className={`w-8 h-8 rounded-full ${pinColor === name && !showCustomPinColor ? 'ring-2 ring-offset-2 ring-ink' : ''} hover:scale-110 transition-transform`} style={{ backgroundColor: color }} />
+          <button key={name} type="button" onClick={() => { setPinColor(name); setShowCustomPinColor(false); }} className={`w-8 h-8 rounded-full ${pinColor === name && !showCustomPinColor ? 'outline outline-2 outline-offset-2 outline-ink' : ''} hover:scale-110 transition-transform`} style={{ backgroundColor: color }} />
         ))}
-        <button type="button" onClick={() => setShowCustomPinColor(!showCustomPinColor)} className={`w-8 h-8 rounded-full border-2 border-dashed border-ink/30 flex items-center justify-center hover:border-ink/50 transition-colors ${showCustomPinColor ? 'ring-2 ring-offset-2 ring-ink' : ''}`} style={{ backgroundColor: showCustomPinColor && customPinColor ? customPinColor : 'transparent' }}>
+        <button type="button" onClick={() => setShowCustomPinColor(!showCustomPinColor)} className={`w-8 h-8 rounded-full border-2 border-dashed border-ink/30 flex items-center justify-center hover:border-ink/50 transition-colors ${showCustomPinColor ? 'outline outline-2 outline-offset-2 outline-ink' : ''}`} style={{ backgroundColor: showCustomPinColor && customPinColor ? customPinColor : 'transparent' }}>
           {!showCustomPinColor && <svg className="w-4 h-4 stroke-ink/50 stroke-2 fill-none" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>}
         </button>
       </div>
