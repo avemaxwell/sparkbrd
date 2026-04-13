@@ -43,8 +43,8 @@ export async function POST(request: Request) {
           // Determine plan based on price
           const priceId = subscription.items.data[0].price.id;
           let plan = 'free';
-          if (priceId === 'price_1T6yOFFGrjyNBgsd4j26d5Ve') plan = 'pro';
-          if (priceId === 'price_1T6yOoFGrjyNBgsdRbarGcc3') plan = 'team';
+          if (priceId === 'price_1THWhJ2WmfLDfFrx11odjF0b') plan = 'pro';
+          if (priceId === 'price_1THWhM2WmfLDfFrxIaNUyoV3') plan = 'team';
 
           // Update user's plan
           await supabase
@@ -67,8 +67,8 @@ export async function POST(request: Request) {
         // Determine plan based on price
         const priceId = subscription.items.data[0].price.id;
         let plan = 'free';
-        if (priceId === 'price_1T6yOFFGrjyNBgsd4j26d5Ve') plan = 'pro';
-        if (priceId === 'price_1T6yOoFGrjyNBgsdRbarGcc3') plan = 'team';
+        if (priceId === 'price_1THWhJ2WmfLDfFrx11odjF0b') plan = 'pro';
+        if (priceId === 'price_1THWhM2WmfLDfFrxIaNUyoV3') plan = 'team';
 
         // Update plan
         await supabase

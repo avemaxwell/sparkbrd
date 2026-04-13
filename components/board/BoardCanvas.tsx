@@ -2109,8 +2109,9 @@ function AddTackModal({
           </button>
         </div>
 
-        <div className="mb-4 p-3 bg-ink/5 rounded-lg">
-          <p className="text-xs text-ink-soft"><strong>Human-made content only.</strong> Sparkurio is a space for authentic, human-created inspiration.</p>
+        <div className="mb-4 p-3 bg-ink/5 rounded-lg flex items-center justify-between gap-3">
+          <p className="text-xs text-ink/60"><strong className="text-ink/80">Human-made content only.</strong> AI-generated images are not allowed on Sparkurio.</p>
+          <a href="/ai-policy" target="_blank" rel="noopener noreferrer" className="text-xs text-papaya hover:underline whitespace-nowrap flex-shrink-0">Why? →</a>
         </div>
 
         <div className="flex gap-2 mb-6">
