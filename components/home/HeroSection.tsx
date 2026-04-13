@@ -3,29 +3,42 @@
 import { useUser } from "@/hooks/useUser";
 import { useEffect, useState } from "react";
 
-const CARD_IMAGES = [
-  "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=300",
-  "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=300",
-  "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=300",
-  "https://images.unsplash.com/photo-1544967082-d9d25d867d66?w=300",
-  "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300",
+const LOGO = "https://vqaaxqvyepouqcrxduiw.supabase.co/storage/v1/object/public/assets/logo.png";
+
+const BASE = "https://vqaaxqvyepouqcrxduiw.supabase.co/storage/v1/object/public/tacks/2711858a-2413-47ca-98aa-d2fe964a2b4e/";
+
+// Cards kept in the left ~36% so they never bleed into the text column
+const CARDS = [
+  // Top cluster
+  { src: BASE + "1775145510453-compagnons-SEGkN8Gu-_M-unsplash.jpg",            rotate: -7, top: 5,  left: 1,  width: 188, z: 2, aspect: "3/4", float: "8s"  },
+  { src: BASE + "1775225653404-roberto-nickson-q5Q_T0y7qrk-unsplash.jpg",        rotate:  4, top: 8,  left: 13, width: 175, z: 4, aspect: "4/3", float: "11s" },
+  { src: BASE + "1775145642313-buddy-an-VptjauiOVQE-unsplash.jpg",               rotate: -4, top: 4,  left: 25, width: 182, z: 3, aspect: "2/3", float: "9s"  },
+  // Middle cluster
+  { src: BASE + "1775225864912-fiona-murray-degraaff-0oaonllhaRA-unsplash.jpg",  rotate:  6, top: 36, left: 0,  width: 180, z: 5, aspect: "1/1", float: "13s" },
+  { src: BASE + "1775145672331-petra-nevezi-YcoIBuCRGWY-unsplash.jpg",           rotate: -5, top: 33, left: 12, width: 196, z: 4, aspect: "3/4", float: "10s" },
+  { src: BASE + "1775145718678-kevin-charit-w33xcR8DltA-unsplash.jpg",           rotate:  3, top: 36, left: 26, width: 178, z: 3, aspect: "2/3", float: "7s"  },
+  { src: BASE + "1775225090555-budka-damdinsuren-jRXxNpA6d_k-unsplash.jpg",      rotate: -6, top: 16, left: 33, width: 170, z: 2, aspect: "3/4", float: "12s" },
+  // Bottom cluster
+  { src: BASE + "1775145496197-katsiaryna-endruszkiewicz-BteCp6aq4GI-unsplash.jpg", rotate: -2, top: 60, left: 2,  width: 184, z: 3, aspect: "4/3", float: "9s"  },
+  { src: BASE + "1775225487965-steph-wilson-9kK34JrqJgs-unsplash.jpg",           rotate:  5, top: 57, left: 14, width: 180, z: 5, aspect: "2/3", float: "14s" },
+  { src: BASE + "1775928652334-meg-wagener-vuXTB1lR3AY-unsplash.jpg",            rotate: -3, top: 61, left: 28, width: 186, z: 4, aspect: "3/4", float: "10s" },
 ];
 
-const CARD_CONFIGS = [
-  { top: "8%",  left: "5%",  rotate: "-7deg",  width: "140px", delay: "0ms",   animate: "float 9s ease-in-out infinite" },
-  { top: "5%",  left: "28%", rotate: "4deg",   width: "110px", delay: "300ms", animate: "float 11s ease-in-out infinite reverse" },
-  { top: "45%", left: "2%",  rotate: "6deg",   width: "120px", delay: "600ms", animate: "float 8s ease-in-out infinite" },
-  { top: "55%", left: "22%", rotate: "-4deg",  width: "100px", delay: "150ms", animate: "float 13s ease-in-out infinite reverse" },
-  { top: "20%", left: "14%", rotate: "2deg",   width: "130px", delay: "450ms", animate: "float 10s ease-in-out infinite" },
+// Decorative activity toasts — tell the collaborative story
+const ACTIVITY = [
+  { name: "Kate B.",   initials: "KB", msg: "added you to the Design Studio team",             color: "from-aqua to-blush"    },
+  { name: "Maya R.",   initials: "MR", msg: "⭐ reacted to your board Summer Moodboard",       color: "from-blush to-papaya"  },
+  { name: "Jordan K.", initials: "JK", msg: "started following you",                            color: "from-mustard to-aqua"  },
+  { name: "Alex C.",   initials: "AC", msg: "💬 commented on your board Rome Trip",            color: "from-papaya to-mustard"},
+  { name: "Harper M.", initials: "HM", msg: "re-tacked your image to Weekend Edit",            color: "from-mustard to-blush" },
 ];
 
 export default function HeroSection() {
   const { profile, loading } = useUser();
   const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const [activityIdx, setActivityIdx] = useState(0);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [newCard, setNewCard] = useState<number | null>(null);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -34,9 +47,29 @@ export default function HeroSection() {
     return "Good evening";
   };
 
+  useEffect(() => {
+    setMounted(true);
+
+    const firstShow = setTimeout(() => {
+      setToastVisible(true);
+      setNewCard(2);
+    }, 2500);
+
+    const cycle = setInterval(() => {
+      setToastVisible(false);
+      setTimeout(() => {
+        setActivityIdx(i => (i + 1) % ACTIVITY.length);
+        setNewCard(n => n === null ? 0 : (n + 3) % CARDS.length);
+        setToastVisible(true);
+      }, 500);
+    }, 6000);
+
+    return () => { clearTimeout(firstShow); clearInterval(cycle); };
+  }, []);
+
   const firstName = profile?.name?.split(" ")[0];
 
-  // Logged-in: compact personal header
+  // ── Logged-in: compact personal greeting ──────────────────
   if (!loading && profile) {
     return (
       <section className="relative pt-24 md:pt-32 pb-4 px-6 overflow-hidden">
@@ -55,76 +88,99 @@ export default function HeroSection() {
             <p className="text-ink/40 mt-2 text-base">Spark what inspires you.</p>
           </div>
         </div>
-        <style jsx>{`
-          @keyframes float {
-            0%, 100% { transform: translateY(0px) rotate(var(--r, 0deg)); }
-            50% { transform: translateY(-14px) rotate(var(--r, 0deg)); }
-          }
-        `}</style>
       </section>
     );
   }
 
-  // Logged-out: editorial brand hero
+  // ── Logged-out: full editorial hero ───────────────────────
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden">
-      {/* Warm gradient wash */}
+    <section className="relative min-h-screen overflow-hidden">
+
+      {/* Subtle warm gradient wash */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 pointer-events-none"
         style={{
           background: `
-            radial-gradient(ellipse at 70% 20%, rgba(235,110,128,0.12) 0%, transparent 55%),
-            radial-gradient(ellipse at 20% 80%, rgba(226,78,66,0.08) 0%, transparent 55%),
-            radial-gradient(ellipse at 90% 90%, rgba(233,176,0,0.07) 0%, transparent 45%)
+            radial-gradient(ellipse at 25% 20%, rgba(235,110,128,0.09) 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 80%, rgba(226,78,66,0.05) 0%, transparent 50%),
+            radial-gradient(ellipse at 10% 85%, rgba(233,176,0,0.06) 0%, transparent 42%)
           `,
         }}
       />
 
-      {/* Scattered floating cards — left side decorative collage (hidden on mobile) */}
+      {/* Card collage — left half only, hidden on mobile */}
       <div className="absolute inset-0 pointer-events-none hidden md:block">
-        {CARD_CONFIGS.map((cfg, i) => (
+        {CARDS.map((card, i) => (
           <div
             key={i}
-            className={`absolute rounded-xl overflow-hidden shadow-2xl transition-all duration-1000 ${
-              mounted ? "opacity-100" : "opacity-0 translate-y-6"
+            className={`absolute transition-all duration-700 ${
+              mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
             }`}
             style={{
-              top: cfg.top,
-              left: cfg.left,
-              width: cfg.width,
-              transform: `rotate(${cfg.rotate})`,
-              transitionDelay: cfg.delay,
-              animation: mounted ? cfg.animate : "none",
+              top: `${card.top}%`,
+              left: `${card.left}%`,
+              width: `${card.width}px`,
+              zIndex: card.z,
+              transitionDelay: `${i * 75}ms`,
             }}
           >
-            <img
-              src={CARD_IMAGES[i]}
-              alt=""
-              className="w-full aspect-[3/4] object-cover"
-              loading="eager"
-            />
-            {/* Pin dot */}
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-papaya shadow-md" />
+            {/* Static rotation */}
+            <div style={{ transform: `rotate(${card.rotate}deg)` }}>
+              {/* Float animation */}
+              <div style={{ animation: mounted ? `hero-float ${card.float} ease-in-out infinite` : "none" }}>
+                {/* Card — thin white border matching board tack style */}
+                <div
+                  className={`bg-white shadow-xl overflow-hidden rounded-sm transition-all duration-500 ${
+                    newCard === i ? "ring-2 ring-papaya ring-offset-2 shadow-2xl scale-[1.03]" : ""
+                  }`}
+                  style={{ padding: "5px" }}
+                >
+                  <img
+                    src={card.src}
+                    alt=""
+                    className="w-full object-cover block rounded-[1px]"
+                    style={{ aspectRatio: card.aspect }}
+                    loading="eager"
+                  />
+                </div>
+
+                {/* Papaya tack pin — matches the "spark." color */}
+                <div
+                  className="absolute -top-2 left-1/2 -translate-x-1/2 w-[13px] h-[13px] rounded-full shadow-md ring-[1.5px] ring-white"
+                  style={{ backgroundColor: "#E24E42" }}
+                />
+                {newCard === i && (
+                  <div
+                    className="absolute -top-2 left-1/2 -translate-x-1/2 w-[13px] h-[13px] rounded-full animate-ping"
+                    style={{ backgroundColor: "rgba(226,78,66,0.4)" }}
+                  />
+                )}
+              </div>
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Main content — right-weighted on desktop */}
+      {/* Right: headline + CTA */}
       <div className="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-12 flex justify-end">
-        <div className="w-full md:w-[55%] lg:w-[50%] pt-24 pb-16 md:py-0">
+        <div
+          className={`w-full md:w-[52%] lg:w-[48%] pt-28 pb-16 md:pt-32 transition-all duration-700 delay-100 ${
+            mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
+          }`}
+        >
+          {/* Logo */}
+          <div className="mb-10">
+            <img src={LOGO} alt="Sparkurio" className="h-14 w-auto" />
+          </div>
+
           {/* Headline */}
-          <h1
-            className={`font-serif text-6xl md:text-7xl lg:text-8xl leading-[0.92] text-ink transition-all duration-700 delay-100 ${
-              mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
-            }`}
-          >
-            Spark
-            <br />
-            <span className="italic text-papaya">what</span>
-            <br />
-            inspires
-            <br />
-            you.
+          <h1 className="font-serif text-6xl md:text-7xl lg:text-8xl leading-[1.08] text-ink">
+            Every<br />
+            great<br />
+            idea<br />
+            begins<br />
+            with a<br />
+            <em className="italic" style={{ color: "#E24E42" }}>spark.</em>
           </h1>
 
           {/* Body */}
@@ -149,13 +205,10 @@ export default function HeroSection() {
               >
                 Begin collecting
                 <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24">
-                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                  <path d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
               </a>
-              <a
-                href="/login"
-                className="text-sm text-ink/40 hover:text-ink/70 transition-colors"
-              >
+              <a href="/login" className="text-sm text-ink/40 hover:text-ink/70 transition-colors">
                 Sign in
               </a>
             </div>
@@ -163,13 +216,36 @@ export default function HeroSection() {
         </div>
       </div>
 
-      {/* Bottom fade */}
-      <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-[#FAFAFA] to-transparent" />
+      {/* Activity toasts — top right, decorative collaborative story */}
+      {mounted && (
+        <div
+          className={`fixed top-20 right-5 z-40 transition-all duration-500 ${
+            toastVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"
+          }`}
+        >
+          <div className="flex items-center gap-3 bg-white/95 backdrop-blur-md rounded-2xl px-4 py-3 shadow-xl border border-ink/5 max-w-[300px]">
+            <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${ACTIVITY[activityIdx].color} flex-shrink-0 flex items-center justify-center`}>
+              <span className="text-white text-[10px] font-bold">{ACTIVITY[activityIdx].initials}</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[12px] text-ink/60 leading-snug">
+                <span className="font-semibold text-ink/90">{ACTIVITY[activityIdx].name}</span>{" "}
+                {ACTIVITY[activityIdx].msg}
+              </p>
+              <p className="text-[10px] text-ink/30 mt-0.5">just now</p>
+            </div>
+            <div className="flex-shrink-0 w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: "#E24E42" }} />
+          </div>
+        </div>
+      )}
+
+      {/* Bottom fade into boards/discovery sections */}
+      <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-[#FDFCFB] to-transparent z-20" />
 
       <style jsx>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px) rotate(var(--r, 0deg)); }
-          50% { transform: translateY(-18px) rotate(var(--r, 0deg)); }
+        @keyframes hero-float {
+          0%, 100% { transform: translateY(0px); }
+          50%       { transform: translateY(-10px); }
         }
       `}</style>
     </section>
