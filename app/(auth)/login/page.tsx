@@ -38,8 +38,12 @@ export default function LoginPage() {
     <div className="min-h-screen bg-cork-warm flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="font-serif text-3xl">
-            Spark<span className="text-papaya">urio</span>
+          <Link href="/" className="inline-block">
+            <img
+              src="https://vqaaxqvyepouqcrxduiw.supabase.co/storage/v1/object/public/assets/logo.png"
+              alt="Sparkurio"
+              className="h-12 w-auto mx-auto"
+            />
           </Link>
           <p className="text-ink-soft mt-2">Welcome back</p>
         </div>

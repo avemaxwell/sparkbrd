@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { resetUserCache } from "@/hooks/useUser";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const PLANS = [
   {
@@ -39,13 +41,14 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const supabase = createClient();
+  const router = useRouter();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -57,7 +60,13 @@ export default function SignupPage() {
     if (error) {
       setError(error.message);
       setLoading(false);
+    } else if (data.session) {
+      // Email confirmation is disabled — user is already signed in
+      resetUserCache();
+      router.push("/");
+      router.refresh();
     } else {
+      // Email confirmation required — show "check your email"
       setSubmitted(true);
     }
   };
@@ -66,8 +75,12 @@ export default function SignupPage() {
     return (
       <div className="min-h-screen bg-cork-warm flex items-center justify-center px-4">
         <div className="w-full max-w-md text-center">
-          <Link href="/" className="font-serif text-4xl">
-            Spark<span className="text-papaya">urio</span>
+          <Link href="/" className="inline-block">
+            <img
+              src="https://vqaaxqvyepouqcrxduiw.supabase.co/storage/v1/object/public/assets/logo.png"
+              alt="Sparkurio"
+              className="h-12 w-auto mx-auto"
+            />
           </Link>
           <div className="mt-8 bg-white rounded-2xl p-8 shadow-xl">
             <div className="w-14 h-14 bg-papaya/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -95,8 +108,12 @@ export default function SignupPage() {
       <div className="w-full max-w-xl mx-auto">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link href="/" className="font-serif text-4xl">
-            Spark<span className="text-papaya">urio</span>
+          <Link href="/" className="inline-block">
+            <img
+              src="https://vqaaxqvyepouqcrxduiw.supabase.co/storage/v1/object/public/assets/logo.png"
+              alt="Sparkurio"
+              className="h-12 w-auto mx-auto"
+            />
           </Link>
           <p className="text-ink/40 mt-2 text-sm">Spark what inspires you.</p>
         </div>
