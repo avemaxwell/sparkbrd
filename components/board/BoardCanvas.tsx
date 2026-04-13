@@ -46,6 +46,11 @@ export default function BoardCanvas() {
   // 'owner' | 'editor' | 'viewer' — resolved after board loads
   const [memberRole, setMemberRole] = useState<'owner' | 'editor' | 'viewer' | null>(null);
 
+  // Follow state for public boards viewed by non-owners
+  const [followingOwner, setFollowingOwner] = useState(false);
+  const [ownerName, setOwnerName] = useState<string | null>(null);
+  const [followLoading, setFollowLoading] = useState(false);
+
   useBoardSync(boardId, setBoard, setTacks, setTextBlocks);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -140,6 +145,16 @@ const screenToCanvas = (screenX: number, screenY: number) => {
             .eq('user_id', profile.id)
             .maybeSingle();
           setMemberRole((membership?.role as 'editor' | 'viewer') ?? 'viewer');
+
+          // Load owner name + follow status for public boards viewed by non-owners
+          if (boardData.is_public && boardData.owner_id) {
+            const [ownerRes, followRes] = await Promise.all([
+              supabase.from('profiles').select('name').eq('id', boardData.owner_id).single(),
+              fetch(`/api/users/${boardData.owner_id}/follow`).then(r => r.json()),
+            ]);
+            setOwnerName(ownerRes.data?.name ?? null);
+            setFollowingOwner(followRes.following ?? false);
+          }
         }
       }
 
@@ -880,6 +895,27 @@ return (
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
               </svg>
               <span className="hidden sm:inline text-sm font-medium">Edit board</span>
+            </button>
+          )}
+
+          {/* Follow button — shown to logged-in non-owners viewing a public board */}
+          {profile && memberRole !== 'owner' && board?.is_public && board.owner_id && (
+            <button
+              onClick={async () => {
+                setFollowLoading(true);
+                const res = await fetch(`/api/users/${board.owner_id}/follow`, { method: 'POST' });
+                const data = await res.json();
+                setFollowingOwner(data.following);
+                setFollowLoading(false);
+              }}
+              disabled={followLoading}
+              className={`hidden sm:flex items-center gap-1.5 rounded-full px-4 py-2.5 shadow-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+                followingOwner
+                  ? 'bg-white/80 backdrop-blur-md text-ink/60 hover:bg-red-50 hover:text-red-500'
+                  : 'bg-ink text-white hover:bg-ink/85'
+              }`}
+            >
+              {followLoading ? '...' : followingOwner ? 'Following' : ownerName ? `Follow ${ownerName}` : 'Follow'}
             </button>
           )}
 

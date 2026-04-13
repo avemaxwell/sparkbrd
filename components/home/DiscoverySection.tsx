@@ -6,6 +6,7 @@ import { useUser } from "@/hooks/useUser";
 import { PLACEHOLDER_TACKS } from "@/lib/placeholder-images";
 import RetackButton from "@/components/tacks/RetackButton";
 import Link from "next/link";
+import FollowingFeed from "@/components/home/FollowingFeed";
 
 interface DiscoverTack {
   id: string;
@@ -17,6 +18,7 @@ interface DiscoverTack {
 
 export default function DiscoverySection() {
   const { profile } = useUser();
+  const [tab, setTab] = useState<'discover' | 'following'>('discover');
   const [tacks, setTacks] = useState<DiscoverTack[]>([]);
   const [personalized, setPersonalized] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -87,31 +89,47 @@ export default function DiscoverySection() {
       <div
         className={`px-4 md:px-6 mb-8 transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
       >
-        <div className="flex items-end gap-3">
-          <h2 className="font-serif text-2xl md:text-3xl text-ink/90 mb-1">Discover</h2>
-          {personalized && (
-            <span className="mb-1.5 text-xs font-medium text-papaya/80 bg-papaya/8 px-2 py-0.5 rounded-full">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-2 bg-ink/5 rounded-full p-1">
+            <button
+              onClick={() => setTab('discover')}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${tab === 'discover' ? 'bg-white text-ink shadow-sm' : 'text-ink/50 hover:text-ink'}`}
+            >
+              Discover
+            </button>
+            {profile && (
+              <button
+                onClick={() => setTab('following')}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${tab === 'following' ? 'bg-white text-ink shadow-sm' : 'text-ink/50 hover:text-ink'}`}
+              >
+                Following
+              </button>
+            )}
+          </div>
+          {tab === 'discover' && personalized && (
+            <span className="text-xs font-medium text-papaya/80 bg-papaya/8 px-2 py-0.5 rounded-full">
               Curated for you
             </span>
           )}
         </div>
-        <p className="text-ink/40">From public boards</p>
       </div>
 
-      {loading && (
+      {tab === 'following' && <FollowingFeed />}
+
+      {tab === 'discover' && loading && (
         <div className="flex justify-center py-20">
           <div className="w-6 h-6 border-2 border-ink/10 border-t-papaya rounded-full animate-spin" />
         </div>
       )}
 
-      {isEmpty && (
+      {tab === 'discover' && isEmpty && (
         <div className="text-center py-20 px-6">
           <p className="text-ink/30 text-sm">No public tacks yet.</p>
           <p className="text-ink/20 text-xs mt-1">Make a board public in Edit board to appear here.</p>
         </div>
       )}
 
-      {!loading && tacks.length > 0 && (
+      {tab === 'discover' && !loading && tacks.length > 0 && (
         <>
           <div
             className="grid gap-2 md:gap-3 px-2 md:px-3"
