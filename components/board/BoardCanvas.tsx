@@ -242,25 +242,27 @@ const handleDrag = (e: React.MouseEvent) => {
 
   const handleDragEnd = async () => {
     if (!dragging) return;
+    const id = dragging;           // capture before any state clears
     const pos = lastDragPos.current;
     lastDragPos.current = null;
+    setDragging(null);             // clear immediately so UI feels responsive
 
     if (pos) {
-      if (dragging.startsWith('text-')) {
-        const textId = dragging.replace('text-', '');
-        await supabase
-          .from("text_blocks")
-          .update({ position_x: pos.x, position_y: pos.y })
-          .eq("id", textId);
+      if (id.startsWith('text-')) {
+        const textId = id.replace('text-', '');
+        const { error } = await supabase
+          .from('text_blocks')
+          .update({ position_x: Math.round(pos.x), position_y: Math.round(pos.y) })
+          .eq('id', textId);
+        if (error) console.error('Text block position save failed:', error);
       } else {
-        await supabase
-          .from("tacks")
-          .update({ position_x: pos.x, position_y: pos.y })
-          .eq("id", dragging);
+        const { error } = await supabase
+          .from('tacks')
+          .update({ position_x: Math.round(pos.x), position_y: Math.round(pos.y) })
+          .eq('id', id);
+        if (error) console.error('Tack position save failed:', error);
       }
     }
-
-    setDragging(null);
   };
 
   // Resize handlers
@@ -333,12 +335,12 @@ const handleDrag = (e: React.MouseEvent) => {
     broadcastCursor(canvasPos.x, canvasPos.y);
   };
 
-  const handleMouseUp = () => {
-    handleDragEnd();
-    handleResizeEnd();
-    handleRotateEnd();
-    handleTextResizeEnd();
-    handleTextRotateEnd();
+  const handleMouseUp = async () => {
+    await handleDragEnd();
+    await handleResizeEnd();
+    await handleRotateEnd();
+    await handleTextResizeEnd();
+    await handleTextRotateEnd();
     setIsPanning(false);
   };
 // ── Unified touch handlers ──────────────────────────────────────────────────
@@ -445,17 +447,20 @@ const handleCanvasTouchEnd = async () => {
   setLastPinchMid(null);
 
   if (dragging) {
+    const id = dragging;
     const pos = lastDragPos.current;
     lastDragPos.current = null;
+    setDragging(null);
     if (pos) {
-      if (dragging.startsWith('text-')) {
-        const textId = dragging.replace('text-', '');
-        await supabase.from('text_blocks').update({ position_x: pos.x, position_y: pos.y }).eq('id', textId);
+      if (id.startsWith('text-')) {
+        const textId = id.replace('text-', '');
+        const { error } = await supabase.from('text_blocks').update({ position_x: Math.round(pos.x), position_y: Math.round(pos.y) }).eq('id', textId);
+        if (error) console.error('Text block position save failed:', error);
       } else {
-        await supabase.from('tacks').update({ position_x: pos.x, position_y: pos.y }).eq('id', dragging);
+        const { error } = await supabase.from('tacks').update({ position_x: Math.round(pos.x), position_y: Math.round(pos.y) }).eq('id', id);
+        if (error) console.error('Tack position save failed:', error);
       }
     }
-    setDragging(null);
   }
 
   if (resizing) {
@@ -646,8 +651,8 @@ const handleTextRotateEnd = async () => {
       note: note || null,
       source: source || null,
       pin_color: pinColor,
-      position_x: Math.round(100 + Math.random() * 200),
-      position_y: Math.round(100 + Math.random() * 200),
+      position_x: Math.round((() => { const vp = document.getElementById('board-viewport'); const w = vp ? vp.clientWidth : window.innerWidth; return w / (2 * zoom) - pan.x + (Math.random() - 0.5) * 200; })()),
+      position_y: Math.round((() => { const vp = document.getElementById('board-viewport'); const h = vp ? vp.clientHeight : window.innerHeight; return h / (2 * zoom) - pan.y + (Math.random() - 0.5) * 200; })()),
       width: 250,
       height: 300,
       rotation: Math.floor(Math.random() * 6) - 3,
