@@ -108,7 +108,7 @@ export default function BillingPage() {
           </div>
         )}
 
-        <div className="grid md:grid-cols-3 gap-6 mb-12">
+        <div className="grid md:grid-cols-4 gap-6 mb-12">
 
           {/* ── Free ── */}
           <div className={`relative border-2 rounded-2xl p-8 ${currentPlan === 'free' ? 'border-papaya bg-papaya/5' : 'border-ink/10 bg-white'}`}>
@@ -182,7 +182,6 @@ export default function BillingPage() {
               <li className="flex items-start gap-3"><Check /><span className="text-ink/70">Custom colors</span></li>
               <li className="flex items-start gap-3"><Check /><span className="text-ink/70">No branding</span></li>
               <li className="flex items-start gap-3"><Check /><span className="text-ink/70">Export boards</span></li>
-              {/* Locked Team feature */}
               <li className="flex items-center gap-3 opacity-50">
                 <Check locked /><span className="text-ink/50 line-through text-sm">Real-time collaboration</span><Badge label="Team" />
               </li>
@@ -194,11 +193,11 @@ export default function BillingPage() {
               </div>
             ) : (
               <button
-                onClick={() => handlePlanClick('price_1T6yOFFGrjyNBgsd4j26d5Ve', currentPlan === 'team')}
+                onClick={() => handlePlanClick('price_1THWhJ2WmfLDfFrx11odjF0b', currentPlan === 'team' || currentPlan === 'enterprise')}
                 disabled={upgrading}
                 className="w-full px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors disabled:opacity-50"
               >
-                {upgrading ? 'Processing...' : currentPlan === 'team' ? 'Downgrade to Pro' : 'Upgrade to Pro'}
+                {upgrading ? 'Processing...' : currentPlan === 'team' || currentPlan === 'enterprise' ? 'Downgrade to Pro' : 'Upgrade to Pro'}
               </button>
             )}
           </div>
@@ -208,7 +207,7 @@ export default function BillingPage() {
             <div className="mb-6">
               <h2 className="text-2xl font-semibold mb-2">Team</h2>
               <div className="flex items-baseline gap-1">
-                <span className="text-5xl font-bold">$15</span>
+                <span className="text-5xl font-bold">$18</span>
                 <span className="text-ink/60">/mo</span>
               </div>
             </div>
@@ -227,12 +226,41 @@ export default function BillingPage() {
               </div>
             ) : (
               <button
-                onClick={() => handlePlanClick('price_1T6yOoFGrjyNBgsdRbarGcc3', false)}
+                onClick={() => handlePlanClick('price_1THWhM2WmfLDfFrxIaNUyoV3', currentPlan === 'enterprise')}
                 disabled={upgrading}
                 className="w-full px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors disabled:opacity-50"
               >
-                {upgrading ? 'Processing...' : 'Upgrade to Team'}
+                {upgrading ? 'Processing...' : currentPlan === 'enterprise' ? 'Downgrade to Team' : 'Upgrade to Team'}
               </button>
+            )}
+          </div>
+
+          {/* ── Enterprise ── */}
+          <div className={`relative border-2 rounded-2xl p-8 ${currentPlan === 'enterprise' ? 'border-papaya bg-papaya/5' : 'border-ink/10 bg-white'}`}>
+            <div className="mb-6">
+              <h2 className="text-2xl font-semibold mb-2">Enterprise</h2>
+              <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-bold text-ink/70">Custom</span>
+              </div>
+            </div>
+
+            <ul className="space-y-3 mb-8">
+              <li className="flex items-start gap-3"><Check /><span className="text-ink/70">Everything in Team</span></li>
+              <li className="flex items-start gap-3"><Check /><span className="text-ink/70">Custom pricing</span></li>
+              <li className="flex items-start gap-3"><Check /><span className="text-ink/70">Dedicated support</span></li>
+            </ul>
+
+            {currentPlan === 'enterprise' ? (
+              <div className="px-4 py-3 bg-ink/5 rounded-full text-center text-sm text-ink/60 font-medium">
+                Current plan
+              </div>
+            ) : (
+              <a
+                href="mailto:admin@sparkurio.com?subject=Enterprise inquiry"
+                className="block w-full px-6 py-3 border-2 border-ink/20 text-ink rounded-full font-medium hover:border-ink/40 transition-colors text-center"
+              >
+                Contact us
+              </a>
             )}
           </div>
         </div>

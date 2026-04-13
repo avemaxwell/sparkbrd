@@ -22,17 +22,25 @@ const PLANS = [
     name: "Pro",
     price: "$10",
     period: "/mo",
-    priceId: "price_1T6yOFFGrjyNBgsd4j26d5Ve",
+    priceId: "price_1THWhJ2WmfLDfFrx11odjF0b",
     highlight: true,
     features: ["50 boards", "200 tacks per board", "Custom colors", "No branding", "Export boards"],
   },
   {
     id: "team",
     name: "Team",
-    price: "$15",
+    price: "$18",
     period: "/mo",
-    priceId: "price_1T6yOoFGrjyNBgsdRbarGcc3",
+    priceId: "price_1THWhM2WmfLDfFrxIaNUyoV3",
     features: ["Everything in Pro", "Unlimited boards & tacks", "Real-time collaboration", "Team workspace"],
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise",
+    price: "Custom",
+    period: "",
+    priceId: null,
+    features: ["Everything in Team", "Custom pricing", "Dedicated support"],
   },
 ];
 
@@ -84,6 +92,9 @@ export default function SignupPage() {
         } catch {
           // Fall through to home if checkout fails
         }
+      } else if (selectedPlan === "enterprise") {
+        // Open mailto so they can reach out, then go home
+        window.location.href = "mailto:admin@sparkurio.com?subject=Enterprise inquiry&body=Hi, I just signed up and I'm interested in an Enterprise plan.";
       }
       router.push("/");
       router.refresh();
@@ -137,7 +148,7 @@ export default function SignupPage() {
         {/* Plan selector */}
         <div className="mb-6">
           <p className="text-center text-xs text-ink/40 uppercase tracking-widest mb-4">Choose your plan</p>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {PLANS.map((p) => (
               <button
                 key={p.id}
@@ -235,6 +246,8 @@ export default function SignupPage() {
           >
             {loading
               ? "Creating account..."
+              : selectedPlan === "enterprise"
+              ? "Create account — we'll be in touch"
               : isPaid
               ? `Continue to ${plan.name} — ${plan.price}${plan.period}`
               : "Start for free"}
