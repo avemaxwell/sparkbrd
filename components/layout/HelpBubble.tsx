@@ -1,12 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 
 export default function HelpBubble() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+
+  // Hide on board pages — the canvas has its own fixed controls in the same spot
+  if (pathname?.startsWith("/board/")) return null;
 
   // Try to pre-fill email from Supabase session (best effort, no hard dependency)
   useEffect(() => {
