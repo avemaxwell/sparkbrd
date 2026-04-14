@@ -1000,13 +1000,15 @@ return (
           onMouseDown={canEdit ? (e) => handleDragStart(e, tack.id, tack.position_x, tack.position_y) : undefined}
           onTouchStart={canEdit ? (e) => handleTouchStart(e, tack.id, tack.position_x, tack.position_y) : undefined}
           onClick={(e) => {
-            if (!dragging && !touching) {
+            if (!dragging && !touching && canvasMode === 'comment') {
               e.stopPropagation();
-              if (canvasMode === 'comment') {
-                setCommentDrawerTack(tack);
-              } else {
-                setSelectedTack(tack);
-              }
+              setCommentDrawerTack(tack);
+            }
+          }}
+          onDoubleClick={(e) => {
+            if (!dragging && !touching && canvasMode !== 'comment') {
+              e.stopPropagation();
+              setSelectedTack(tack);
             }
           }}
         >
@@ -1101,7 +1103,7 @@ return (
               }}
               onMouseDown={canEdit ? (e) => handleDragStart(e, `text-${text.id}`, text.position_x, text.position_y) : undefined}
               onTouchStart={canEdit ? (e) => handleTouchStart(e, `text-${text.id}`, text.position_x, text.position_y) : undefined}
-              onClick={(e) => {
+              onDoubleClick={(e) => {
                 if (!dragging && !touching && !textResizing && !textRotating) {
                   e.stopPropagation();
                   setSelectedText(text);
