@@ -89,7 +89,7 @@ const [rotateStartAngle, setRotateStartAngle] = useState(0);
 const [rotateStartRotation, setRotateStartRotation] = useState(0);
 
 const [textResizing, setTextResizing] = useState<string | null>(null);
-const [textResizeStart, setTextResizeStart] = useState({ x: 0, width: 0 });
+const [textResizeStart, setTextResizeStart] = useState({ x: 0, y: 0, width: 0, fontSize: 16 });
 const [textRotating, setTextRotating] = useState<string | null>(null);
 const [textRotateStartAngle, setTextRotateStartAngle] = useState(0);
 const [textRotateStartRotation, setTextRotateStartRotation] = useState(0);
@@ -588,21 +588,29 @@ const handleTextResizeStart = (e: React.MouseEvent, textId: string) => {
   const text = textBlocks.find(t => t.id === textId);
   if (!text) return;
   setTextResizing(textId);
-  setTextResizeStart({ x: e.clientX, width: text.width });
+  setTextResizeStart({ x: e.clientX, y: e.clientY, width: text.width, fontSize: text.font_size });
 };
 
 const handleTextResize = (e: React.MouseEvent) => {
   if (!textResizing) return;
-  const delta = e.clientX - textResizeStart.x;
-  const newWidth = Math.max(80, textResizeStart.width + delta);
-  setTextBlocks(textBlocks.map(t => t.id === textResizing ? { ...t, width: newWidth } : t));
+  // Use diagonal drag distance to scale font size
+  const dx = (e.clientX - textResizeStart.x) / zoom;
+  const dy = (e.clientY - textResizeStart.y) / zoom;
+  const delta = (dx + dy) / 2;
+  const newFontSize = Math.max(8, Math.min(200, Math.round(textResizeStart.fontSize + delta * 0.4)));
+  // Scale width proportionally so the text block grows/shrinks as a unit
+  const scale = newFontSize / textResizeStart.fontSize;
+  const newWidth = Math.max(60, Math.round(textResizeStart.width * scale));
+  setTextBlocks(textBlocks.map(t =>
+    t.id === textResizing ? { ...t, font_size: newFontSize, width: newWidth } : t
+  ));
 };
 
 const handleTextResizeEnd = async () => {
   if (!textResizing) return;
   const text = textBlocks.find(t => t.id === textResizing);
   if (text) {
-    await supabase.from("text_blocks").update({ width: text.width }).eq("id", text.id);
+    await supabase.from("text_blocks").update({ font_size: text.font_size, width: text.width }).eq("id", text.id);
   }
   setTextResizing(null);
 };
@@ -1150,6 +1158,7 @@ return (
                 <div
                   className="absolute -bottom-3 -right-3 w-7 h-7 bg-papaya rounded-full cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md z-10"
                   onMouseDown={(e) => handleTextResizeStart(e, text.id)}
+                  title="Drag to resize"
                 >
                   <svg className="w-3 h-3 text-white" viewBox="0 0 10 10" fill="none">
                     <path d="M1 9L9 1M5 9L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
