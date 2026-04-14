@@ -1091,7 +1091,13 @@ return (
             <div
               key={text.id}
               id={`text-wrapper-${text.id}`}
-              className={`absolute group ${canEdit ? 'cursor-move' : 'cursor-default'}`}
+              className={`absolute group rounded-sm transition-shadow ${canEdit ? 'cursor-move' : 'cursor-default'} ${
+                canEdit
+                  ? (dragging === `text-${text.id}` || textResizing === text.id || textRotating === text.id)
+                    ? 'ring-2 ring-papaya/70 ring-offset-[3px]'
+                    : 'hover:ring-2 hover:ring-papaya/40 hover:ring-offset-[3px]'
+                  : ''
+              }`}
               style={{
                 left: text.position_x,
                 top: text.position_y,
