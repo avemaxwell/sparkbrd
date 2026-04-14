@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, Instrument_Serif, Caveat, Bebas_Neue, Special_Elite } from "next/font/google";
 import HelpBubble from "@/components/layout/HelpBubble";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -31,7 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${dmSans.variable} ${instrumentSerif.variable} ${caveat.variable} ${bebasNeue.variable} ${specialElite.variable}`}>
-      <body>{children}<HelpBubble /><GoogleAnalytics gaId="G-WFKZ3Y5F34" /></body>
+      <body>{children}<HelpBubble /><GoogleAnalytics gaId="G-WFKZ3Y5F34" /><Analytics /></body>
     </html>
   );
 }
