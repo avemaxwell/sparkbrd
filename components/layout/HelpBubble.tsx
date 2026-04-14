@@ -9,9 +9,8 @@ export default function HelpBubble() {
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
-
-  // Hide on board pages — the canvas has its own fixed controls in the same spot
-  if (pathname?.startsWith("/board/")) return null;
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   // Try to pre-fill email from Supabase session (best effort, no hard dependency)
   useEffect(() => {
@@ -28,20 +27,33 @@ export default function HelpBubble() {
     })();
   }, [open]);
 
-  const handleSend = () => {
-    if (!message.trim()) return;
-    const subject = encodeURIComponent("Sparkurio — Support Request");
-    const body = encodeURIComponent(
-      `${message.trim()}${email ? `\n\nFrom: ${email}` : ""}`
-    );
-    window.open(`mailto:admin@sparkurio.com?subject=${subject}&body=${body}`);
-    setSent(true);
+  // Hide on board pages — the canvas has its own fixed controls in the same spot
+  if (pathname?.startsWith("/board/")) return null;
+
+  const handleSend = async () => {
+    if (!message.trim() || sending) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      const res = await fetch("/api/support", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: message.trim(), email: email.trim() }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setSent(true);
+    } catch {
+      setSendError("Couldn't send your message. Please try again or email admin@sparkurio.com directly.");
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleClose = () => {
     setOpen(false);
     setTimeout(() => {
       setSent(false);
+      setSendError(null);
       setMessage("");
     }, 300);
   };
@@ -104,8 +116,8 @@ export default function HelpBubble() {
                       <polyline points="20 6 9 17 4 12"/>
                     </svg>
                   </div>
-                  <p className="font-semibold text-ink mb-1">Message ready to send</p>
-                  <p className="text-xs text-ink/50 mb-4">Your email client opened with the message pre-filled. Hit send whenever you&apos;re ready.</p>
+                  <p className="font-semibold text-ink mb-1">Message sent!</p>
+                  <p className="text-xs text-ink/50 mb-4">We&apos;ll get back to you as soon as we can.</p>
                   <button
                     onClick={handleClose}
                     className="px-5 py-2 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors"
@@ -135,12 +147,15 @@ export default function HelpBubble() {
                       className="w-full px-3 py-2.5 text-sm bg-ink/5 rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 transition-all placeholder:text-ink/30"
                     />
                   </div>
+                  {sendError && (
+                    <p className="text-xs text-red-500 mb-3">{sendError}</p>
+                  )}
                   <button
                     onClick={handleSend}
-                    disabled={!message.trim()}
+                    disabled={!message.trim() || sending}
                     className="w-full py-2.5 bg-papaya text-white rounded-full text-sm font-medium hover:bg-papaya/90 transition-colors disabled:opacity-40"
                   >
-                    Send message
+                    {sending ? "Sending…" : "Send message"}
                   </button>
                 </>
               )}
