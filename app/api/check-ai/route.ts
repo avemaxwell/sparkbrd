@@ -70,6 +70,23 @@ export async function POST(request: Request) {
 
     const client = new Anthropic({ apiKey });
 
+    // Fetch the image server-side and send as base64 so Claude always gets
+    // the actual bytes regardless of whether it can reach the source URL.
+    let imageSource: { type: 'base64'; media_type: string; data: string } | { type: 'url'; url: string };
+    try {
+      const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(10000) });
+      if (!imgRes.ok) throw new Error(`fetch ${imgRes.status}`);
+      const buffer = await imgRes.arrayBuffer();
+      const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+      // Normalise to a supported media type
+      const mediaType = (['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const)
+        .find(t => contentType.startsWith(t)) ?? 'image/jpeg';
+      imageSource = { type: 'base64', media_type: mediaType, data: Buffer.from(buffer).toString('base64') };
+    } catch {
+      // Fall back to URL source; if that also fails the outer catch will handle it
+      imageSource = { type: 'url', url: imageUrl };
+    }
+
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 400,
@@ -79,7 +96,7 @@ export async function POST(request: Request) {
           content: [
             {
               type: 'image',
-              source: { type: 'url', url: imageUrl },
+              source: imageSource as any,
             },
             {
               type: 'text',
@@ -111,11 +128,18 @@ Respond with ONLY this JSON:
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
     } catch {
-      // parse failed — fail open
+      // parse failed — block to be safe
     }
 
     if (!parsed) {
-      return NextResponse.json({ isLikelyAI: false, confidence: 0, blocked: false, reason: null });
+      // Detection produced no result — fail closed to prevent bypass
+      return NextResponse.json({
+        isLikelyAI: true,
+        confidence: 0,
+        blocked: true,
+        softWarned: false,
+        reason: 'Could not verify this image. Please try a different image or contact support.',
+      });
     }
 
     // Explicit / CSAM — always hard block, no override
@@ -155,7 +179,13 @@ Respond with ONLY this JSON:
 
   } catch (error) {
     console.error('AI check error:', error);
-    // Fail open — don't block uploads if detection fails
-    return NextResponse.json({ isLikelyAI: false, blocked: false, reason: null });
+    // Fail closed — a detection error should not be exploitable as a bypass
+    return NextResponse.json({
+      isLikelyAI: true,
+      confidence: 0,
+      blocked: true,
+      softWarned: false,
+      reason: 'Image could not be verified. Please try a different image or contact support if this keeps happening.',
+    });
   }
 }

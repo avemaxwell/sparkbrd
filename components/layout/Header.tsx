@@ -159,6 +159,13 @@ export default function Header() {
                       >
                         Privacy
                       </Link>
+                      <Link
+                        href="/ai-policy"
+                        onClick={() => setDropdownOpen(false)}
+                        className="text-[11px] text-ink/30 hover:text-ink/50 transition-colors"
+                      >
+                        AI Policy
+                      </Link>
                     </div>
                   </div>
                 </>
