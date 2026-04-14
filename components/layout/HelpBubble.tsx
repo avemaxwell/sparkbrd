@@ -51,8 +51,8 @@ export default function HelpBubble() {
       {/* Bubble button */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-2.5 bg-ink text-white rounded-full shadow-lg hover:bg-ink/90 hover:shadow-xl hover:-translate-y-0.5 transition-all text-sm font-medium"
-        style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+        className="fixed left-4 lg:left-6 z-40 flex items-center gap-2 px-4 py-2.5 bg-ink text-white rounded-full shadow-lg hover:bg-ink/90 hover:shadow-xl hover:-translate-y-0.5 transition-all text-sm font-medium"
+        style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
         aria-label="Help"
       >
         <svg className="w-4 h-4 stroke-white stroke-[1.5] fill-none flex-shrink-0" viewBox="0 0 24 24">
@@ -65,7 +65,7 @@ export default function HelpBubble() {
 
       {/* Panel */}
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-end justify-end p-4 sm:p-6 pointer-events-none"
+        <div className="fixed inset-0 z-50 flex items-end sm:items-end justify-start p-4 sm:p-6 pointer-events-none"
           style={{ bottom: 'env(safe-area-inset-bottom)' }}
         >
           <div
