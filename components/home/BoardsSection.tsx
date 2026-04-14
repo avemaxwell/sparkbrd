@@ -15,6 +15,7 @@ interface Team {
   name: string;
   slug: string;
   avatar_color: string;
+  avatar_url: string | null;
   _member_role: string;
 }
 
@@ -364,10 +365,13 @@ export default function BoardsSection() {
                         className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-sm border border-ink/5 hover:shadow-md hover:-translate-y-0.5 transition-all"
                       >
                         <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-semibold text-base flex-shrink-0"
-                          style={{ backgroundColor: team.avatar_color }}
+                          className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-semibold text-base flex-shrink-0 overflow-hidden"
+                          style={{ backgroundColor: team.avatar_url ? 'transparent' : team.avatar_color }}
                         >
-                          {team.name[0]?.toUpperCase()}
+                          {team.avatar_url
+                            ? <img src={team.avatar_url} alt={team.name} className="w-full h-full object-cover" />
+                            : team.name[0]?.toUpperCase()
+                          }
                         </div>
                         <div>
                           <p className="font-medium text-sm text-ink leading-none">{team.name}</p>

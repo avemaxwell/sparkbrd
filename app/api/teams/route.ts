@@ -23,13 +23,13 @@ export async function GET() {
     // Teams owned by user
     const { data: ownedTeams } = await admin
       .from('teams')
-      .select('id, name, slug, avatar_color, owner_id, created_at')
+      .select('id, name, slug, avatar_color, avatar_url, owner_id, created_at')
       .eq('owner_id', user.id);
 
     // Teams user is a member of (not owner)
     const { data: memberships } = await admin
       .from('team_members')
-      .select('role, teams(id, name, slug, avatar_color, owner_id, created_at)')
+      .select('role, teams(id, name, slug, avatar_color, avatar_url, owner_id, created_at)')
       .eq('user_id', user.id);
 
     const memberTeams = (memberships ?? []).map((m: any) => ({
