@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans, Instrument_Serif, Caveat, Bebas_Neue, Special_Elite } from "next/font/google";
+import HelpBubble from "@/components/layout/HelpBubble";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -29,7 +30,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${dmSans.variable} ${instrumentSerif.variable} ${caveat.variable} ${bebasNeue.variable} ${specialElite.variable}`}>
-      <body>{children}</body>
+      <body>{children}<HelpBubble /></body>
     </html>
   );
 }
