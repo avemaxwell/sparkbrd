@@ -259,6 +259,13 @@ export default function SignupPage() {
             </p>
           )}
 
+          <p className="text-center text-xs text-ink/40 mt-4 leading-relaxed">
+            Sparkurio is a space for human creativity.{" "}
+            <Link href="/ai-policy" target="_blank" className="underline hover:text-ink/60 transition-colors">
+              Learn how we handle AI-generated images.
+            </Link>
+          </p>
+
           <p className="text-center text-sm text-ink/50 mt-5 pt-5 border-t border-ink/5">
             Already have an account?{" "}
             <Link href="/login" className="text-papaya font-medium hover:underline">
