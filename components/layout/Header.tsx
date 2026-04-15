@@ -9,6 +9,11 @@ export default function Header() {
   const { profile, loading, signOut } = useUser();
   const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmails, setInviteEmails] = useState('');
+  const [inviteSending, setInviteSending] = useState(false);
+  const [inviteSent, setInviteSent] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [lastScrollY, setLastScrollY] = useState(0);
@@ -39,7 +44,8 @@ export default function Header() {
     : "?";
 
   return (
-    <header 
+    <>
+    <header
       className={`fixed top-0 left-0 right-0 z-50 px-6 py-4 transition-all duration-300 ${
         scrolled ? 'bg-[#FDFCFB]/90 backdrop-blur-md shadow-sm' : ''
       } ${
@@ -116,8 +122,8 @@ export default function Header() {
                         </svg>
                         Your boards
                       </Link>
-                      <Link 
-                        href="/settings" 
+                      <Link
+                        href="/settings"
                         onClick={() => setDropdownOpen(false)}
                         className="flex items-center gap-3 px-3 py-2.5 text-sm text-ink/70 hover:bg-ink/5 rounded-xl transition-colors"
                       >
@@ -127,6 +133,16 @@ export default function Header() {
                         </svg>
                         Settings
                       </Link>
+                      <button
+                        onClick={() => { setDropdownOpen(false); setInviteOpen(true); setInviteSent(false); setInviteEmails(''); setInviteError(null); }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-ink/70 hover:bg-ink/5 rounded-xl transition-colors"
+                      >
+                        <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91a16 16 0 0 0 6 6l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z"/>
+                          <path d="M14 2a4 4 0 0 1 4 4"/><path d="M14 6h4V2"/>
+                        </svg>
+                        Invite a friend
+                      </button>
                     </div>
                     <div className="p-2 border-t border-ink/5">
                       <button
@@ -182,5 +198,76 @@ export default function Header() {
         </div>
       </div>
     </header>
+
+      {/* Invite modal */}
+      {inviteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setInviteOpen(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+            {inviteSent ? (
+              <div className="text-center py-4">
+                <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-6 h-6 stroke-green-600 stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <p className="font-serif text-xl text-ink mb-1">Invite sent!</p>
+                <p className="text-sm text-ink/50 mb-5">Your friend should receive it shortly.</p>
+                <button onClick={() => setInviteOpen(false)} className="px-5 py-2 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors">
+                  Close
+                </button>
+              </div>
+            ) : (
+              <>
+                <h3 className="font-serif text-xl mb-1">Invite a friend</h3>
+                <p className="text-sm text-ink/50 mb-5">We&apos;ll send them a note letting them know you love Sparkurio.</p>
+                <div className="mb-4">
+                  <label className="block text-xs font-medium text-ink/50 mb-1.5">
+                    Friend&apos;s email <span className="font-normal text-ink/30">(separate multiple with commas)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={inviteEmails}
+                    onChange={(e) => setInviteEmails(e.target.value)}
+                    placeholder="friend@example.com"
+                    className="w-full px-4 py-3 bg-ink/5 rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 transition-all text-sm placeholder:text-ink/30"
+                    autoFocus
+                  />
+                </div>
+                {inviteError && <p className="text-xs text-red-500 mb-3">{inviteError}</p>}
+                <div className="flex gap-3">
+                  <button
+                    onClick={async () => {
+                      const emails = inviteEmails.split(',').map(e => e.trim()).filter(Boolean);
+                      if (!emails.length) { setInviteError('Please enter at least one email address.'); return; }
+                      setInviteSending(true);
+                      setInviteError(null);
+                      const res = await fetch('/api/invite', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ emails, senderName: profile?.name }),
+                      });
+                      setInviteSending(false);
+                      if (res.ok) { setInviteSent(true); }
+                      else { setInviteError('Something went wrong. Please try again.'); }
+                    }}
+                    disabled={inviteSending || !inviteEmails.trim()}
+                    className="flex-1 py-2.5 bg-papaya text-white rounded-full text-sm font-medium hover:bg-papaya/90 transition-colors disabled:opacity-50"
+                  >
+                    {inviteSending ? 'Sending…' : 'Send invite'}
+                  </button>
+                  <button
+                    onClick={() => setInviteOpen(false)}
+                    className="flex-1 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
