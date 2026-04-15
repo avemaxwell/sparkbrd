@@ -1003,9 +1003,11 @@ return (
     {/* Tack content */}
     {(() => {
       const isPng = /\.png(\?.*)?$/i.test(tack.content_url);
+      const isSvg = /\.svg(\?.*)?$/i.test(tack.content_url);
+      const isTransparent = isPng || isSvg;
       return (
         <div
-          className={`${isPng ? '' : 'bg-white p-2'} rounded-sm shadow-xl transition-shadow duration-300 ${
+          className={`${isTransparent ? '' : 'bg-white p-2'} rounded-sm ${isSvg ? '' : 'shadow-xl'} transition-shadow duration-300 ${
             canEdit ? 'cursor-move' : 'cursor-default'
           } ${dragging === tack.id ? 'shadow-2xl' : 'hover:shadow-xl'}`}
           onMouseDown={canEdit ? (e) => handleDragStart(e, tack.id, tack.position_x, tack.position_y) : undefined}
@@ -1026,22 +1028,24 @@ return (
           <img
             src={tackCanvas(tack.content_url)}
             alt={tack.title || ""}
-            className={`w-full pointer-events-none ${isPng ? '' : 'rounded-sm'}`}
+            className={`w-full pointer-events-none ${isTransparent ? '' : 'rounded-sm'}`}
             style={{ height: 'auto', maxHeight: '400px', objectFit: 'contain' }}
             draggable={false}
           />
-          {tack.title && !isPng && (
+          {tack.title && !isTransparent && (
             <p className="mt-2 text-xs font-medium text-ink truncate">{tack.title}</p>
           )}
         </div>
       );
     })()}
     
-    {/* Pin */}
-    <div
-      className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full shadow-md pointer-events-none"
-      style={{ backgroundColor: pinColorPresets[tack.pin_color] || tack.pin_color }}
-    />
+    {/* Pin — hidden for SVG stickers */}
+    {!/\.svg(\?.*)?$/i.test(tack.content_url) && (
+      <div
+        className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full shadow-md pointer-events-none"
+        style={{ backgroundColor: pinColorPresets[tack.pin_color] || tack.pin_color }}
+      />
+    )}
 
     {/* Attribution avatar — shown when a collaborator (non-owner) added this tack */}
     {tack.added_by_profile && tack.added_by !== board?.owner_id && (
@@ -1992,7 +1996,10 @@ function AddTackModal({
   onAdd: (url: string, note: string, pinColor: string, source?: string) => void;
   boardId: string;
 }) {
-  const [mode, setMode] = useState<"upload" | "url" | "scrape">("upload");
+  const [mode, setMode] = useState<"upload" | "url" | "scrape" | "stickers">("upload");
+  const [stickerData, setStickerData] = useState<Record<string, { name: string; url: string }[]>>({});
+  const [stickerCategory, setStickerCategory] = useState("doodles");
+  const [stickersLoading, setStickersLoading] = useState(false);
   const [url, setUrl] = useState("");
   const [note, setNote] = useState("");
   const [pinColor, setPinColor] = useState("papaya");
@@ -2013,6 +2020,15 @@ function AddTackModal({
   const [pendingUpload, setPendingUpload] = useState<{url: string, note: string, pinColor: string, source?: string} | null>(null);
   
   const supabase = createClient();
+
+  useEffect(() => {
+    if (mode !== 'stickers' || Object.keys(stickerData).length > 0) return;
+    setStickersLoading(true);
+    fetch('/api/stickers')
+      .then(r => r.json())
+      .then(d => { setStickerData(d.categories ?? {}); setStickersLoading(false); })
+      .catch(() => setStickersLoading(false));
+  }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Returns: 'ok' | 'hard_blocked' | 'soft_warned' | 'explicit_blocked'
   const checkForAI = async (imageUrl: string): Promise<'ok' | 'hard_blocked' | 'soft_warned' | 'explicit_blocked'> => {
@@ -2175,18 +2191,21 @@ function AddTackModal({
           </button>
         </div>
 
-        <div className="mb-4 p-3 bg-ink/5 rounded-lg flex items-center justify-between gap-3">
-          <p className="text-xs text-ink/60"><strong className="text-ink/80">Human-made content only.</strong> AI-generated images are not allowed on Sparkurio.</p>
-          <a href="/ai-policy" target="_blank" rel="noopener noreferrer" className="text-xs text-papaya hover:underline whitespace-nowrap flex-shrink-0">Why? →</a>
-        </div>
+        {mode !== 'stickers' && (
+          <div className="mb-4 p-3 bg-ink/5 rounded-lg flex items-center justify-between gap-3">
+            <p className="text-xs text-ink/60"><strong className="text-ink/80">Human-made content only.</strong> AI-generated images are not allowed on Sparkurio.</p>
+            <a href="/ai-policy" target="_blank" rel="noopener noreferrer" className="text-xs text-papaya hover:underline whitespace-nowrap flex-shrink-0">Why? →</a>
+          </div>
+        )}
 
         <div className="flex gap-2 mb-6">
           <button onClick={() => { setMode("upload"); setAiWarning(null); }} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${mode === "upload" ? "bg-ink text-white" : "bg-ink/5 text-ink hover:bg-ink/10"}`}>Upload</button>
           <button onClick={() => { setMode("url"); setAiWarning(null); }} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${mode === "url" ? "bg-ink text-white" : "bg-ink/5 text-ink hover:bg-ink/10"}`}>Image URL</button>
           <button onClick={() => { setMode("scrape"); setAiWarning(null); }} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${mode === "scrape" ? "bg-ink text-white" : "bg-ink/5 text-ink hover:bg-ink/10"}`}>From Page</button>
+          <button onClick={() => setMode("stickers")} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${mode === "stickers" ? "bg-ink text-white" : "bg-ink/5 text-ink hover:bg-ink/10"}`}>Stickers</button>
         </div>
 
-        {checking && (
+        {checking && mode !== 'stickers' && (
           <div className="mb-4 p-4 bg-ink/5 rounded-xl flex items-center gap-3">
             <div className="w-5 h-5 border-2 border-ink/20 border-t-papaya rounded-full animate-spin"/>
             <p className="text-sm text-ink-soft">Checking content authenticity...</p>
@@ -2194,6 +2213,53 @@ function AddTackModal({
         )}
 
         <div className="flex-1 overflow-y-auto">
+{mode === "stickers" && (
+  <div>
+    {/* Category tabs */}
+    <div className="flex gap-2 mb-4 flex-wrap">
+      {['doodles', 'arrows', 'lines', 'shapes'].map(cat => (
+        <button
+          key={cat}
+          onClick={() => setStickerCategory(cat)}
+          className={`px-4 py-1.5 rounded-full text-sm font-medium capitalize transition-colors ${
+            stickerCategory === cat ? 'bg-papaya text-white' : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
+          }`}
+        >
+          {cat}
+        </button>
+      ))}
+    </div>
+
+    {stickersLoading ? (
+      <div className="flex justify-center py-12">
+        <div className="w-6 h-6 border-2 border-ink/20 border-t-papaya rounded-full animate-spin"/>
+      </div>
+    ) : (stickerData[stickerCategory] ?? []).length === 0 ? (
+      <div className="text-center py-12 text-ink/40 text-sm">
+        <p>No stickers in this category yet.</p>
+        <p className="text-xs mt-1">Upload SVGs to the <strong>{stickerCategory}</strong> folder in Supabase Storage.</p>
+      </div>
+    ) : (
+      <div className="grid grid-cols-4 gap-3">
+        {(stickerData[stickerCategory] ?? []).map(sticker => (
+          <button
+            key={sticker.url}
+            onClick={() => { onAdd(sticker.url, '', 'papaya'); onClose(); }}
+            title={sticker.name}
+            className="aspect-square bg-ink/5 rounded-xl p-3 hover:bg-papaya/10 hover:ring-2 hover:ring-papaya/30 transition-all flex items-center justify-center group"
+          >
+            <img
+              src={sticker.url}
+              alt={sticker.name}
+              className="w-full h-full object-contain group-hover:scale-110 transition-transform"
+              draggable={false}
+            />
+          </button>
+        ))}
+      </div>
+    )}
+  </div>
+)}
 {mode === "upload" && (
             <form onSubmit={handleSubmit}>
               <div className="mb-4">
