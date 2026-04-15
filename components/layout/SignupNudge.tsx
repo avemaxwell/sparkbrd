@@ -66,7 +66,7 @@ export default function SignupNudge() {
               Your inspiration board is waiting.
             </p>
             <p className="text-sm text-ink/50 mt-1">
-              Collect images, ideas, and everything that sparks you — no credit card needed.
+              Collect images, ideas, and everything that ignites your spark--free.
             </p>
           </div>
 
