@@ -1249,7 +1249,7 @@ return (
                   style={{
                     fontSize: text.font_size,
                     color: text.color,
-                    whiteSpace: text.nowrap ? 'nowrap' : 'normal',
+                    whiteSpace: text.nowrap ? 'nowrap' : 'pre-line',
                     ...(text.font_style === 'caveat' ? { fontFamily: 'var(--font-caveat)' } : {}),
                     ...(text.font_style === 'bebas' ? { fontFamily: 'var(--font-bebas)', letterSpacing: '0.04em', textTransform: 'uppercase' } : {}),
                     ...(text.font_style === 'typewriter' ? { fontFamily: 'var(--font-special-elite)' } : {}),
