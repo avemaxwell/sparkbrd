@@ -2063,6 +2063,11 @@ function StickerImage({ url, color, className, style }: {
   className?: string;
   style?: React.CSSProperties;
 }) {
+  // Non-SVG stickers (PNG, JPG, etc.) render directly — no recoloring
+  if (!/\.svg(\?.*)?$/i.test(url)) {
+    return <img src={url} alt="" className={className} style={style} draggable={false} />;
+  }
+
   const [src, setSrc] = useState<string | null>(null);
 
   useEffect(() => {

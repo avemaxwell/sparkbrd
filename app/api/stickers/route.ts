@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 
 // Folder names in the stickers bucket — add more here as the library grows
-const CATEGORIES = ['doodles', 'arrows', 'lines', 'shapes', 'flowers', 'leaves'];
+const CATEGORIES = ['doodles', 'arrows', 'lines', 'shapes', 'flowers + leaves'];
 
 export async function GET() {
   try {
