@@ -51,6 +51,10 @@ export default function BoardCanvas() {
   const [ownerName, setOwnerName] = useState<string | null>(null);
   const [followLoading, setFollowLoading] = useState(false);
 
+  // Ref that mirrors whichever element is currently being dragged/resized.
+  // Passed to useBoardSync so Realtime echoes don't overwrite in-flight positions.
+  const activeManipulationRef = useRef<string | null>(null);
+
   useBoardSync(boardId, setBoard, setTacks, setTextBlocks, activeManipulationRef);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -106,10 +110,6 @@ const [lastPinchMid, setLastPinchMid] = useState<{ x: number; y: number } | null
 
 // Ref to track latest drag position — avoids stale-closure bug when persisting on drag end
 const lastDragPos = useRef<{ x: number; y: number } | null>(null);
-
-// Ref that mirrors whichever element is currently being dragged/resized.
-// Passed to useBoardSync so Realtime echoes don't overwrite in-flight positions.
-const activeManipulationRef = useRef<string | null>(null);
 
 // Convert screen coordinates to canvas coordinates
 const screenToCanvas = (screenX: number, screenY: number) => {
