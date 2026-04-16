@@ -1139,8 +1139,8 @@ return (
       );
     })()}
     
-    {/* Pin — hidden for SVG stickers */}
-    {!/\.svg(\?.*)?$/i.test(tack.content_url) && (
+    {/* Pin — hidden for transparent stickers (SVG or PNG) */}
+    {!/\.(svg|png)(\?.*)?$/i.test(tack.content_url) && (
       <div
         className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full shadow-md pointer-events-none"
         style={{ backgroundColor: pinColorPresets[tack.pin_color] || tack.pin_color }}
@@ -2376,7 +2376,7 @@ function AddTackModal({
   <div>
     {/* Category tabs */}
     <div className="flex gap-2 mb-4 flex-wrap">
-      {['doodles', 'arrows', 'lines', 'shapes'].map(cat => (
+      {Object.keys(stickerData).map(cat => (
         <button
           key={cat}
           onClick={() => setStickerCategory(cat)}
