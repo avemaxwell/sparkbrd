@@ -111,6 +111,41 @@ function resolveUrl(src: string, pageUrl: string): string | null {
   }
 }
 
+/**
+ * Returns a canonical key used for deduplication: uses origin + pathname so
+ * that /img.jpg?w=300&q=80 and /img.jpg?w=900&q=60 collapse to the same key.
+ */
+function canonicalKey(imageUrl: string): string {
+  try {
+    const u = new URL(imageUrl);
+    // For CDN URLs where the path itself encodes dimensions (e.g. /300x200/photo.jpg),
+    // just use origin+pathname as the key — good enough for dedup.
+    return u.origin + u.pathname.toLowerCase();
+  } catch {
+    return imageUrl;
+  }
+}
+
+/**
+ * Given a srcset string, return the URL with the largest width descriptor,
+ * falling back to the last entry or the first if no descriptors are present.
+ */
+function bestSrcsetUrl(srcset: string): string | null {
+  const parts = srcset
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
+    .map(part => {
+      const [url, descriptor = ''] = part.split(/\s+/);
+      const w = descriptor.match(/^(\d+)w$/i);
+      return { url, w: w ? parseInt(w[1]) : 0 };
+    });
+  if (!parts.length) return null;
+  // Pick the largest width, or last if no descriptors
+  parts.sort((a, b) => b.w - a.w);
+  return parts[0].url || null;
+}
+
 // Recursively walk any JSON value and collect image-looking strings
 function extractImagesFromJson(obj: unknown, addImage: (src: string) => void): void {
   if (typeof obj === 'string') {
@@ -186,16 +221,17 @@ export async function POST(request: Request) {
     const html = await response.text();
     const $ = cheerio.load(html);
 
-    const seenUrls = new Set<string>();
+    const seenKeys = new Set<string>();
     const images: string[] = [];
 
     const addImage = (src: string | undefined) => {
       if (!src) return;
       const resolved = resolveUrl(src.trim(), url);
       if (!resolved) return;
-      if (seenUrls.has(resolved)) return;
       if (!isLikelyImage(resolved)) return;
-      seenUrls.add(resolved);
+      const key = canonicalKey(resolved);
+      if (seenKeys.has(key)) return;
+      seenKeys.add(key);
       images.push(resolved);
     };
 
@@ -229,12 +265,10 @@ export async function POST(request: Request) {
       } catch { /* skip */ }
     });
 
-    // ── 5. srcset attributes ───────────────────────────────────────────────
+    // ── 5. srcset attributes — pick largest variant only ──────────────────
     $('img[srcset], source[srcset]').each((_, el) => {
       const srcset = $(el).attr('srcset') || '';
-      for (const part of srcset.split(',')) {
-        addImage(part.trim().split(/\s+/)[0]);
-      }
+      addImage(bestSrcsetUrl(srcset) ?? undefined);
     });
 
     // ── 6. Standard img src + common lazy-load attributes ─────────────────
@@ -253,8 +287,9 @@ export async function POST(request: Request) {
     // ── 8. CSS background images in style attributes ───────────────────────
     $('[style]').each((_, el) => {
       const style = $(el).attr('style') || '';
-      const match = style.match(/url\(['"]?([^'")\s]+)['"]?\)/i);
-      if (match) addImage(match[1]);
+      for (const m of style.matchAll(/url\(['"]?([^'")\s]+)['"]?\)/gi)) {
+        addImage(m[1]);
+      }
     });
 
     // ── 9. Scan all script content for image URLs via regex ────────────────
