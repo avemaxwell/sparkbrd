@@ -51,7 +51,7 @@ export default function BoardCanvas() {
   const [ownerName, setOwnerName] = useState<string | null>(null);
   const [followLoading, setFollowLoading] = useState(false);
 
-  useBoardSync(boardId, setBoard, setTacks, setTextBlocks);
+  useBoardSync(boardId, setBoard, setTacks, setTextBlocks, activeManipulationRef);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -106,6 +106,10 @@ const [lastPinchMid, setLastPinchMid] = useState<{ x: number; y: number } | null
 
 // Ref to track latest drag position — avoids stale-closure bug when persisting on drag end
 const lastDragPos = useRef<{ x: number; y: number } | null>(null);
+
+// Ref that mirrors whichever element is currently being dragged/resized.
+// Passed to useBoardSync so Realtime echoes don't overwrite in-flight positions.
+const activeManipulationRef = useRef<string | null>(null);
 
 // Convert screen coordinates to canvas coordinates
 const screenToCanvas = (screenX: number, screenY: number) => {
@@ -182,6 +186,28 @@ const screenToCanvas = (screenX: number, screenY: number) => {
     loadBoard();
   }, [boardId, profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Viewport persistence — restore saved zoom/pan from localStorage on mount ──
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(`sparkurio:vp:${boardId}`) || 'null');
+      if (saved && typeof saved.zoom === 'number' && saved.pan) {
+        setZoom(saved.zoom);
+        setPan(saved.pan);
+      }
+    } catch { /* ignore parse errors */ }
+  }, [boardId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Save viewport to localStorage whenever zoom/pan change (debounced)
+  const vpSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (vpSaveTimer.current) clearTimeout(vpSaveTimer.current);
+    vpSaveTimer.current = setTimeout(() => {
+      try {
+        localStorage.setItem(`sparkurio:vp:${boardId}`, JSON.stringify({ zoom, pan }));
+      } catch { /* storage quota — ignore */ }
+    }, 400);
+  }, [zoom, pan, boardId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Check if we should auto-open the add tack modal
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -227,6 +253,9 @@ const screenToCanvas = (screenX: number, screenY: number) => {
     if (canvasMode === 'comment') return;
     e.preventDefault();
     setDragging(tackId);
+    // Track the raw tack ID (strip 'text-' prefix for text blocks) so the
+    // Realtime handler can protect position fields while the drag is live.
+    activeManipulationRef.current = tackId.startsWith('text-') ? tackId.replace('text-', '') : tackId;
     const canvasPos = screenToCanvas(e.clientX, e.clientY);
     setDragOffset({
       x: canvasPos.x - currentX,
@@ -263,6 +292,7 @@ const handleDrag = (e: React.MouseEvent) => {
     const id = dragging;           // capture before any state clears
     const pos = lastDragPos.current;
     lastDragPos.current = null;
+    activeManipulationRef.current = null; // release Realtime protection
     setDragging(null);             // clear immediately so UI feels responsive
 
     if (pos) {
@@ -287,10 +317,11 @@ const handleDrag = (e: React.MouseEvent) => {
   const handleResizeStart = (e: React.MouseEvent, tackId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     const tack = tacks.find(t => t.id === tackId);
     if (!tack) return;
-    
+
+    activeManipulationRef.current = tackId;
     setResizing(tackId);
     setResizeStart({
       x: e.clientX,
@@ -312,7 +343,7 @@ const handleDrag = (e: React.MouseEvent) => {
   const [pendingUpload, setPendingUpload] = useState<{url: string, source?: string} | null>(null);
   const handleResizeEnd = async () => {
     if (!resizing) return;
-    
+    activeManipulationRef.current = null;
     const tack = tacks.find(t => t.id === resizing);
     if (tack) {
       await supabase
@@ -320,7 +351,6 @@ const handleDrag = (e: React.MouseEvent) => {
         .update({ width: tack.width })
         .eq("id", tack.id);
     }
-    
     setResizing(null);
   };
 
@@ -534,7 +564,17 @@ const handleWheelZoom = (e: React.WheelEvent) => {
   const localY = e.clientY - rect.top;
   const canvasX = localX / zoom - pan.x;
   const canvasY = localY / zoom - pan.y;
-  const factor = e.deltaY < 0 ? 1.1 : 0.9;
+
+  // Normalize deltaY across all deltaMode values (pixel, line, page)
+  let dy = e.deltaY;
+  if (e.deltaMode === 1) dy *= 15;   // DOM_DELTA_LINE  → approximate pixels
+  if (e.deltaMode === 2) dy *= 300;  // DOM_DELTA_PAGE  → approximate pixels
+  // Clamp hard to prevent trackpad momentum bursts from flying past bounds
+  dy = Math.max(-100, Math.min(100, dy));
+
+  // Exponential factor: tiny nudge → tiny zoom, full scroll → ~9.5% zoom.
+  // Much smoother than a flat 10% per event (which is brutal on trackpads).
+  const factor = Math.pow(0.999, dy);
   const newZoom = Math.min(3, Math.max(0.25, zoom * factor));
   const newPanX = localX / newZoom - canvasX;
   const newPanY = localY / newZoom - canvasY;

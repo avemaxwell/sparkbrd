@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, SetStateAction, MutableRefObject } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Board, Tack, TextBlock } from "@/types/board";
 
@@ -37,7 +37,10 @@ export function useBoardSync(
   boardId: string,
   setBoard: Dispatch<SetStateAction<Board | null>>,
   setTacks: Dispatch<SetStateAction<Tack[]>>,
-  setTextBlocks: Dispatch<SetStateAction<TextBlock[]>>
+  setTextBlocks: Dispatch<SetStateAction<TextBlock[]>>,
+  /** Ref to the ID currently being dragged/resized — Realtime won't overwrite
+   *  position/size for that element while it's being manipulated locally. */
+  activeManipulationRef?: MutableRefObject<string | null>,
 ) {
   useEffect(() => {
     if (!boardId) return;
@@ -96,7 +99,19 @@ export function useBoardSync(
         (payload: PgPayload) => {
           const incoming = payload.new as unknown as Tack;
           setTacks((prev) =>
-            prev.map((t) => (t.id === incoming.id ? { ...t, ...incoming } : t))
+            prev.map((t) => {
+              if (t.id !== incoming.id) return t;
+              // If this tack is actively being dragged/resized locally, don't let
+              // a Realtime echo (e.g. z_index update from bringToFront) overwrite
+              // the in-flight position/size — it would cause a visible jump.
+              const isActive = activeManipulationRef?.current === t.id;
+              if (isActive) {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { position_x, position_y, width, ...nonPositionFields } = incoming;
+                return { ...t, ...nonPositionFields };
+              }
+              return { ...t, ...incoming };
+            })
           );
         }
       )
