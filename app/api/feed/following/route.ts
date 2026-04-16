@@ -21,7 +21,7 @@ export async function GET() {
 
     const followingIds = followRows.map(r => r.following_id);
 
-    // Fetch recent public tacks from those users' public boards
+    // Fetch recent public tacks from those users' public boards — exclude SVG stickers
     const { data: tacks } = await supabase
       .from('tacks')
       .select(`
@@ -39,6 +39,7 @@ export async function GET() {
       .eq('hidden_as_ai', false)
       .eq('boards.is_public', true)
       .in('boards.owner_id', followingIds)
+      .not('content_url', 'ilike', '%.svg%')
       .order('created_at', { ascending: false })
       .limit(80);
 

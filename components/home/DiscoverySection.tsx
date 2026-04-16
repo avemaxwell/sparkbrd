@@ -147,19 +147,19 @@ export default function DiscoverySection() {
                     }`}
                     style={{ transitionDelay: `${(colIdx * 30) + (imgIdx * 60)}ms` }}
                   >
-                    <Link href={`/board/${tack.board_id}`} className="block relative overflow-hidden">
+                    <Link href={`/board/${tack.board_id}`} className="block relative overflow-hidden rounded-lg">
                       <img
                         src={tackThumb(tack.content_url)}
                         alt={tack.title || ''}
-                        className="w-full h-auto object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                        className="w-full h-auto object-cover md:transition-transform md:duration-500 md:ease-out md:group-hover:scale-105"
                         loading="lazy"
                         onError={(e) => {
                           (e.currentTarget.parentElement!.parentElement! as HTMLElement).style.display = 'none';
                         }}
                       />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+                      <div className="absolute inset-0 md:bg-black/0 md:group-hover:bg-black/10 md:transition-colors md:duration-300" />
                       {tack.source && (
-                        <div className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <div className="absolute bottom-2 left-2 md:opacity-0 md:group-hover:opacity-100 md:transition-opacity md:duration-200">
                           <span className="text-[10px] text-white/90 bg-black/40 backdrop-blur-sm px-1.5 py-0.5 rounded-full">
                             {tack.source}
                           </span>

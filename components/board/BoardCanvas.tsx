@@ -111,6 +111,13 @@ const [lastPinchMid, setLastPinchMid] = useState<{ x: number; y: number } | null
 // Ref to track latest drag position — avoids stale-closure bug when persisting on drag end
 const lastDragPos = useRef<{ x: number; y: number } | null>(null);
 
+// Long-press detection on touch: record touch start info so handleCanvasTouchEnd
+// can open the detail modal when the finger barely moved but held ≥450ms.
+const touchStartInfoRef = useRef<{
+  time: number; x: number; y: number;
+  tackId?: string; textId?: string;
+} | null>(null);
+
 // Convert screen coordinates to canvas coordinates
 const screenToCanvas = (screenX: number, screenY: number) => {
   const container = document.getElementById('board-viewport');
@@ -490,14 +497,41 @@ const handleCanvasTouchMove = (e: React.TouchEvent) => {
   }
 };
 
-const handleCanvasTouchEnd = async () => {
+const handleCanvasTouchEnd = async (e: React.TouchEvent) => {
   setLastPinchDist(null);
   setLastPinchMid(null);
 
   if (dragging) {
     const id = dragging;
     const pos = lastDragPos.current;
+    const info = touchStartInfoRef.current;
+    touchStartInfoRef.current = null;
+
+    // Long-press detection: finger barely moved AND held ≥ 450ms AND no canvas movement recorded
+    if (info && !pos && e.changedTouches.length > 0) {
+      const ct = e.changedTouches[0];
+      const dist = Math.hypot(ct.clientX - info.x, ct.clientY - info.y);
+      const duration = Date.now() - info.time;
+      if (dist < 12 && duration >= 450 && canvasMode !== 'comment') {
+        // Long press — open detail modal, cancel drag
+        activeManipulationRef.current = null;
+        lastDragPos.current = null;
+        setDragging(null);
+        setTouching(false);
+        setIsPanning(false);
+        if (info.tackId) {
+          const tack = tacks.find(t => t.id === info.tackId);
+          if (tack) setSelectedTack(tack);
+        } else if (info.textId) {
+          const text = textBlocks.find(t => t.id === info.textId);
+          if (text) setSelectedText(text);
+        }
+        return;
+      }
+    }
+
     lastDragPos.current = null;
+    activeManipulationRef.current = null;
     setDragging(null);
     if (pos) {
       if (id.startsWith('text-')) {
@@ -509,6 +543,8 @@ const handleCanvasTouchEnd = async () => {
         if (error) console.error('Tack position save failed:', error);
       }
     }
+  } else {
+    touchStartInfoRef.current = null;
   }
 
   if (resizing) {
@@ -527,7 +563,19 @@ const handleTouchStart = (e: React.TouchEvent, tackId: string, currentX: number,
   if (e.touches.length !== 1) return;
   e.stopPropagation();
   const touch = e.touches[0];
+
+  // Record for long-press detection in handleCanvasTouchEnd
+  touchStartInfoRef.current = {
+    time: Date.now(),
+    x: touch.clientX,
+    y: touch.clientY,
+    ...(tackId.startsWith('text-')
+      ? { textId: tackId.replace('text-', '') }
+      : { tackId }),
+  };
+
   const canvasPos = screenToCanvas(touch.clientX, touch.clientY);
+  activeManipulationRef.current = tackId.startsWith('text-') ? tackId.replace('text-', '') : tackId;
   setDragging(tackId);
   setTouching(true);
   setDragOffset({ x: canvasPos.x - currentX, y: canvasPos.y - currentY });
@@ -1031,7 +1079,7 @@ return (
     {/* Rotation handle — editors/owners only */}
     {canEdit && (
       <div
-        className="absolute -top-8 left-1/2 -translate-x-1/2 w-7 h-7 bg-white rounded-full cursor-grab opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md hover:bg-papaya hover:scale-110 z-10"
+        className="absolute -top-8 left-1/2 -translate-x-1/2 w-8 h-8 md:w-7 md:h-7 bg-white rounded-full cursor-grab opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md hover:bg-papaya hover:scale-110 z-10"
         onMouseDown={(e) => handleRotateStart(e, tack.id)}
         title="Drag to rotate"
       >
@@ -1181,7 +1229,7 @@ return (
               {/* Text rotate handle — editors/owners only */}
               {canEdit && (
                 <div
-                  className="absolute -top-8 left-1/2 -translate-x-1/2 w-7 h-7 bg-white rounded-full cursor-grab opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md hover:bg-papaya hover:scale-110 z-10"
+                  className="absolute -top-8 left-1/2 -translate-x-1/2 w-8 h-8 md:w-7 md:h-7 bg-white rounded-full cursor-grab opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md hover:bg-papaya hover:scale-110 z-10"
                   onMouseDown={(e) => handleTextRotateStart(e, text.id)}
                   title="Drag to rotate"
                 >
@@ -1212,7 +1260,7 @@ return (
               {/* Text resize handle — editors/owners only */}
               {canEdit && (
                 <div
-                  className="absolute -bottom-3 -right-3 w-7 h-7 bg-papaya rounded-full cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md z-10"
+                  className="absolute -bottom-3 -right-3 w-8 h-8 md:w-7 md:h-7 bg-papaya rounded-full cursor-se-resize opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md z-10"
                   onMouseDown={(e) => handleTextResizeStart(e, text.id)}
                   title="Drag to resize"
                 >

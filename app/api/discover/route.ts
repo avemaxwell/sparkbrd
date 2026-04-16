@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     // Get current user (optional — personalization only if logged in)
     const { data: { user } } = await supabase.auth.getUser();
 
-    // Fetch tacks from public boards
+    // Fetch tacks from public boards — exclude SVG stickers
     let query = supabase
       .from('tacks')
       .select(`
@@ -24,6 +24,7 @@ export async function GET(request: Request) {
         boards!inner(id, name, owner_id, is_public)
       `)
       .eq('boards.is_public', true)
+      .not('content_url', 'ilike', '%.svg%')
       .order('created_at', { ascending: false });
 
     // If searching, filter server-side on title, source, and tags
