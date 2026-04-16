@@ -1096,9 +1096,9 @@ return (
       const stickerFill = pinColorPresets[tack.pin_color] ?? tack.pin_color ?? '#1A1A1A';
       return (
         <div
-          className={`${isTransparent ? '' : 'bg-white p-2'} rounded-sm ${isSvg ? '' : 'shadow-xl'} transition-shadow duration-300 ${
+          className={`${isTransparent ? '' : 'bg-white p-2'} rounded-sm ${isTransparent ? '' : 'shadow-xl'} transition-shadow duration-300 ${
             canEdit ? 'cursor-move' : 'cursor-default'
-          } ${dragging === tack.id ? 'shadow-2xl' : 'hover:shadow-xl'}`}
+          } ${isTransparent ? '' : dragging === tack.id ? 'shadow-2xl' : 'hover:shadow-xl'}`}
           onMouseDown={canEdit ? (e) => handleDragStart(e, tack.id, tack.position_x, tack.position_y) : undefined}
           onTouchStart={canEdit ? (e) => handleTouchStart(e, tack.id, tack.position_x, tack.position_y) : undefined}
           onClick={(e) => {
