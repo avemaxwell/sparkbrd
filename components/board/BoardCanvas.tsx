@@ -1005,6 +1005,7 @@ return (
       const isPng = /\.png(\?.*)?$/i.test(tack.content_url);
       const isSvg = /\.svg(\?.*)?$/i.test(tack.content_url);
       const isTransparent = isPng || isSvg;
+      const stickerFill = pinColorPresets[tack.pin_color] ?? tack.pin_color ?? '#1A1A1A';
       return (
         <div
           className={`${isTransparent ? '' : 'bg-white p-2'} rounded-sm ${isSvg ? '' : 'shadow-xl'} transition-shadow duration-300 ${
@@ -1025,15 +1026,26 @@ return (
             }
           }}
         >
-          <img
-            src={tackCanvas(tack.content_url)}
-            alt={tack.title || ""}
-            className={`w-full pointer-events-none ${isTransparent ? '' : 'rounded-sm'}`}
-            style={{ height: 'auto', maxHeight: '400px', objectFit: 'contain' }}
-            draggable={false}
-          />
-          {tack.title && !isTransparent && (
-            <p className="mt-2 text-xs font-medium text-ink truncate">{tack.title}</p>
+          {isSvg ? (
+            <StickerImage
+              url={tack.content_url}
+              color={stickerFill}
+              className="w-full pointer-events-none"
+              style={{ height: 'auto', maxHeight: '400px', objectFit: 'contain' }}
+            />
+          ) : (
+            <>
+              <img
+                src={tackCanvas(tack.content_url)}
+                alt={tack.title || ""}
+                className={`w-full pointer-events-none ${isTransparent ? '' : 'rounded-sm'}`}
+                style={{ height: 'auto', maxHeight: '400px', objectFit: 'contain' }}
+                draggable={false}
+              />
+              {tack.title && !isTransparent && (
+                <p className="mt-2 text-xs font-medium text-ink truncate">{tack.title}</p>
+              )}
+            </>
           )}
         </div>
       );
@@ -1789,7 +1801,15 @@ function TackDetailModal({
       <div className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row">
         <div className="flex-1 bg-ink/5 flex items-center justify-center p-6 min-h-[300px]">
           <div style={{ transform: `rotate(${rotation}deg)`, transition: 'transform 0.2s' }}>
-            <img src={tackDetail(tack.content_url)} alt={title} className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg" />
+            {/\.svg(\?.*)?$/i.test(tack.content_url) ? (
+              <StickerImage
+                url={tack.content_url}
+                color={pinColorPresets[pinColor] ?? pinColor ?? '#1A1A1A'}
+                className="max-w-full max-h-[60vh] object-contain"
+              />
+            ) : (
+              <img src={tackDetail(tack.content_url)} alt={title} className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg" />
+            )}
           </div>
         </div>
         
@@ -1832,7 +1852,7 @@ function TackDetailModal({
               </div>
 
               <div className="mb-6">
-                <label className="block text-xs text-ink-soft mb-2">Tack color</label>
+                <label className="block text-xs text-ink-soft mb-2">{/\.svg(\?.*)?$/i.test(tack.content_url) ? 'Sticker color' : 'Tack color'}</label>
                 <div className="flex gap-2 flex-wrap py-1">
                   {Object.entries(pinColorPresets).map(([name, color]) => (
                     <button key={name} onClick={() => handlePinColorChange(name)} className={`w-8 h-8 rounded-full ${pinColor === name ? 'outline outline-2 outline-offset-2 outline-ink' : ''} hover:scale-110 transition-transform`} style={{ backgroundColor: color }} />
@@ -1944,6 +1964,56 @@ function TackDetailModal({
 }
 
 // ============================================================================
+// STICKER IMAGE — fetches SVG and recolors it via data URL (avoids CORS mask-image issues)
+// ============================================================================
+
+const _svgTextCache = new Map<string, string>();
+
+function StickerImage({ url, color, className, style }: {
+  url: string;
+  color: string;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const applyColor = (raw: string) => {
+      if (cancelled) return;
+      // Strip scripts for safety
+      const safe = raw.replace(/<script[\s\S]*?<\/script>/gi, '');
+      // Replace all fill/stroke that aren't "none" with the chosen color
+      const colored = safe
+        .replace(/fill="(?!none)([^"]*)"/g, `fill="${color}"`)
+        .replace(/stroke="(?!none)([^"]*)"/g, `stroke="${color}"`)
+        .replace(/fill:\s*(?!none)[^;}"']*/g, `fill:${color}`)
+        .replace(/stroke:\s*(?!none)[^;}"']*/g, `stroke:${color}`);
+      setSrc(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(colored)}`);
+    };
+
+    const cached = _svgTextCache.get(url);
+    if (cached) {
+      applyColor(cached);
+    } else {
+      fetch(url)
+        .then(r => r.text())
+        .then(text => {
+          _svgTextCache.set(url, text);
+          applyColor(text);
+        })
+        .catch(() => { if (!cancelled) setSrc(url); }); // fallback to original
+    }
+
+    return () => { cancelled = true; };
+  }, [url, color]);
+
+  if (!src) return <div className={className} style={style} />;
+  return <img src={src} alt="" className={className} style={style} draggable={false} />;
+}
+
+// ============================================================================
 // PIN COLOR PICKER
 // ============================================================================
 
@@ -2000,6 +2070,7 @@ function AddTackModal({
   const [stickerData, setStickerData] = useState<Record<string, { name: string; url: string }[]>>({});
   const [stickerCategory, setStickerCategory] = useState("doodles");
   const [stickersLoading, setStickersLoading] = useState(false);
+  const [stickerColor, setStickerColor] = useState("#1A1A1A");
   const [url, setUrl] = useState("");
   const [note, setNote] = useState("");
   const [pinColor, setPinColor] = useState("papaya");
@@ -2240,23 +2311,42 @@ function AddTackModal({
         <p className="text-xs mt-1">Upload SVGs to the <strong>{stickerCategory}</strong> folder in Supabase Storage.</p>
       </div>
     ) : (
-      <div className="grid grid-cols-4 gap-3">
-        {(stickerData[stickerCategory] ?? []).map(sticker => (
-          <button
-            key={sticker.url}
-            onClick={() => { onAdd(sticker.url, '', 'papaya'); onClose(); }}
-            title={sticker.name}
-            className="aspect-square bg-ink/5 rounded-xl p-3 hover:bg-papaya/10 hover:ring-2 hover:ring-papaya/30 transition-all flex items-center justify-center group"
-          >
-            <img
-              src={sticker.url}
-              alt={sticker.name}
-              className="w-full h-full object-contain group-hover:scale-110 transition-transform"
-              draggable={false}
+      <>
+        {/* Color swatches */}
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-xs text-ink/40 mr-1">Color</span>
+          {['#1A1A1A', '#E24E42', '#E9B000', '#EB6E80', '#008F95', '#7B5EA7', '#2D6A4F', '#ffffff'].map(c => (
+            <button
+              key={c}
+              onClick={() => setStickerColor(c)}
+              title={c}
+              className="w-6 h-6 rounded-full transition-transform hover:scale-110 flex-shrink-0"
+              style={{
+                backgroundColor: c,
+                outline: stickerColor === c ? `2px solid ${c === '#ffffff' ? '#aaa' : c}` : undefined,
+                outlineOffset: '2px',
+                border: c === '#ffffff' ? '1px solid #e0e0e0' : undefined,
+              }}
             />
-          </button>
-        ))}
-      </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-4 gap-3">
+          {(stickerData[stickerCategory] ?? []).map(sticker => (
+            <button
+              key={sticker.url}
+              onClick={() => { onAdd(sticker.url, '', stickerColor); onClose(); }}
+              title={sticker.name}
+              className="aspect-square bg-ink/5 rounded-xl p-3 hover:bg-papaya/10 hover:ring-2 hover:ring-papaya/30 transition-all flex items-center justify-center"
+            >
+              <StickerImage
+                url={sticker.url}
+                color={stickerColor}
+                className="w-full h-full object-contain"
+              />
+            </button>
+          ))}
+        </div>
+      </>
     )}
   </div>
 )}
