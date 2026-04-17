@@ -23,10 +23,10 @@ const specialElite = Special_Elite({ weight: "400", subsets: ["latin"], variable
 
 export const metadata: Metadata = {
   title: "Sparkurio — Creativity, sparked by humans.",
-  description: "A place for visual inspiration, curated by real people.",
+  description: "Sparkurio is a visual inspiration platform where real people curate beautiful boards, discover new ideas, and bring their creativity to life.",
   openGraph: {
     title: "Sparkurio — Creativity, sparked by humans.",
-    description: "A place for visual inspiration, curated by real people.",
+    description: "Sparkurio is a visual inspiration platform where real people curate beautiful boards, discover new ideas, and bring their creativity to life.",
     url: "https://sparkurio.com",
     siteName: "Sparkurio",
     images: [
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Sparkurio — Creativity, sparked by humans.",
-    description: "A place for visual inspiration, curated by real people.",
+    description: "Sparkurio is a visual inspiration platform where real people curate beautiful boards, discover new ideas, and bring their creativity to life.",
     images: ["https://sparkurio.com/og-image.png"],
   },
 };
