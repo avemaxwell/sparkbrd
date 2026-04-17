@@ -299,10 +299,12 @@ const handleDrag = (e: React.MouseEvent) => {
     const id = dragging;           // capture before any state clears
     const pos = lastDragPos.current;
     lastDragPos.current = null;
-    activeManipulationRef.current = null; // release Realtime protection
     setDragging(null);             // clear immediately so UI feels responsive
 
     if (pos) {
+      // Keep activeManipulationRef set during the DB write so any Realtime echo
+      // from the bringToFront z_index update (fired at drag start) can't overwrite
+      // the in-flight position with the pre-drag position from the DB.
       if (id.startsWith('text-')) {
         const textId = id.replace('text-', '');
         const { error } = await supabase
@@ -318,6 +320,7 @@ const handleDrag = (e: React.MouseEvent) => {
         if (error) console.error('Tack position save failed:', error);
       }
     }
+    activeManipulationRef.current = null; // release Realtime protection after save
   };
 
   // Resize handlers
@@ -350,15 +353,16 @@ const handleDrag = (e: React.MouseEvent) => {
   const [pendingUpload, setPendingUpload] = useState<{url: string, source?: string} | null>(null);
   const handleResizeEnd = async () => {
     if (!resizing) return;
-    activeManipulationRef.current = null;
     const tack = tacks.find(t => t.id === resizing);
+    setResizing(null); // clear immediately for UI responsiveness
     if (tack) {
+      // Keep ref set until save completes so no stale Realtime echo overwrites width
       await supabase
         .from("tacks")
         .update({ width: tack.width })
         .eq("id", tack.id);
     }
-    setResizing(null);
+    activeManipulationRef.current = null; // release after save
   };
 
   // Mouse-based canvas pan (click-drag on empty background)
@@ -531,9 +535,9 @@ const handleCanvasTouchEnd = async (e: React.TouchEvent) => {
     }
 
     lastDragPos.current = null;
-    activeManipulationRef.current = null;
     setDragging(null);
     if (pos) {
+      // Keep ref set during save (mirrors handleDragEnd mouse logic)
       if (id.startsWith('text-')) {
         const textId = id.replace('text-', '');
         const { error } = await supabase.from('text_blocks').update({ position_x: Math.round(pos.x), position_y: Math.round(pos.y) }).eq('id', textId);
@@ -543,14 +547,16 @@ const handleCanvasTouchEnd = async (e: React.TouchEvent) => {
         if (error) console.error('Tack position save failed:', error);
       }
     }
+    activeManipulationRef.current = null; // release after save
   } else {
     touchStartInfoRef.current = null;
   }
 
   if (resizing) {
     const tack = tacks.find(t => t.id === resizing);
-    if (tack) await supabase.from('tacks').update({ width: tack.width }).eq('id', tack.id);
     setResizing(null);
+    if (tack) await supabase.from('tacks').update({ width: tack.width }).eq('id', tack.id);
+    activeManipulationRef.current = null; // was never cleared in touch path — fix leak
   }
 
   setIsPanning(false);
