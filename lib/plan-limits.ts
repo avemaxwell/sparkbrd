@@ -7,6 +7,7 @@ export const PLAN_LIMITS = {
     export_boards: false,
     collaboration: false,
     no_branding: false,
+    studio_boards: false,
   },
   pro: {
     max_boards: 50,
@@ -15,6 +16,7 @@ export const PLAN_LIMITS = {
     export_boards: true,
     collaboration: false,
     no_branding: true,
+    studio_boards: true,
   },
   team: {
     max_boards: Infinity,
@@ -23,6 +25,7 @@ export const PLAN_LIMITS = {
     export_boards: true,
     collaboration: true,
     no_branding: true,
+    studio_boards: true,
   },
 };
 
@@ -80,6 +83,10 @@ export function getUpgradeMessage(plan: Plan | null | undefined, feature: Featur
   if (feature === 'collaboration') {
     return 'Upgrade to Team for real-time collaboration';
   }
-  
+
+  if (feature === 'studio_boards') {
+    return 'Upgrade to Pro for Studio Boards — creative briefs, section labels, and status tracking';
+  }
+
   return 'Upgrade to unlock this feature';
 }

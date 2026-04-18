@@ -4,6 +4,8 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { usePlan } from "@/hooks/usePlan";
+import { hasFeature, Plan } from "@/lib/plan-limits";
+import { useUser } from "@/hooks/useUser";
 import Link from "next/link";
 import ColorPicker from "@/components/ui/ColorPicker";
 
@@ -18,6 +20,7 @@ export default function NewBoardPage() {
 function NewBoardForm() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [template, setTemplate] = useState<'blank' | 'studio'>('blank');
   const [bgStyle, setBgStyle] = useState("gradient");
   const [color1, setColor1] = useState("#fef3e2");
   const [color2, setColor2] = useState("#fce7f3");
@@ -30,6 +33,8 @@ function NewBoardForm() {
   const teamId = searchParams.get('team');
   const supabase = createClient();
   const { canCreateBoard, boardsRemaining, isFreePlan, planDetails } = usePlan();
+  const { profile } = useUser();
+  const canUseStudio = hasFeature(profile?.plan as Plan | undefined, 'studio_boards');
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -69,6 +74,33 @@ function NewBoardForm() {
       console.error("Error creating board:", error);
       setCreating(false);
       return;
+    }
+
+    // Pre-populate Studio Board template sections
+    if (template === 'studio') {
+      const STUDIO_SECTIONS = [
+        { content: 'Art Direction',    position_x: 80,  position_y: 80  },
+        { content: 'Color Story',      position_x: 80,  position_y: 420 },
+        { content: 'Reference Images', position_x: 680, position_y: 80  },
+        { content: 'Typography Feels', position_x: 680, position_y: 420 },
+        { content: 'What to Avoid',    position_x: 80,  position_y: 760 },
+      ];
+      await supabase.from('text_blocks').insert(
+        STUDIO_SECTIONS.map((s, i) => ({
+          board_id: data.id,
+          user_id: session.user.id,
+          content: s.content,
+          font_style: 'section',
+          font_size: 12,
+          color: '#1A1A1A',
+          position_x: s.position_x,
+          position_y: s.position_y,
+          width: 480,
+          rotation: 0,
+          z_index: i + 1,
+          nowrap: true,
+        }))
+      );
     }
 
     // Log to team activity feed if this is a team board
@@ -278,6 +310,54 @@ function NewBoardForm() {
               rows={2}
               className="w-full px-4 py-3 bg-ink/5 rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 resize-none transition-all"
             />
+          </div>
+
+          {/* Template */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-ink mb-3">Start with a template</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setTemplate('blank')}
+                className={`p-4 rounded-xl border-2 text-left transition-all ${template === 'blank' ? 'border-papaya bg-papaya/5' : 'border-ink/10 hover:border-ink/20'}`}
+              >
+                <div className="w-8 h-8 rounded-lg bg-ink/5 flex items-center justify-center mb-2">
+                  <svg className="w-4 h-4 stroke-ink/40 stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  </svg>
+                </div>
+                <p className="font-medium text-sm text-ink">Blank Board</p>
+                <p className="text-xs text-ink/40 mt-0.5">Start fresh</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => canUseStudio ? setTemplate('studio') : undefined}
+                className={`p-4 rounded-xl border-2 text-left transition-all relative ${
+                  !canUseStudio ? 'border-ink/10 opacity-60 cursor-default' :
+                  template === 'studio' ? 'border-papaya bg-papaya/5' : 'border-ink/10 hover:border-ink/20'
+                }`}
+              >
+                {!canUseStudio && (
+                  <span className="absolute top-2 right-2 text-[10px] font-semibold bg-ink/10 text-ink/50 px-1.5 py-0.5 rounded-full">Pro</span>
+                )}
+                <div className="w-8 h-8 rounded-lg bg-papaya/10 flex items-center justify-center mb-2">
+                  <svg className="w-4 h-4 stroke-papaya stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                    <line x1="3" y1="8" x2="21" y2="8"/>
+                    <line x1="3" y1="4" x2="8" y2="4"/>
+                    <line x1="3" y1="16" x2="21" y2="16"/>
+                    <line x1="3" y1="12" x2="8" y2="12"/>
+                    <line x1="3" y1="20" x2="8" y2="20"/>
+                  </svg>
+                </div>
+                <p className="font-medium text-sm text-ink">Studio Board</p>
+                <p className="text-xs text-ink/40 mt-0.5">Pre-built for creative briefs</p>
+              </button>
+            </div>
+            {template === 'studio' && (
+              <p className="text-xs text-ink/50 mt-2 leading-relaxed">
+                Drops in 5 section labels: Art Direction, Color Story, Reference Images, Typography Feels, What to Avoid.
+              </p>
+            )}
           </div>
 
           {/* Divider */}

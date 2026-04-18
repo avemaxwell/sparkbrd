@@ -7,6 +7,7 @@ export interface Board {
   owner_id: string;
   is_public: boolean;
   team_id: string | null;
+  status: 'draft' | 'in_review' | 'approved';
 }
 
 export interface Tack {

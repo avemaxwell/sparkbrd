@@ -864,6 +864,35 @@ const handleTextRotateEnd = async () => {
     }
   };
 
+  // Add a section label directly (no modal — drops onto canvas immediately)
+  const addSectionLabel = async () => {
+    if (!board) return;
+    const { data: session } = await supabase.auth.getSession();
+    if (!session?.session?.user) return;
+
+    const vp = document.getElementById('board-viewport');
+    const cx = vp ? vp.clientWidth / (2 * zoom) - pan.x : 200;
+    const cy = vp ? vp.clientHeight / (2 * zoom) - pan.y : 200;
+
+    const newSection = {
+      board_id: boardId,
+      user_id: session.session.user.id,
+      content: 'Section Title',
+      font_style: 'section',
+      font_size: 12,
+      color: board.vibe === 'dark' ? '#FFFFFF' : '#1A1A1A',
+      position_x: Math.round(cx - 200),
+      position_y: Math.round(cy),
+      width: 480,
+      rotation: 0,
+      z_index: Math.max(0, ...tacks.map(t => t.z_index ?? 0), ...textBlocks.map(t => t.z_index ?? 0)) + 1,
+      nowrap: true,
+    };
+
+    const { data, error } = await supabase.from('text_blocks').insert(newSection).select().single();
+    if (!error && data) setTextBlocks(prev => [...prev, data]);
+  };
+
   // Get background style
   const getBackgroundStyle = () => {
     if (!board) return {};
@@ -1244,7 +1273,19 @@ return (
                   </svg>
                 </div>
               )}
-              <p
+              {text.font_style === 'section' ? (
+                <div className="flex items-center gap-2.5 py-0.5 select-none">
+                  <div className="w-0.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: text.color }} />
+                  <span
+                    className="font-sans text-[11px] font-bold uppercase tracking-[0.18em] whitespace-nowrap"
+                    style={{ color: text.color }}
+                  >
+                    {text.content}
+                  </span>
+                  <div className="flex-1 h-px" style={{ backgroundColor: text.color, opacity: 0.2 }} />
+                </div>
+              ) : (
+                <p
                   className={`${
                     text.font_style === 'heading' ? 'font-serif font-bold' :
                     text.font_style === 'quote' ? 'font-serif italic' :
@@ -1263,6 +1304,7 @@ return (
                 >
                   {text.content}
                 </p>
+              )}
               {/* Text resize handle — editors/owners only */}
               {canEdit && (
                 <div
@@ -1346,6 +1388,33 @@ return (
               <span className="hidden sm:inline">Add Text</span>
               <span className="sm:hidden">Text</span>
             </button>
+            {hasFeature(profile?.plan as Plan | undefined, 'studio_boards') ? (
+              <button
+                onClick={addSectionLabel}
+                title="Add section label"
+                className="bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink hover:bg-white transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                  <line x1="3" y1="12" x2="21" y2="12"/>
+                  <line x1="3" y1="6" x2="9" y2="6"/>
+                  <line x1="3" y1="18" x2="9" y2="18"/>
+                </svg>
+                <span className="hidden sm:inline">Section</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => { setUpgradeMessage(getUpgradeMessage(profile?.plan as Plan | undefined, 'studio_boards')); setShowUpgradeModal(true); }}
+                title="Section labels — Pro feature"
+                className="bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink/40 hover:bg-white transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                  <line x1="3" y1="12" x2="21" y2="12"/>
+                  <line x1="3" y1="6" x2="9" y2="6"/>
+                  <line x1="3" y1="18" x2="9" y2="18"/>
+                </svg>
+                <span className="hidden sm:inline">Section</span>
+              </button>
+            )}
           </div>
 
           <button
@@ -1539,6 +1608,7 @@ function SettingsSidebar({
   const [color1, setColor1] = useState(initialColors[0] || "#fef3e2");
   const [color2, setColor2] = useState(initialColors[1] || "#fce7f3");
   const [isPublic, setIsPublic] = useState(board.is_public ?? false);
+  const [status, setStatus] = useState<'draft' | 'in_review' | 'approved'>(board.status ?? 'draft');
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
 
@@ -1552,6 +1622,7 @@ function SettingsSidebar({
         vibe: bgStyle,
         background_color: colorString,
         is_public: isPublic,
+        status,
       };
 
       const { error } = await supabase
@@ -1569,7 +1640,7 @@ function SettingsSidebar({
 
     const timeout = setTimeout(saveChanges, 500);
     return () => clearTimeout(timeout);
-  }, [name, description, bgStyle, color1, color2, isPublic]);
+  }, [name, description, bgStyle, color1, color2, isPublic, status]);
 
   const bgPatterns = [
     { id: "gradient", label: "Gradient", description: "Smooth blend" },
@@ -1653,6 +1724,26 @@ function SettingsSidebar({
               rows={3}
               className="w-full px-4 py-3 bg-ink/5 rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 resize-none text-sm text-ink transition-all"
             />
+          </div>
+
+          {/* Status */}
+          <div className="p-6 border-b border-ink/5">
+            <p className="text-xs font-medium text-ink-soft uppercase tracking-wide mb-3">Status</p>
+            <div className="flex gap-2">
+              {([
+                { value: 'draft',     label: 'Draft',     active: 'bg-ink text-white',               inactive: 'bg-ink/5 text-ink/50 hover:bg-ink/10' },
+                { value: 'in_review', label: 'In Review', active: 'bg-amber-400 text-amber-900',      inactive: 'bg-amber-50 text-amber-600 hover:bg-amber-100' },
+                { value: 'approved',  label: 'Approved',  active: 'bg-emerald-500 text-white',        inactive: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' },
+              ] as const).map(({ value, label, active, inactive }) => (
+                <button
+                  key={value}
+                  onClick={() => setStatus(value)}
+                  className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${status === value ? active : inactive}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="p-6 border-b border-ink/5">

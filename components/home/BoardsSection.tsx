@@ -21,6 +21,21 @@ interface Team {
 
 type SharedBoard = Board & { _role: 'editor' | 'viewer'; _ownerName: string | null };
 
+const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+  in_review: { label: 'In Review', className: 'bg-amber-400/90 text-amber-950' },
+  approved:  { label: 'Approved',  className: 'bg-emerald-400/90 text-emerald-950' },
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const cfg = STATUS_CONFIG[status];
+  if (!cfg) return null;
+  return (
+    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${cfg.className}`}>
+      {cfg.label}
+    </span>
+  );
+}
+
 const BOARD_GRADIENTS = [
   "from-papaya/30 to-mustard/20",
   "from-aqua/25 to-blush/20",
@@ -296,9 +311,14 @@ export default function BoardsSection() {
                       board={board}
                       index={index}
                       boardImages={boardImages}
-                      badge={board.team_id && teamNameMap[board.team_id] ? (
-                        <p className="text-[10px] text-white/60 mt-0.5 truncate">Team · {teamNameMap[board.team_id]}</p>
-                      ) : undefined}
+                      badge={
+                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                          <StatusBadge status={board.status} />
+                          {board.team_id && teamNameMap[board.team_id] && (
+                            <p className="text-[10px] text-white/60 truncate">Team · {teamNameMap[board.team_id]}</p>
+                          )}
+                        </div>
+                      }
                     />
                   ))}
                 </div>

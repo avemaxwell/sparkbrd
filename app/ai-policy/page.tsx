@@ -33,7 +33,7 @@ export default function AIPolicyPage() {
             <h2 className="font-serif text-2xl text-ink mb-3">What Sparkurio is for</h2>
             <p>
               Sparkurio is a space for human creativity and inspiration. Every board is a window into
-              someone&apos;s genuine taste — the things that actually moved them, photographs they took,
+              someone&apos;s genuine taste: the things that actually moved them, photographs they took,
               artwork they love, ideas that stuck. That authenticity is the whole point. When you browse
               here, you should be able to trust that what you&apos;re seeing came from a real person&apos;s
               real perspective.
@@ -43,7 +43,7 @@ export default function AIPolicyPage() {
           <section>
             <h2 className="font-serif text-2xl text-ink mb-3">Why we don&apos;t allow AI-generated images</h2>
             <p>
-              AI image generators are trained on the work of human artists — often without their consent or
+              AI image generators are trained on the work of human artists, often without their consent or
               compensation. Allowing AI-generated images on Sparkurio would mean benefiting from that
               extraction while displacing the very creators we want to celebrate. We don&apos;t think that&apos;s right.
             </p>
@@ -111,7 +111,7 @@ export default function AIPolicyPage() {
             <p>
               We use automated tools to flag images that appear to be AI-generated before they&apos;re published.
               These tools analyze visual patterns that commonly appear in synthetic images. They&apos;re reasonably
-              accurate — but not perfect. No detection method is.
+              accurate, but not perfect. No detection method is.
             </p>
             <p className="mt-4">
               We also rely on the community. If you see an image that looks AI-generated, you can report it
@@ -136,8 +136,8 @@ export default function AIPolicyPage() {
             <h2 className="font-serif text-2xl text-ink mb-3">False positives &amp; appeals</h2>
             <p>
               Detection tools make mistakes. If your image was flagged and you believe it was incorrectly
-              identified — for example, it&apos;s a real photograph with unusual lighting, or heavily
-              post-processed art — please reach out. We&apos;ll take a look and correct any error.
+              identified. For example, it&apos;s a real photograph with unusual lighting, or heavily
+              post-processed art, please reach out. We&apos;ll take a look and correct any error.
             </p>
             <div className="mt-5 not-prose">
               <a
