@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { tackThumb } from "@/lib/image-transform";
 import { useUser } from "@/hooks/useUser";
 import { PLACEHOLDER_TACKS } from "@/lib/placeholder-images";
@@ -25,21 +25,28 @@ export default function DiscoverySection() {
   const [mounted, setMounted] = useState(false);
   const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set());
   const [columnCount, setColumnCount] = useState(5);
+  const sectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     setMounted(true);
+  }, []);
 
-    const updateColumns = () => {
-      const w = window.innerWidth;
-      if (w < 500) setColumnCount(2);
-      else if (w < 768) setColumnCount(3);
-      else if (w < 1024) setColumnCount(4);
-      else if (w < 1400) setColumnCount(5);
-      else setColumnCount(6);
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const toColumns = (w: number) => {
+      if (w < 500) return 2;
+      if (w < 768) return 3;
+      if (w < 1024) return 4;
+      if (w < 1400) return 5;
+      return 6;
     };
-    updateColumns();
-    window.addEventListener('resize', updateColumns);
-    return () => window.removeEventListener('resize', updateColumns);
+    const observer = new ResizeObserver(entries => {
+      setColumnCount(toColumns(entries[0].contentRect.width));
+    });
+    observer.observe(el);
+    setColumnCount(toColumns(el.offsetWidth));
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -85,7 +92,7 @@ export default function DiscoverySection() {
   const isEmpty = !loading && tacks.length === 0;
 
   return (
-    <section className="py-10">
+    <section ref={sectionRef} className="py-10">
       <div
         className={`px-4 md:px-6 mb-8 transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
       >

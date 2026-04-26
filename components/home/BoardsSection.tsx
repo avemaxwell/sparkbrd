@@ -143,7 +143,7 @@ function BoardCardMobile({
 
 const DESKTOP_BOARD_LIMIT = 4;
 
-export default function BoardsSection() {
+export default function BoardsSection({ showAll = false }: { showAll?: boolean }) {
   const router = useRouter();
   const [ownedBoards, setOwnedBoards] = useState<Board[]>([]);
   const [sharedBoards, setSharedBoards] = useState<SharedBoard[]>([]);
@@ -237,7 +237,7 @@ export default function BoardsSection() {
           <div className="flex items-center justify-between mb-5">
             <h2 className="font-serif text-2xl md:text-3xl text-ink/90 leading-none">Your Boards</h2>
             <div className="flex items-center gap-4">
-              {ownedBoards.length > DESKTOP_BOARD_LIMIT && (
+              {!showAll && ownedBoards.length > DESKTOP_BOARD_LIMIT && (
                 <Link
                   href="/boards"
                   className="hidden md:inline text-sm text-ink/40 hover:text-ink/70 transition-colors"
@@ -290,10 +290,10 @@ export default function BoardsSection() {
                 </div>
               )}
 
-              {/* Desktop grid — owned — max 4 in one row */}
+              {/* Desktop grid — owned */}
               {ownedBoards.length > 0 && (
                 <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                  {ownedBoards.slice(0, DESKTOP_BOARD_LIMIT).map((board, index) => (
+                  {ownedBoards.slice(0, showAll ? undefined : DESKTOP_BOARD_LIMIT).map((board, index) => (
                     <BoardCard
                       key={board.id}
                       board={board}
@@ -316,7 +316,7 @@ export default function BoardsSection() {
                 <>
                   <div className="flex items-center justify-between mb-4 mt-2">
                     <h2 className="font-serif text-xl md:text-2xl text-ink/90 leading-none">Shared with you</h2>
-                    {sharedBoards.length > DESKTOP_BOARD_LIMIT && (
+                    {!showAll && sharedBoards.length > DESKTOP_BOARD_LIMIT && (
                       <Link
                         href="/boards"
                         className="hidden md:inline text-sm text-ink/40 hover:text-ink/70 transition-colors"
@@ -340,9 +340,9 @@ export default function BoardsSection() {
                     </div>
                   </div>
 
-                  {/* Desktop — max 4 */}
+                  {/* Desktop */}
                   <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    {sharedBoards.slice(0, DESKTOP_BOARD_LIMIT).map((board, index) => (
+                    {sharedBoards.slice(0, showAll ? undefined : DESKTOP_BOARD_LIMIT).map((board, index) => (
                       <BoardCard
                         key={board.id}
                         board={board}
