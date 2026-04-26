@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { tackThumb } from "@/lib/image-transform";
 import { useUser } from "@/hooks/useUser";
 import { PLACEHOLDER_TACKS } from "@/lib/placeholder-images";
@@ -23,36 +23,8 @@ export default function DiscoverySection() {
   const [personalized, setPersonalized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
-  const [columnCount, setColumnCount] = useState(3); // ResizeObserver corrects on mount
-  const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Keep columns ~220px wide regardless of screen size.
-  // ResizeObserver handles both initial measurement and sidebar open/close.
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const toCols = (w: number) => {
-      if (w < 480)  return 2;
-      if (w < 700)  return 3;
-      if (w < 900)  return 4;
-      if (w < 1100) return 5;
-      if (w < 1350) return 6;
-      if (w < 1600) return 7;
-      if (w < 1900) return 8;
-      return 9;
-    };
-    const ro = new ResizeObserver((entries) =>
-      setColumnCount(toCols(entries[0].contentRect.width))
-    );
-    ro.observe(el);
-    // Also set immediately from contentRect once the first observation fires.
-    // Fall back to offsetWidth only if the observer hasn't fired yet.
-    return () => ro.disconnect();
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     const fetch_ = async () => {
@@ -74,31 +46,19 @@ export default function DiscoverySection() {
   return (
     <section className="py-10">
       {/* Tab bar */}
-      <div
-        className={`px-4 md:px-6 mb-8 transition-all duration-700 ${
-          mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-        }`}
-      >
+      <div className={`px-4 md:px-6 mb-6 transition-all duration-700 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-2 bg-ink/5 rounded-full p-1">
             <button
               onClick={() => setTab("discover")}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                tab === "discover"
-                  ? "bg-white text-ink shadow-sm"
-                  : "text-ink/50 hover:text-ink"
-              }`}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${tab === "discover" ? "bg-white text-ink shadow-sm" : "text-ink/50 hover:text-ink"}`}
             >
               Discover
             </button>
             {profile && (
               <button
                 onClick={() => setTab("following")}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                  tab === "following"
-                    ? "bg-white text-ink shadow-sm"
-                    : "text-ink/50 hover:text-ink"
-                }`}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${tab === "following" ? "bg-white text-ink shadow-sm" : "text-ink/50 hover:text-ink"}`}
               >
                 Following
               </button>
@@ -123,39 +83,34 @@ export default function DiscoverySection() {
       {tab === "discover" && !loading && tacks.length === 0 && (
         <div className="text-center py-20 px-6">
           <p className="text-ink/30 text-sm">No public tacks yet.</p>
-          <p className="text-ink/20 text-xs mt-1">
-            Make a board public in Edit board to appear here.
-          </p>
+          <p className="text-ink/20 text-xs mt-1">Make a board public in Edit board to appear here.</p>
         </div>
       )}
 
       {tab === "discover" && !loading && tacks.length > 0 && (
         <>
-          {/* CSS column-count masonry — preserves natural image aspect ratios */}
-          <div
-            ref={containerRef}
-            className="px-2 md:px-3"
-            style={{ columnCount, columnGap: "8px" }}
-          >
+          {/*
+            Pure-CSS masonry: Tailwind `columns-*` sets column-count directly,
+            no JavaScript, no state, no ResizeObserver — renders correctly on
+            first paint. break-inside-avoid keeps each card in one column.
+            Images use w-full h-auto so aspect ratios are always preserved.
+          */}
+          <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 gap-x-2 px-2 md:px-3">
             {tacks.map((tack, i) => (
               <div
                 key={tack.id}
-                className={`group relative mb-2 md:mb-3 break-inside-avoid transition-opacity duration-500 ${
-                  mounted ? "opacity-100" : "opacity-0"
-                }`}
-                style={{ transitionDelay: `${Math.min(i * 35, 700)}ms` }}
+                className={`group relative break-inside-avoid mb-2 transition-opacity duration-500 ${mounted ? "opacity-100" : "opacity-0"}`}
+                style={{ transitionDelay: `${Math.min(i * 30, 600)}ms` }}
               >
                 <Link href={`/board/${tack.board_id}`} className="block relative">
                   <img
                     src={tackThumb(tack.content_url)}
                     alt={tack.title || ""}
-                    className="w-full h-auto block rounded-xl"
+                    className="w-full h-auto block rounded-lg"
                     loading="lazy"
                     onError={(e) => {
-                      const wrapper = e.currentTarget.closest(
-                        "[data-tack-item]"
-                      ) as HTMLElement | null;
-                      if (wrapper) wrapper.style.display = "none";
+                      const el = e.currentTarget.parentElement?.parentElement as HTMLElement | null;
+                      if (el) el.style.display = "none";
                     }}
                   />
                   {tack.source && (
@@ -171,12 +126,7 @@ export default function DiscoverySection() {
             ))}
           </div>
 
-          {/* Load more / sign-in prompt */}
-          <div
-            className={`text-center mt-12 px-4 transition-all duration-700 delay-500 ${
-              mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-            }`}
-          >
+          <div className={`text-center mt-10 px-4 transition-all duration-700 delay-500 ${mounted ? "opacity-100" : "opacity-0"}`}>
             {profile ? (
               <button
                 onClick={async () => {
@@ -190,13 +140,8 @@ export default function DiscoverySection() {
               </button>
             ) : (
               <div>
-                <p className="text-ink/40 text-sm mb-3">
-                  Sign in to get a personalized feed
-                </p>
-                <a
-                  href="/login"
-                  className="inline-block px-6 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:bg-ink/90 transition-colors"
-                >
+                <p className="text-ink/40 text-sm mb-3">Sign in to get a personalized feed</p>
+                <a href="/login" className="inline-block px-6 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:bg-ink/90 transition-colors">
                   Get started
                 </a>
               </div>
