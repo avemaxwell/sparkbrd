@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { canAddTack, getUpgradeMessage, hasFeature } from "../../lib/plan-limits";
 import type { Plan } from "../../lib/plan-limits";
 import UpgradeModal from "@/components/UpgradeModal";
@@ -1435,6 +1435,7 @@ return (
           board={board}
           onClose={() => setSettingsOpen(false)}
           onUpdate={(updates) => setBoard({ ...board, ...updates })}
+          onDelete={() => setSettingsOpen(false)}
         />
       )}
 
@@ -1590,13 +1591,25 @@ return (
 function SettingsSidebar({
   board,
   onClose,
-  onUpdate
+  onUpdate,
+  onDelete,
 }: {
   board: Board;
   onClose: () => void;
   onUpdate: (updates: Partial<Board>) => void;
+  onDelete: () => void;
 }) {
   const supabase = createClient();
+  const router = useRouter();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    await supabase.from("boards").delete().eq("id", board.id);
+    router.push("/");
+    onDelete();
+  };
   const { profile: settingsProfile } = useUser();
   const canCustomizeColors = hasFeature(settingsProfile?.plan as Plan | undefined, 'custom_colors');
   
@@ -1851,6 +1864,42 @@ function SettingsSidebar({
               </div>
             )}
           </div>
+        </div>
+
+        {/* Delete board */}
+        <div className="p-6 border-t border-ink/5">
+          {!confirmDelete ? (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 text-sm text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+            >
+              <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+              </svg>
+              Delete board
+            </button>
+          ) : (
+            <div className="rounded-xl bg-red-50 border border-red-100 p-4">
+              <p className="text-sm font-semibold text-red-700 mb-1">Delete this board?</p>
+              <p className="text-xs text-red-500/70 mb-4">All tacks will be permanently removed. This can&apos;t be undone.</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="flex-1 py-2 bg-red-500 text-white text-sm font-semibold rounded-xl hover:bg-red-600 transition-colors disabled:opacity-50"
+                >
+                  {deleting ? "Deleting…" : "Yes, delete"}
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="flex-1 py-2 bg-red-100 text-red-700 text-sm font-medium rounded-xl hover:bg-red-200 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="p-4 border-t border-ink/5 bg-white">

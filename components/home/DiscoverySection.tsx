@@ -139,7 +139,7 @@ export default function DiscoverySection() {
       {tab === 'discover' && !loading && tacks.length > 0 && (
         <>
           <div
-            className="grid gap-2 md:gap-3 px-2 md:px-3"
+            className="grid gap-2 md:gap-3 px-2 md:px-3 items-start"
             style={{ gridTemplateColumns: `repeat(${columnCount}, 1fr)` }}
           >
             {columns.map((col, colIdx) => (
@@ -158,7 +158,7 @@ export default function DiscoverySection() {
                       <img
                         src={tackThumb(tack.content_url)}
                         alt={tack.title || ''}
-                        className="w-full h-auto object-cover md:transition-transform md:duration-500 md:ease-out md:group-hover:scale-105"
+                        className="w-full h-auto block md:transition-transform md:duration-500 md:ease-out md:group-hover:scale-105"
                         loading="lazy"
                         onError={(e) => {
                           (e.currentTarget.parentElement!.parentElement! as HTMLElement).style.display = 'none';

@@ -141,7 +141,7 @@ function BoardCardMobile({
   );
 }
 
-const DESKTOP_BOARD_LIMIT = 4;
+const DESKTOP_BOARD_LIMIT = 6;
 
 export default function BoardsSection({ showAll = false }: { showAll?: boolean }) {
   const router = useRouter();
@@ -292,7 +292,7 @@ export default function BoardsSection({ showAll = false }: { showAll?: boolean }
 
               {/* Desktop grid — owned */}
               {ownedBoards.length > 0 && (
-                <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="hidden md:grid grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 mb-6">
                   {ownedBoards.slice(0, showAll ? undefined : DESKTOP_BOARD_LIMIT).map((board, index) => (
                     <BoardCard
                       key={board.id}
@@ -341,7 +341,7 @@ export default function BoardsSection({ showAll = false }: { showAll?: boolean }
                   </div>
 
                   {/* Desktop */}
-                  <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <div className="hidden md:grid grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 mb-6">
                     {sharedBoards.slice(0, showAll ? undefined : DESKTOP_BOARD_LIMIT).map((board, index) => (
                       <BoardCard
                         key={board.id}
