@@ -861,30 +861,41 @@ const handleTextRotateEnd = async () => {
   };
 
   // Add a section label via API (admin client bypasses text_blocks RLS for board owners)
+  const [addingSection, setAddingSection] = useState(false);
   const addSectionLabel = async () => {
-    if (!board) return;
+    if (!board || addingSection) return;
+    setAddingSection(true);
+    try {
+      const vp = document.getElementById('board-viewport');
+      const cx = vp ? vp.clientWidth / (2 * zoom) - pan.x : 400;
+      const cy = vp ? vp.clientHeight / (2 * zoom) - pan.y : 300;
 
-    const vp = document.getElementById('board-viewport');
-    const cx = vp ? vp.clientWidth / (2 * zoom) - pan.x : 200;
-    const cy = vp ? vp.clientHeight / (2 * zoom) - pan.y : 200;
+      const res = await fetch(`/api/board/${boardId}/sections`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sections: [{
+            content: 'Section Title',
+            color: board.vibe === 'dark' ? '#FFFFFF' : '#1A1A1A',
+            position_x: Math.round(cx - 200),
+            position_y: Math.round(cy),
+            z_index: Math.max(0, ...tacks.map(t => t.z_index ?? 0), ...textBlocks.map(t => t.z_index ?? 0)) + 1,
+          }],
+        }),
+      });
 
-    const res = await fetch(`/api/board/${boardId}/sections`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sections: [{
-          content: 'Section Title',
-          color: board.vibe === 'dark' ? '#FFFFFF' : '#1A1A1A',
-          position_x: Math.round(cx - 200),
-          position_y: Math.round(cy),
-          z_index: Math.max(0, ...tacks.map(t => t.z_index ?? 0), ...textBlocks.map(t => t.z_index ?? 0)) + 1,
-        }],
-      }),
-    });
-
-    if (res.ok) {
-      const { sections } = await res.json();
-      if (sections?.length) setTextBlocks(prev => [...prev, sections[0]]);
+      const json = await res.json();
+      if (res.ok && json.sections?.length) {
+        setTextBlocks(prev => [...prev, json.sections[0]]);
+      } else {
+        console.error('[Section] API error:', json);
+        alert(`Could not add section: ${json.error ?? res.status}`);
+      }
+    } catch (err) {
+      console.error('[Section] fetch error:', err);
+      alert('Network error adding section — check console.');
+    } finally {
+      setAddingSection(false);
     }
   };
 
@@ -1386,20 +1397,25 @@ return (
             {hasFeature(profile?.plan as Plan | undefined, 'studio_boards') ? (
               <button
                 onClick={addSectionLabel}
+                disabled={addingSection}
                 title="Add section label"
-                className="bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink hover:bg-white transition-colors flex items-center gap-2"
+                className="bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink hover:bg-white transition-colors flex items-center gap-2 disabled:opacity-50"
               >
-                <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24">
-                  <line x1="3" y1="12" x2="21" y2="12"/>
-                  <line x1="3" y1="6" x2="9" y2="6"/>
-                  <line x1="3" y1="18" x2="9" y2="18"/>
-                </svg>
-                <span className="hidden sm:inline">Section</span>
+                {addingSection ? (
+                  <div className="w-4 h-4 border-2 border-ink/20 border-t-ink rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                    <line x1="3" y1="12" x2="21" y2="12"/>
+                    <line x1="3" y1="6" x2="9" y2="6"/>
+                    <line x1="3" y1="18" x2="9" y2="18"/>
+                  </svg>
+                )}
+                <span className="hidden sm:inline">{addingSection ? 'Adding…' : 'Section'}</span>
               </button>
             ) : (
               <button
                 onClick={() => { setUpgradeMessage(getUpgradeMessage(profile?.plan as Plan | undefined, 'studio_boards')); setShowUpgradeModal(true); }}
-                title="Section labels — Pro feature"
+                title="Section labels — Team feature"
                 className="bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink/40 hover:bg-white transition-colors flex items-center gap-2"
               >
                 <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24">
