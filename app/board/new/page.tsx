@@ -76,31 +76,13 @@ function NewBoardForm() {
       return;
     }
 
-    // Pre-populate Studio Board template sections
+    // Pre-populate Studio Board template sections via API (admin client bypasses RLS)
     if (template === 'studio') {
-      const STUDIO_SECTIONS = [
-        { content: 'Art Direction',    position_x: 80,  position_y: 80  },
-        { content: 'Color Story',      position_x: 80,  position_y: 420 },
-        { content: 'Reference Images', position_x: 680, position_y: 80  },
-        { content: 'Typography Feels', position_x: 680, position_y: 420 },
-        { content: 'What to Avoid',    position_x: 80,  position_y: 760 },
-      ];
-      await supabase.from('text_blocks').insert(
-        STUDIO_SECTIONS.map((s, i) => ({
-          board_id: data.id,
-          user_id: session.user.id,
-          content: s.content,
-          font_style: 'section',
-          font_size: 12,
-          color: '#1A1A1A',
-          position_x: s.position_x,
-          position_y: s.position_y,
-          width: 480,
-          rotation: 0,
-          z_index: i + 1,
-          nowrap: true,
-        }))
-      );
+      await fetch(`/api/board/${data.id}/sections`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template: 'studio' }),
+      });
     }
 
     // Log to team activity feed if this is a team board
@@ -338,7 +320,7 @@ function NewBoardForm() {
                 }`}
               >
                 {!canUseStudio && (
-                  <span className="absolute top-2 right-2 text-[10px] font-semibold bg-ink/10 text-ink/50 px-1.5 py-0.5 rounded-full">Pro</span>
+                  <span className="absolute top-2 right-2 text-[10px] font-semibold bg-ink/10 text-ink/50 px-1.5 py-0.5 rounded-full">Team</span>
                 )}
                 <div className="w-8 h-8 rounded-lg bg-papaya/10 flex items-center justify-center mb-2">
                   <svg className="w-4 h-4 stroke-papaya stroke-[1.5] fill-none" viewBox="0 0 24 24">

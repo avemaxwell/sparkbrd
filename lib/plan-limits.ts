@@ -17,7 +17,7 @@ export const PLAN_LIMITS = {
     export_boards: true,
     collaboration: false,
     no_branding: true,
-    studio_boards: true,
+    studio_boards: false,
     board_status: false,
   },
   team: {
@@ -88,7 +88,7 @@ export function getUpgradeMessage(plan: Plan | null | undefined, feature: Featur
   }
 
   if (feature === 'studio_boards') {
-    return 'Upgrade to Pro for Studio Boards — creative briefs, section labels, and status tracking';
+    return 'Upgrade to Team for Studio Boards — creative briefs, section labels, and status tracking';
   }
 
   if (feature === 'board_status') {

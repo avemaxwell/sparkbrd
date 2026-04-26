@@ -864,33 +864,32 @@ const handleTextRotateEnd = async () => {
     }
   };
 
-  // Add a section label directly (no modal — drops onto canvas immediately)
+  // Add a section label via API (admin client bypasses text_blocks RLS for board owners)
   const addSectionLabel = async () => {
     if (!board) return;
-    const { data: session } = await supabase.auth.getSession();
-    if (!session?.session?.user) return;
 
     const vp = document.getElementById('board-viewport');
     const cx = vp ? vp.clientWidth / (2 * zoom) - pan.x : 200;
     const cy = vp ? vp.clientHeight / (2 * zoom) - pan.y : 200;
 
-    const newSection = {
-      board_id: boardId,
-      user_id: session.session.user.id,
-      content: 'Section Title',
-      font_style: 'section',
-      font_size: 12,
-      color: board.vibe === 'dark' ? '#FFFFFF' : '#1A1A1A',
-      position_x: Math.round(cx - 200),
-      position_y: Math.round(cy),
-      width: 480,
-      rotation: 0,
-      z_index: Math.max(0, ...tacks.map(t => t.z_index ?? 0), ...textBlocks.map(t => t.z_index ?? 0)) + 1,
-      nowrap: true,
-    };
+    const res = await fetch(`/api/board/${boardId}/sections`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sections: [{
+          content: 'Section Title',
+          color: board.vibe === 'dark' ? '#FFFFFF' : '#1A1A1A',
+          position_x: Math.round(cx - 200),
+          position_y: Math.round(cy),
+          z_index: Math.max(0, ...tacks.map(t => t.z_index ?? 0), ...textBlocks.map(t => t.z_index ?? 0)) + 1,
+        }],
+      }),
+    });
 
-    const { data, error } = await supabase.from('text_blocks').insert(newSection).select().single();
-    if (!error && data) setTextBlocks(prev => [...prev, data]);
+    if (res.ok) {
+      const { sections } = await res.json();
+      if (sections?.length) setTextBlocks(prev => [...prev, sections[0]]);
+    }
   };
 
   // Get background style
