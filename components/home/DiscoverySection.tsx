@@ -106,7 +106,7 @@ export default function DiscoverySection() {
                   <img
                     src={tackThumb(tack.content_url)}
                     alt={tack.title || ""}
-                    className="w-full h-auto block rounded-lg"
+                    className="w-full h-auto block rounded-lg max-h-[400px] object-cover object-top"
                     loading="lazy"
                     onError={(e) => {
                       const el = e.currentTarget.parentElement?.parentElement as HTMLElement | null;
