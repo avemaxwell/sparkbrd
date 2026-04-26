@@ -23,30 +23,34 @@ export default function DiscoverySection() {
   const [personalized, setPersonalized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
-  const [columnCount, setColumnCount] = useState(5);
+  const [columnCount, setColumnCount] = useState(3); // ResizeObserver corrects on mount
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Measure the actual container width so the column count is always correct,
-  // regardless of whether the teams sidebar is open or closed.
+  // Keep columns ~220px wide regardless of screen size.
+  // ResizeObserver handles both initial measurement and sidebar open/close.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const toCols = (w: number) => {
-      if (w < 480) return 2;
-      if (w < 768) return 3;
-      if (w < 1100) return 4;
-      if (w < 1400) return 5;
-      return 6;
+      if (w < 480)  return 2;
+      if (w < 700)  return 3;
+      if (w < 900)  return 4;
+      if (w < 1100) return 5;
+      if (w < 1350) return 6;
+      if (w < 1600) return 7;
+      if (w < 1900) return 8;
+      return 9;
     };
     const ro = new ResizeObserver((entries) =>
       setColumnCount(toCols(entries[0].contentRect.width))
     );
     ro.observe(el);
-    setColumnCount(toCols(el.offsetWidth));
+    // Also set immediately from contentRect once the first observation fires.
+    // Fall back to offsetWidth only if the observer hasn't fired yet.
     return () => ro.disconnect();
   }, []);
 
