@@ -17,27 +17,29 @@ export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      
-      // Add background when scrolled
       setScrolled(currentScrollY > 50);
-      
-      // Hide on scroll down, show on scroll up
       if (currentScrollY > lastScrollY && currentScrollY > 100) {
         setHidden(true);
       } else {
         setHidden(false);
       }
-      
       setLastScrollY(currentScrollY);
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, [lastScrollY]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    router.push(q ? `/search?q=${encodeURIComponent(q)}` : '/explore');
+  };
 
   const initials = profile?.name
     ? profile.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
@@ -52,18 +54,46 @@ export default function Header() {
         hidden ? '-translate-y-full' : 'translate-y-0'
       }`}
     >
-      <div className="max-w-6xl mx-auto flex items-center justify-between">
+      <div className="max-w-6xl mx-auto flex items-center gap-4">
         {/* Logo */}
-        <Link href="/" className="font-serif text-2xl sm:text-3xl md:text-4xl tracking-tight leading-none">
+        <Link href="/" className="font-serif text-2xl sm:text-3xl md:text-4xl tracking-tight leading-none flex-shrink-0">
           <span className="italic">Spark</span><span className="text-papaya">urio</span>
         </Link>
 
+        {/* Search — desktop only, grows to fill center */}
+        <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md">
+          <div className="flex items-center gap-2 w-full px-4 py-2 bg-ink/[0.06] hover:bg-ink/[0.09] rounded-full focus-within:bg-white focus-within:ring-1 focus-within:ring-ink/10 transition-all cursor-text">
+            <svg className="w-4 h-4 stroke-ink/40 stroke-[1.5] fill-none flex-shrink-0" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search or explore…"
+              className="flex-1 bg-transparent outline-none text-sm text-ink placeholder:text-ink/30 min-w-0"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="w-4 h-4 rounded-full bg-ink/10 flex items-center justify-center hover:bg-ink/20 transition-colors flex-shrink-0"
+              >
+                <svg className="w-2.5 h-2.5 stroke-ink/50 stroke-[2] fill-none" viewBox="0 0 24 24">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            )}
+          </div>
+        </form>
+
         {/* Right side */}
-        <div className="flex items-center gap-2">
-          {/* Search button */}
+        <div className="flex items-center gap-2 ml-auto">
+          {/* Mobile search icon */}
           <button
-            onClick={() => router.push('/search')}
-            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-ink/5 transition-colors"
+            onClick={() => router.push('/explore')}
+            className="md:hidden w-10 h-10 rounded-full flex items-center justify-center hover:bg-ink/5 transition-colors"
             aria-label="Search"
           >
             <svg className="w-5 h-5 stroke-ink/60 stroke-[1.5] fill-none" viewBox="0 0 24 24">
@@ -71,12 +101,12 @@ export default function Header() {
               <path d="m21 21-4.35-4.35"/>
             </svg>
           </button>
-          
+
           {loading ? (
             <div className="w-10 h-10 rounded-full bg-ink/5 animate-pulse" />
           ) : profile ? (
             <div className="relative">
-              <button 
+              <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 className="w-10 h-10 rounded-full overflow-hidden transition-transform hover:scale-105"
               >
@@ -96,9 +126,9 @@ export default function Header() {
               {/* Dropdown */}
               {dropdownOpen && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-40" 
-                    onClick={() => setDropdownOpen(false)} 
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setDropdownOpen(false)}
                   />
                   <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-ink/5 z-50 overflow-hidden">
                     <div className="p-4 border-b border-ink/5">
@@ -109,8 +139,8 @@ export default function Header() {
                       </div>
                     </div>
                     <div className="p-2">
-                      <Link 
-                        href="/boards" 
+                      <Link
+                        href="/boards"
                         onClick={() => setDropdownOpen(false)}
                         className="flex items-center gap-3 px-3 py-2.5 text-sm text-ink/70 hover:bg-ink/5 rounded-xl transition-colors"
                       >
@@ -188,7 +218,7 @@ export default function Header() {
               )}
             </div>
           ) : (
-            <Link 
+            <Link
               href="/login"
               className="px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:bg-ink/90 transition-colors"
             >

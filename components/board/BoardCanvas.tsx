@@ -1726,25 +1726,27 @@ function SettingsSidebar({
             />
           </div>
 
-          {/* Status */}
-          <div className="p-6 border-b border-ink/5">
-            <p className="text-xs font-medium text-ink-soft uppercase tracking-wide mb-3">Status</p>
-            <div className="flex gap-2">
-              {([
-                { value: 'draft',     label: 'Draft',     active: 'bg-ink text-white',               inactive: 'bg-ink/5 text-ink/50 hover:bg-ink/10' },
-                { value: 'in_review', label: 'In Review', active: 'bg-amber-400 text-amber-900',      inactive: 'bg-amber-50 text-amber-600 hover:bg-amber-100' },
-                { value: 'approved',  label: 'Approved',  active: 'bg-emerald-500 text-white',        inactive: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' },
-              ] as const).map(({ value, label, active, inactive }) => (
-                <button
-                  key={value}
-                  onClick={() => setStatus(value)}
-                  className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${status === value ? active : inactive}`}
-                >
-                  {label}
-                </button>
-              ))}
+          {/* Status — team plan only */}
+          {hasFeature(settingsProfile?.plan as Plan | undefined, 'board_status') && (
+            <div className="p-6 border-b border-ink/5">
+              <p className="text-xs font-medium text-ink-soft uppercase tracking-wide mb-3">Status</p>
+              <div className="flex gap-2">
+                {([
+                  { value: 'draft',     label: 'Draft',     active: 'bg-ink text-white',               inactive: 'bg-ink/5 text-ink/50 hover:bg-ink/10' },
+                  { value: 'in_review', label: 'In Review', active: 'bg-amber-400 text-amber-900',      inactive: 'bg-amber-50 text-amber-600 hover:bg-amber-100' },
+                  { value: 'approved',  label: 'Approved',  active: 'bg-emerald-500 text-white',        inactive: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' },
+                ] as const).map(({ value, label, active, inactive }) => (
+                  <button
+                    key={value}
+                    onClick={() => setStatus(value)}
+                    className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${status === value ? active : inactive}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="p-6 border-b border-ink/5">
             <div className="flex items-center justify-between">
@@ -2268,6 +2270,7 @@ function AddTackModal({
   const [showCustomPinColor, setShowCustomPinColor] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<{url: string; previewUrl: string}[]>([]);
   const [scrapeUrl, setScrapeUrl] = useState("");
   const [scraping, setScraping] = useState(false);
   const [scrapedImages, setScrapedImages] = useState<string[]>([]);

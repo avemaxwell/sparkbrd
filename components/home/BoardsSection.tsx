@@ -10,15 +10,6 @@ import { canCreateBoard, getUpgradeMessage } from "@/lib/plan-limits";
 import UpgradeModal from "@/components/UpgradeModal";
 import { tackCollage } from "@/lib/image-transform";
 
-interface Team {
-  id: string;
-  name: string;
-  slug: string;
-  avatar_color: string;
-  avatar_url: string | null;
-  _member_role: string;
-}
-
 type SharedBoard = Board & { _role: 'editor' | 'viewer'; _ownerName: string | null };
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
@@ -150,12 +141,12 @@ function BoardCardMobile({
   );
 }
 
+const DESKTOP_BOARD_LIMIT = 4;
+
 export default function BoardsSection() {
   const router = useRouter();
   const [ownedBoards, setOwnedBoards] = useState<Board[]>([]);
   const [sharedBoards, setSharedBoards] = useState<SharedBoard[]>([]);
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [teamNameMap, setTeamNameMap] = useState<Record<string, string>>({});
   const [boardImages, setBoardImages] = useState<Record<string, string[]>>({});
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { plan, isFreePlan, isTeamPlan } = usePlan();
@@ -201,16 +192,6 @@ export default function BoardsSection() {
 
       setSharedBoards(sharedRaw);
 
-      // Teams
-      const teamsRes = await fetch('/api/teams');
-      if (teamsRes.ok) {
-        const { teams: teamsData } = await teamsRes.json();
-        setTeams(teamsData ?? []);
-        const map: Record<string, string> = {};
-        for (const t of teamsData ?? []) map[t.id] = t.name;
-        setTeamNameMap(map);
-      }
-
       // Fetch preview images for all boards
       const allBoards = [...fetchedOwned, ...sharedRaw];
       if (allBoards.length > 0) {
@@ -249,33 +230,40 @@ export default function BoardsSection() {
 
   return (
     <>
-      <section className="px-6 pb-16 pt-8">
+      <section className="px-6 pb-8 pt-6">
         <div className="max-w-7xl mx-auto">
 
           {/* ── Your Boards ── */}
-          <div className="flex items-end justify-between mb-8">
-            <div>
-              <h2 className="font-serif text-3xl md:text-4xl text-ink/90 leading-none">Your Boards</h2>
-              <p className="text-ink/40 text-sm mt-1.5">Curated collections</p>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="font-serif text-2xl md:text-3xl text-ink/90 leading-none">Your Boards</h2>
+            <div className="flex items-center gap-4">
+              {ownedBoards.length > DESKTOP_BOARD_LIMIT && (
+                <Link
+                  href="/boards"
+                  className="hidden md:inline text-sm text-ink/40 hover:text-ink/70 transition-colors"
+                >
+                  See all {ownedBoards.length} →
+                </Link>
+              )}
+              <button
+                onClick={handleNewBoard}
+                className="flex items-center gap-1.5 text-sm font-medium text-papaya hover:text-papaya/70 transition-colors"
+              >
+                <span>New board</span>
+                <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+              </button>
             </div>
-            <button
-              onClick={handleNewBoard}
-              className="flex items-center gap-2 text-sm font-medium text-papaya hover:text-papaya/70 transition-colors"
-            >
-              <span>New board</span>
-              <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24">
-                <path d="M12 5v14M5 12h14"/>
-              </svg>
-            </button>
           </div>
 
           {!hasAny ? (
             <button
               onClick={handleNewBoard}
-              className="w-full py-16 border-2 border-dashed border-ink/10 rounded-2xl hover:border-papaya/40 hover:bg-papaya/3 transition-all group flex flex-col items-center justify-center gap-3"
+              className="w-full py-10 border-2 border-dashed border-ink/10 rounded-2xl hover:border-papaya/40 hover:bg-papaya/3 transition-all group flex flex-col items-center justify-center gap-3 mb-6"
             >
-              <div className="w-14 h-14 rounded-full bg-ink/5 group-hover:bg-papaya/10 flex items-center justify-center transition-colors">
-                <svg className="w-6 h-6 stroke-ink/30 group-hover:stroke-papaya stroke-[1.5] fill-none transition-colors" viewBox="0 0 24 24">
+              <div className="w-12 h-12 rounded-full bg-ink/5 group-hover:bg-papaya/10 flex items-center justify-center transition-colors">
+                <svg className="w-5 h-5 stroke-ink/30 group-hover:stroke-papaya stroke-[1.5] fill-none transition-colors" viewBox="0 0 24 24">
                   <path d="M12 5v14M5 12h14"/>
                 </svg>
               </div>
@@ -285,7 +273,7 @@ export default function BoardsSection() {
             <>
               {/* Mobile horizontal scroll — owned */}
               {ownedBoards.length > 0 && (
-                <div className="md:hidden overflow-x-auto -mx-6 px-6 mb-6">
+                <div className="md:hidden overflow-x-auto -mx-6 px-6 mb-5">
                   <div className="flex gap-3 pb-3">
                     {ownedBoards.map((board, index) => (
                       <BoardCardMobile key={board.id} board={board} index={index} boardImages={boardImages} />
@@ -302,22 +290,21 @@ export default function BoardsSection() {
                 </div>
               )}
 
-              {/* Desktop grid — owned */}
+              {/* Desktop grid — owned — max 4 in one row */}
               {ownedBoards.length > 0 && (
-                <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 mb-12">
-                  {ownedBoards.map((board, index) => (
+                <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  {ownedBoards.slice(0, DESKTOP_BOARD_LIMIT).map((board, index) => (
                     <BoardCard
                       key={board.id}
                       board={board}
                       index={index}
                       boardImages={boardImages}
                       badge={
-                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                          <StatusBadge status={board.status} />
-                          {board.team_id && teamNameMap[board.team_id] && (
-                            <p className="text-[10px] text-white/60 truncate">Team · {teamNameMap[board.team_id]}</p>
-                          )}
-                        </div>
+                        isTeamPlan ? (
+                          <div className="mt-1">
+                            <StatusBadge status={board.status} />
+                          </div>
+                        ) : undefined
                       }
                     />
                   ))}
@@ -327,13 +314,20 @@ export default function BoardsSection() {
               {/* ── Shared with you ── */}
               {sharedBoards.length > 0 && (
                 <>
-                  <div className="mb-6 mt-2">
-                    <h2 className="font-serif text-2xl md:text-3xl text-ink/90 leading-none">Shared with you</h2>
-                    <p className="text-ink/40 text-sm mt-1.5">Boards you&apos;re collaborating on</p>
+                  <div className="flex items-center justify-between mb-4 mt-2">
+                    <h2 className="font-serif text-xl md:text-2xl text-ink/90 leading-none">Shared with you</h2>
+                    {sharedBoards.length > DESKTOP_BOARD_LIMIT && (
+                      <Link
+                        href="/boards"
+                        className="hidden md:inline text-sm text-ink/40 hover:text-ink/70 transition-colors"
+                      >
+                        See all {sharedBoards.length} →
+                      </Link>
+                    )}
                   </div>
 
                   {/* Mobile */}
-                  <div className="md:hidden overflow-x-auto -mx-6 px-6 mb-6">
+                  <div className="md:hidden overflow-x-auto -mx-6 px-6 mb-5">
                     <div className="flex gap-3 pb-3">
                       {sharedBoards.map((board, index) => (
                         <div key={board.id} className="relative flex-shrink-0">
@@ -346,9 +340,9 @@ export default function BoardsSection() {
                     </div>
                   </div>
 
-                  {/* Desktop */}
-                  <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                    {sharedBoards.map((board, index) => (
+                  {/* Desktop — max 4 */}
+                  <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    {sharedBoards.slice(0, DESKTOP_BOARD_LIMIT).map((board, index) => (
                       <BoardCard
                         key={board.id}
                         board={board}
@@ -368,55 +362,6 @@ export default function BoardsSection() {
                     ))}
                   </div>
                 </>
-              )}
-
-              {/* ── Team workspaces ── */}
-              {teams.length > 0 && (
-                <>
-                  <div className="mb-6 mt-10">
-                    <h2 className="font-serif text-2xl md:text-3xl text-ink/90 leading-none">Team Workspaces</h2>
-                    <p className="text-ink/40 text-sm mt-1.5">Shared with your teams</p>
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                    {teams.map(team => (
-                      <Link
-                        key={team.id}
-                        href={`/team/${team.slug}`}
-                        className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-sm border border-ink/5 hover:shadow-md hover:-translate-y-0.5 transition-all"
-                      >
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-semibold text-base flex-shrink-0 overflow-hidden"
-                          style={{ backgroundColor: team.avatar_url ? 'transparent' : team.avatar_color }}
-                        >
-                          {team.avatar_url
-                            ? <img src={team.avatar_url} alt={team.name} className="w-full h-full object-cover" />
-                            : team.name[0]?.toUpperCase()
-                          }
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm text-ink leading-none">{team.name}</p>
-                          <p className="text-[11px] text-ink/40 mt-0.5 capitalize">{team._member_role}</p>
-                        </div>
-                        <svg className="w-4 h-4 stroke-ink/25 stroke-[1.5] fill-none ml-1" viewBox="0 0 24 24">
-                          <path d="M9 18l6-6-6-6"/>
-                        </svg>
-                      </Link>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {/* ── Create team prompt for team plan users with no teams ── */}
-              {isTeamPlan && teams.length === 0 && (
-                <div className="mt-10 p-6 border-2 border-dashed border-ink/10 rounded-2xl flex flex-col items-center gap-3 text-center">
-                  <p className="text-ink/60 text-sm font-medium">You have a Team plan — create your first workspace</p>
-                  <Link
-                    href="/team/new"
-                    className="px-4 py-2 bg-papaya text-white text-sm rounded-full hover:bg-papaya/90 transition-colors"
-                  >
-                    Create team workspace
-                  </Link>
-                </div>
               )}
             </>
           )}
