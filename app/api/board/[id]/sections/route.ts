@@ -1,6 +1,50 @@
 import { NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 
+// GET /api/board/[id]/sections
+// Returns all text_blocks for the board via admin client (bypasses RLS).
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: boardId } = await params;
+  const supabase = await createClient();
+  const admin = createAdminClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Caller must own or be a member of the board
+  const { data: board } = await admin
+    .from("boards")
+    .select("owner_id")
+    .eq("id", boardId)
+    .single();
+
+  if (!board) return NextResponse.json({ error: "Board not found" }, { status: 404 });
+
+  const isOwner = board.owner_id === user.id;
+  if (!isOwner) {
+    const { data: membership } = await admin
+      .from("board_members")
+      .select("role")
+      .eq("board_id", boardId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!membership) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { data, error } = await admin
+    .from("text_blocks")
+    .select("*")
+    .eq("board_id", boardId)
+    .order("z_index", { ascending: true });
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ sections: data ?? [] });
+}
+
 // POST /api/board/[id]/sections
 //
 // Two modes:

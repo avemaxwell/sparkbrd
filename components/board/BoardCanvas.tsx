@@ -180,13 +180,9 @@ const screenToCanvas = (screenX: number, screenY: number) => {
 
       setTacks(tacksData || []);
 
-      const { data: textData } = await supabase
-        .from("text_blocks")
-        .select("*")
-        .eq("board_id", boardId)
-        .order("z_index", { ascending: true });
-
-      setTextBlocks(textData || []);
+      const textRes = await fetch(`/api/board/${boardId}/sections`);
+      const textJson = textRes.ok ? await textRes.json() : { sections: [] };
+      setTextBlocks(textJson.sections || []);
       setLoading(false);
     };
 
