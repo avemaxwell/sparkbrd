@@ -1191,7 +1191,7 @@ return (
               url={tack.content_url}
               color={stickerFill}
               className="w-full pointer-events-none"
-              style={{ height: 'auto', display: 'block' }}
+              style={{ height: 'auto', maxHeight: '400px', objectFit: 'contain' }}
             />
           ) : (
             <>
@@ -1199,7 +1199,7 @@ return (
                 src={tackCanvas(tack.content_url)}
                 alt={tack.title || ""}
                 className={`w-full pointer-events-none ${isTransparent ? '' : 'rounded-sm'}`}
-                style={{ height: 'auto', display: 'block' }}
+                style={{ height: 'auto', maxHeight: '400px', objectFit: 'contain' }}
                 draggable={false}
               />
               {tack.title && !isTransparent && (
