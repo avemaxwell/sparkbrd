@@ -66,16 +66,18 @@ export async function POST(_req: Request, { params }: Params) {
       return NextResponse.json({ error: 'This invitation has expired' }, { status: 410 });
     }
 
-    // Verify email matches (case-insensitive) using auth user email (always present)
-    if (user.email?.toLowerCase() !== invitation.email.toLowerCase()) {
-      return NextResponse.json({ error: 'This invitation was sent to a different email address' }, { status: 403 });
-    }
+    // The token is the credential — no email check needed.
+    // Strict email matching breaks legitimate cases: work email invited but
+    // user's Sparkurio account uses a personal email, Apple private relay, etc.
 
     // Verify user has team plan
     const { data: profile } = await admin.from('profiles').select('plan').eq('id', user.id).single();
     if (profile?.plan !== 'team') {
       return NextResponse.json({ error: 'You need a Team plan to join a team workspace. Upgrade in settings.' }, { status: 403 });
     }
+
+    // Fetch team now so we can always return it
+    const { data: team } = await admin.from('teams').select('id, name, slug').eq('id', invitation.team_id).single();
 
     // Check not already a member
     const { data: existing } = await admin
@@ -86,9 +88,9 @@ export async function POST(_req: Request, { params }: Params) {
       .maybeSingle();
 
     if (existing) {
-      // Already a member — clean up invite and return success
+      // Already a member — clean up invite and redirect to team
       await admin.from('team_invitations').delete().eq('id', invitation.id);
-      return NextResponse.json({ success: true, already_member: true });
+      return NextResponse.json({ success: true, already_member: true, team });
     }
 
     // Insert membership
@@ -103,8 +105,6 @@ export async function POST(_req: Request, { params }: Params) {
 
     // Delete the used invitation
     await admin.from('team_invitations').delete().eq('id', invitation.id);
-
-    const { data: team } = await admin.from('teams').select('id, name, slug').eq('id', invitation.team_id).single();
 
     // Log member joined activity
     const { data: actorProfile } = await admin.from('profiles').select('name, avatar_url').eq('id', user.id).single();

@@ -45,8 +45,10 @@ export async function sendInviteEmail(opts: SendInviteEmailOptions) {
 
         <!-- Header -->
         <tr>
-          <td style="background:#fef3e2;padding:32px 40px 24px;text-align:center;">
-            <span style="font-size:28px;font-style:italic;color:#1a1a1a;">Spark</span><span style="font-size:28px;color:#E24E42;">urio</span>
+          <td style="background:#ffffff;padding:28px 40px 20px;text-align:center;border-bottom:2px solid #fef3e2;">
+            <img src="https://vqaaxqvyepouqcrxduiw.supabase.co/storage/v1/object/public/assets/logo.png"
+                 alt="Sparkurio" height="36"
+                 style="height:36px;width:auto;display:block;margin:0 auto;border:0;" />
           </td>
         </tr>
 
