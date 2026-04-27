@@ -10,7 +10,7 @@ function transform(url: string, width: number, quality: number): string {
     "/storage/v1/render/image/public/"
   );
   const sep = renderUrl.includes("?") ? "&" : "?";
-  return `${renderUrl}${sep}width=${width}&quality=${quality}&resize=contain`;
+  return `${renderUrl}${sep}width=${width}&quality=${quality}`;
 }
 
 // Board canvas — full-width card, max 400 px tall

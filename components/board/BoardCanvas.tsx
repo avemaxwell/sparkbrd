@@ -767,15 +767,15 @@ const handleTextRotateEnd = async () => {
 
     // Determine initial canvas size from the image's natural dimensions so the
     // tack preserves the photo's aspect ratio on first placement.
-    let tackWidth = 300;
-    let tackHeight = 300;
+    let tackWidth = 280;
+    let tackHeight = 210; // 4:3 landscape fallback — never a square
     try {
       const img = new window.Image();
       await new Promise<void>(resolve => {
         img.onload = () => {
-          const nw = img.naturalWidth  || 300;
-          const nh = img.naturalHeight || 300;
-          // Scale down to fit within a 420×560 canvas-unit box, never upscale.
+          const nw = img.naturalWidth  || 280;
+          const nh = img.naturalHeight || 210;
+          // Scale down to fit within a 300×400 canvas-unit box, never upscale.
           const scale = Math.min(1, 300 / nw, 400 / nh);
           tackWidth  = Math.round(nw * scale);
           tackHeight = Math.round(nh * scale);
@@ -2756,8 +2756,8 @@ function AddTackModal({
                   <p className="text-sm text-ink-soft mb-3">Found {scrapedImages.length} images from <strong>{scrapedSource}</strong>. Select images to tack:</p>
                   <div className="grid grid-cols-3 gap-2 mb-4 max-h-64 overflow-y-auto">
                     {scrapedImages.map((imgUrl, index) => (
-                      <button key={index} type="button" onClick={() => toggleImageSelection(imgUrl)} disabled={checking} className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${selectedImages.has(imgUrl) ? 'border-papaya ring-2 ring-papaya/30' : 'border-transparent hover:border-ink/20'} disabled:opacity-50`}>
-                        <img src={imgUrl} alt="" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.parentElement!.style.display = 'none')} />
+                      <button key={index} type="button" onClick={() => toggleImageSelection(imgUrl)} disabled={checking} className={`relative rounded-xl overflow-hidden border-2 transition-all ${selectedImages.has(imgUrl) ? 'border-papaya ring-2 ring-papaya/30' : 'border-transparent hover:border-ink/20'} disabled:opacity-50`}>
+                        <img src={imgUrl} alt="" className="w-full h-auto block" onError={(e) => (e.currentTarget.parentElement!.style.display = 'none')} />
                         {selectedImages.has(imgUrl) && <div className="absolute top-1 right-1 w-6 h-6 bg-papaya rounded-full flex items-center justify-center"><svg className="w-4 h-4 stroke-white stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>}
                       </button>
                     ))}
