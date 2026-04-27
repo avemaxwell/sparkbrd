@@ -759,6 +759,28 @@ const handleTextRotateEnd = async () => {
     if (!session?.session?.user) return;
     
     const maxZ = Math.max(0, ...tacks.map(t => t.z_index ?? 0), ...textBlocks.map(t => t.z_index ?? 0));
+
+    // Determine initial canvas size from the image's natural dimensions so the
+    // tack preserves the photo's aspect ratio on first placement.
+    let tackWidth = 300;
+    let tackHeight = 300;
+    try {
+      const img = new window.Image();
+      await new Promise<void>(resolve => {
+        img.onload = () => {
+          const nw = img.naturalWidth  || 300;
+          const nh = img.naturalHeight || 300;
+          // Scale down to fit within a 420×560 canvas-unit box, never upscale.
+          const scale = Math.min(1, 420 / nw, 560 / nh);
+          tackWidth  = Math.round(nw * scale);
+          tackHeight = Math.round(nh * scale);
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = url;
+      });
+    } catch { /* keep defaults */ }
+
     const newTack = {
       board_id: boardId,
       user_id: session.session.user.id,
@@ -769,8 +791,8 @@ const handleTextRotateEnd = async () => {
       pin_color: pinColor,
       position_x: Math.round((() => { const vp = document.getElementById('board-viewport'); const w = vp ? vp.clientWidth : window.innerWidth; return w / (2 * zoom) - pan.x + (Math.random() - 0.5) * 200; })()),
       position_y: Math.round((() => { const vp = document.getElementById('board-viewport'); const h = vp ? vp.clientHeight : window.innerHeight; return h / (2 * zoom) - pan.y + (Math.random() - 0.5) * 200; })()),
-      width: 250,
-      height: 300,
+      width: tackWidth,
+      height: tackHeight,
       rotation: Math.floor(Math.random() * 6) - 3,
       z_index: maxZ + 1,
     };
@@ -1164,7 +1186,7 @@ return (
               url={tack.content_url}
               color={stickerFill}
               className="w-full pointer-events-none"
-              style={{ height: 'auto', maxHeight: '400px', objectFit: 'contain' }}
+              style={{ height: 'auto', display: 'block' }}
             />
           ) : (
             <>
@@ -1172,7 +1194,7 @@ return (
                 src={tackCanvas(tack.content_url)}
                 alt={tack.title || ""}
                 className={`w-full pointer-events-none ${isTransparent ? '' : 'rounded-sm'}`}
-                style={{ height: 'auto', maxHeight: '400px', objectFit: 'contain' }}
+                style={{ height: 'auto', display: 'block' }}
                 draggable={false}
               />
               {tack.title && !isTransparent && (
