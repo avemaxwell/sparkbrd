@@ -112,15 +112,27 @@ function resolveUrl(src: string, pageUrl: string): string | null {
 }
 
 /**
- * Returns a canonical key used for deduplication: uses origin + pathname so
- * that /img.jpg?w=300&q=80 and /img.jpg?w=900&q=60 collapse to the same key.
+ * Returns a canonical key used for deduplication.
+ * Strips query strings AND common dimension encodings from pathnames so that:
+ *   /photo-300x200.jpg, /photo-1200x800.jpg, /photo.jpg?w=900  → same key
+ *   /photo_600x400.webp, /photo-800w.jpg                       → same key
+ *   /300x200/photo.jpg (CDN path segment)                      → /photo.jpg key
  */
 function canonicalKey(imageUrl: string): string {
   try {
     const u = new URL(imageUrl);
-    // For CDN URLs where the path itself encodes dimensions (e.g. /300x200/photo.jpg),
-    // just use origin+pathname as the key — good enough for dedup.
-    return u.origin + u.pathname.toLowerCase();
+    let p = u.pathname.toLowerCase();
+    // Strip dimension-encoded path segments: /300x200/photo.jpg → /photo.jpg
+    p = p.replace(/\/\d{2,5}x\d{2,5}\//g, '/');
+    // Strip dimension suffixes before extension: photo-300x200.jpg → photo.jpg
+    p = p.replace(/[-_]\d{2,5}x\d{2,5}(?=\.[a-z]{2,5}$)/, '');
+    // Strip width-only suffix: photo-800w.jpg → photo.jpg
+    p = p.replace(/[-_]\d{3,5}w(?=\.[a-z]{2,5}$)/, '');
+    // Strip retina suffix: photo@2x.jpg → photo.jpg
+    p = p.replace(/@\dx?(?=\.[a-z]{2,5}$)/, '');
+    // Strip WordPress -scaled suffix: photo-scaled.jpg → photo.jpg
+    p = p.replace(/-scaled(?=\.[a-z]{2,5}$)/, '');
+    return u.origin + p;
   } catch {
     return imageUrl;
   }

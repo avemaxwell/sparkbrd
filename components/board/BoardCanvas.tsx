@@ -2860,23 +2860,24 @@ function TextDetailModal({
             <label className="block text-xs text-ink-soft mb-2">Style</label>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { id: "heading", label: "Heading" },
-                { id: "body", label: "Body" },
-                { id: "quote", label: "Quote" },
-                { id: "label", label: "Label" },
-                { id: "caveat", label: "Handwriting" },
-                { id: "bebas", label: "Impact" },
-                { id: "typewriter", label: "Typewriter" },
-                { id: "mono", label: "Mono" },
-              ].map((style) => (
+                { id: "heading",    label: "Heading",     style: { fontFamily: "var(--font-serif)",          fontWeight: "700" } },
+                { id: "body",       label: "Body",        style: { fontFamily: "var(--font-sans)",           fontWeight: "400" } },
+                { id: "quote",      label: "A quote…",    style: { fontFamily: "var(--font-serif)",          fontStyle: "italic" } },
+                { id: "label",      label: "LABEL",       style: { fontFamily: "var(--font-sans)",           fontWeight: "600", letterSpacing: "0.1em", fontSize: "10px", textTransform: "uppercase" as const } },
+                { id: "caveat",     label: "Handwriting", style: { fontFamily: "var(--font-caveat)",         fontWeight: "400" } },
+                { id: "bebas",      label: "Bebas Neue",  style: { fontFamily: "var(--font-bebas)",          fontWeight: "400", letterSpacing: "0.04em", textTransform: "uppercase" as const } },
+                { id: "typewriter", label: "Typewriter",  style: { fontFamily: "var(--font-special-elite)", fontWeight: "400" } },
+                { id: "mono",       label: "Mono",        style: { fontFamily: "monospace",                  fontWeight: "400" } },
+              ].map((s) => (
                 <button
-                  key={style.id}
-                  onClick={() => setFontStyle(style.id)}
-                  className={`px-3 py-2 rounded-lg text-sm transition-all ${
-                    fontStyle === style.id ? 'bg-ink text-white' : 'bg-ink/5 text-ink hover:bg-ink/10'
+                  key={s.id}
+                  onClick={() => setFontStyle(s.id)}
+                  className={`px-2 py-2 rounded-lg text-xs transition-all truncate ${
+                    fontStyle === s.id ? 'bg-ink text-white' : 'bg-ink/5 text-ink hover:bg-ink/10'
                   }`}
+                  style={s.style}
                 >
-                  {style.label}
+                  {s.label}
                 </button>
               ))}
             </div>
@@ -3029,14 +3030,14 @@ function AddTextModal({ onClose, onAdd }: { onClose: () => void; onAdd: (content
             <label className="text-sm text-ink-soft mb-2 block">Style</label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
-                { id: "heading",    label: "Heading",     preview: "Heading",     fontFamily: "var(--font-sans)",         fontSize: "1.1rem",  fontWeight: "700" },
-                { id: "body",       label: "Body",        preview: "Body text",   fontFamily: "var(--font-sans)",         fontSize: "0.9rem",  fontWeight: "400" },
-                { id: "quote",      label: "Quote",       preview: "A quote…",    fontFamily: "var(--font-serif)",        fontSize: "1rem",    fontWeight: "400", fontStyle: "italic" },
-                { id: "label",      label: "Label",       preview: "LABEL",       fontFamily: "var(--font-sans)",         fontSize: "0.7rem",  fontWeight: "600", letterSpacing: "0.1em", textTransform: "uppercase" as const },
-                { id: "caveat",     label: "Handwriting", preview: "Handwriting", fontFamily: "var(--font-caveat)",       fontSize: "1.1rem",  fontWeight: "400" },
-                { id: "bebas",      label: "Impact",      preview: "IMPACT",      fontFamily: "var(--font-bebas)",        fontSize: "1.2rem",  fontWeight: "400" },
-                { id: "typewriter", label: "Typewriter",  preview: "Typewriter",  fontFamily: "var(--font-special-elite)", fontSize: "0.9rem", fontWeight: "400" },
-                { id: "mono",       label: "Mono",        preview: "monospace",   fontFamily: "monospace",                fontSize: "0.85rem", fontWeight: "400" },
+                { id: "heading",    label: "Heading",     preview: "Heading",     fontFamily: "var(--font-serif)",         fontSize: "1.1rem",  fontWeight: "700" },
+                { id: "body",       label: "Body",        preview: "Body text",   fontFamily: "var(--font-sans)",          fontSize: "0.9rem",  fontWeight: "400" },
+                { id: "quote",      label: "Quote",       preview: "A quote…",    fontFamily: "var(--font-serif)",         fontSize: "1rem",    fontWeight: "400", fontStyle: "italic" },
+                { id: "label",      label: "Label",       preview: "LABEL",       fontFamily: "var(--font-sans)",          fontSize: "0.7rem",  fontWeight: "600", letterSpacing: "0.1em", textTransform: "uppercase" as const },
+                { id: "caveat",     label: "Handwriting", preview: "Handwriting", fontFamily: "var(--font-caveat)",        fontSize: "1.1rem",  fontWeight: "400" },
+                { id: "bebas",      label: "Bebas Neue",  preview: "BEBAS",       fontFamily: "var(--font-bebas)",         fontSize: "1.2rem",  fontWeight: "400" },
+                { id: "typewriter", label: "Typewriter",  preview: "Typewriter",  fontFamily: "var(--font-special-elite)", fontSize: "0.9rem",  fontWeight: "400" },
+                { id: "mono",       label: "Mono",        preview: "monospace",   fontFamily: "monospace",                 fontSize: "0.85rem", fontWeight: "400" },
               ].map((style) => (
                 <button
                   key={style.id}
