@@ -63,7 +63,7 @@ export default function SignupNudge() {
           {/* Text */}
           <div className="flex-1">
             <p className="font-serif text-xl text-ink leading-snug">
-              Your inspiration board is waiting.
+              Real people. Real inspiration.
             </p>
             <p className="text-sm text-ink/50 mt-1">
               Collect images, ideas, and everything that ignites your spark--free.
