@@ -19,6 +19,25 @@ import CollaboratorCursors from "@/components/board/CollaboratorCursors";
 import type { Board, Tack, TextBlock } from "@/types/board";
 import { tackCanvas, tackDetail, tackMini } from "@/lib/image-transform";
 
+// Routes all tack/text_block writes through the admin-client API so RLS on
+// UPDATE never silently drops saves (board owners are not in board_members).
+async function saveItem(
+  boardId: string,
+  table: "tacks" | "text_blocks",
+  id: string,
+  updates: Record<string, unknown>
+): Promise<void> {
+  try {
+    await fetch(`/api/board/${boardId}/items`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ table, id, updates }),
+    });
+  } catch (err) {
+    console.error("saveItem failed:", err);
+  }
+}
+
 const pinColorPresets: Record<string, string> = {
   papaya: "#E24E42",
   mustard: "#E9B000",
@@ -244,10 +263,10 @@ const screenToCanvas = (screenX: number, screenY: number) => {
     const newZ = (allZ.length > 0 ? Math.max(...allZ) : 0) + 1;
     if (type === 'tack') {
       setTacks(prev => prev.map(t => t.id === id ? { ...t, z_index: newZ } : t));
-      supabase.from('tacks').update({ z_index: newZ }).eq('id', id).then(() => {});
+      saveItem(boardId, 'tacks', id, { z_index: newZ });
     } else {
       setTextBlocks(prev => prev.map(t => t.id === id ? { ...t, z_index: newZ } : t));
-      supabase.from('text_blocks').update({ z_index: newZ }).eq('id', id).then(() => {});
+      saveItem(boardId, 'text_blocks', id, { z_index: newZ });
     }
   };
 
@@ -303,17 +322,9 @@ const handleDrag = (e: React.MouseEvent) => {
       // the in-flight position with the pre-drag position from the DB.
       if (id.startsWith('text-')) {
         const textId = id.replace('text-', '');
-        const { error } = await supabase
-          .from('text_blocks')
-          .update({ position_x: Math.round(pos.x), position_y: Math.round(pos.y) })
-          .eq('id', textId);
-        if (error) console.error('Text block position save failed:', error);
+        await saveItem(boardId, 'text_blocks', textId, { position_x: Math.round(pos.x), position_y: Math.round(pos.y) });
       } else {
-        const { error } = await supabase
-          .from('tacks')
-          .update({ position_x: Math.round(pos.x), position_y: Math.round(pos.y) })
-          .eq('id', id);
-        if (error) console.error('Tack position save failed:', error);
+        await saveItem(boardId, 'tacks', id, { position_x: Math.round(pos.x), position_y: Math.round(pos.y) });
       }
     }
     activeManipulationRef.current = null; // release Realtime protection after save
@@ -352,11 +363,7 @@ const handleDrag = (e: React.MouseEvent) => {
     const tack = tacks.find(t => t.id === resizing);
     setResizing(null); // clear immediately for UI responsiveness
     if (tack) {
-      // Keep ref set until save completes so no stale Realtime echo overwrites width
-      await supabase
-        .from("tacks")
-        .update({ width: tack.width })
-        .eq("id", tack.id);
+      await saveItem(boardId, 'tacks', tack.id, { width: tack.width });
     }
     activeManipulationRef.current = null; // release after save
   };
@@ -536,11 +543,9 @@ const handleCanvasTouchEnd = async (e: React.TouchEvent) => {
       // Keep ref set during save (mirrors handleDragEnd mouse logic)
       if (id.startsWith('text-')) {
         const textId = id.replace('text-', '');
-        const { error } = await supabase.from('text_blocks').update({ position_x: Math.round(pos.x), position_y: Math.round(pos.y) }).eq('id', textId);
-        if (error) console.error('Text block position save failed:', error);
+        await saveItem(boardId, 'text_blocks', textId, { position_x: Math.round(pos.x), position_y: Math.round(pos.y) });
       } else {
-        const { error } = await supabase.from('tacks').update({ position_x: Math.round(pos.x), position_y: Math.round(pos.y) }).eq('id', id);
-        if (error) console.error('Tack position save failed:', error);
+        await saveItem(boardId, 'tacks', id, { position_x: Math.round(pos.x), position_y: Math.round(pos.y) });
       }
     }
     activeManipulationRef.current = null; // release after save
@@ -551,7 +556,7 @@ const handleCanvasTouchEnd = async (e: React.TouchEvent) => {
   if (resizing) {
     const tack = tacks.find(t => t.id === resizing);
     setResizing(null);
-    if (tack) await supabase.from('tacks').update({ width: tack.width }).eq('id', tack.id);
+    if (tack) await saveItem(boardId, 'tacks', tack.id, { width: tack.width });
     activeManipulationRef.current = null; // was never cleared in touch path — fix leak
   }
 
@@ -667,7 +672,7 @@ const handleRotateEnd = async () => {
   if (!rotating) return;
   const tack = tacks.find(t => t.id === rotating);
   if (tack) {
-    await supabase.from("tacks").update({ rotation: tack.rotation }).eq("id", tack.id);
+    await saveItem(boardId, 'tacks', tack.id, { rotation: tack.rotation });
   }
   setRotating(null);
 };
@@ -700,7 +705,7 @@ const handleTextResizeEnd = async () => {
   if (!textResizing) return;
   const text = textBlocks.find(t => t.id === textResizing);
   if (text) {
-    await supabase.from("text_blocks").update({ font_size: text.font_size, width: text.width }).eq("id", text.id);
+    await saveItem(boardId, 'text_blocks', text.id, { font_size: text.font_size, width: text.width });
   }
   setTextResizing(null);
 };
@@ -739,7 +744,7 @@ const handleTextRotateEnd = async () => {
   if (!textRotating) return;
   const text = textBlocks.find(t => t.id === textRotating);
   if (text) {
-    await supabase.from("text_blocks").update({ rotation: text.rotation }).eq("id", text.id);
+    await saveItem(boardId, 'text_blocks', text.id, { rotation: text.rotation });
   }
   setTextRotating(null);
 };
@@ -1546,6 +1551,7 @@ return (
       {selectedTack && (
         <TackDetailModal
           tack={selectedTack}
+          boardId={boardId}
           canEdit={canEdit}
           onClose={() => setSelectedTack(null)}
           onUpdate={(tackId, updates) => {
@@ -1555,9 +1561,10 @@ return (
           onDelete={(tackId) => setTacks(tacks.filter(t => t.id !== tackId))}
         />
       )}
-{selectedText && (
+      {selectedText && (
         <TextDetailModal
           textBlock={selectedText}
+          boardId={boardId}
           onClose={() => setSelectedText(null)}
           onUpdate={(textId, updates) => {
             setTextBlocks(textBlocks.map(t => t.id === textId ? { ...t, ...updates } : t));
@@ -1967,12 +1974,14 @@ function SettingsSidebar({
 
 function TackDetailModal({
   tack,
+  boardId,
   canEdit,
   onClose,
   onUpdate,
   onDelete,
 }: {
   tack: Tack;
+  boardId: string;
   canEdit: boolean;
   onClose: () => void;
   onUpdate: (tackId: string, updates: Partial<Tack>) => void;
@@ -2041,7 +2050,7 @@ function TackDetailModal({
       if (changed) {
         setSaving(true);
         const updates = { title: title || null, note: note || null, rotation, pin_color: pinColor, border_width: borderWidth, border_color: borderColor };
-        await supabase.from("tacks").update(updates).eq("id", tack.id);
+        await saveItem(boardId, 'tacks', tack.id, updates);
         onUpdate(tack.id, updates);
         setSaving(false);
       }
@@ -2870,11 +2879,13 @@ function AddTackModal({
 
 function TextDetailModal({
   textBlock,
+  boardId,
   onClose,
   onUpdate,
   onDelete,
 }: {
   textBlock: TextBlock;
+  boardId: string;
   onClose: () => void;
   onUpdate: (textId: string, updates: Partial<TextBlock>) => void;
   onDelete: (textId: string) => void;
@@ -2902,7 +2913,7 @@ function TextDetailModal({
       ) {
         setSaving(true);
         const updates = { content, font_size: fontSize, color, font_style: fontStyle, rotation, nowrap };
-        await supabase.from("text_blocks").update(updates).eq("id", textBlock.id);
+        await saveItem(boardId, 'text_blocks', textBlock.id, updates);
         onUpdate(textBlock.id, updates);
         setSaving(false);
       }
