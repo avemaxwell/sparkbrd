@@ -771,7 +771,7 @@ const handleTextRotateEnd = async () => {
           const nw = img.naturalWidth  || 300;
           const nh = img.naturalHeight || 300;
           // Scale down to fit within a 420×560 canvas-unit box, never upscale.
-          const scale = Math.min(1, 420 / nw, 560 / nh);
+          const scale = Math.min(1, 300 / nw, 400 / nh);
           tackWidth  = Math.round(nw * scale);
           tackHeight = Math.round(nh * scale);
           resolve();
