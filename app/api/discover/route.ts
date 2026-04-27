@@ -75,29 +75,38 @@ export async function GET(request: Request) {
     }
 
     // Logged-in: fetch user's own tacks to build interest signals
+    const myBoardIds = await supabase
+      .from('boards')
+      .select('id')
+      .eq('owner_id', user.id)
+      .then(r => (r.data || []).map((b: { id: string }) => b.id));
+
     const { data: myTacks } = await supabase
       .from('tacks')
-      .select('content_url, source')
-      .in(
-        'board_id',
-        // get the user's board IDs
-        (await supabase
-          .from('boards')
-          .select('id')
-          .eq('owner_id', user.id)
-          .then(r => (r.data || []).map((b: { id: string }) => b.id)))
-      );
+      .select('content_url, source, tags, title, note')
+      .in('board_id', myBoardIds);
 
-    // Build a set of domains the user has already tacked from
+    // Build interest signals from the user's collection
     const myDomains = new Set<string>();
-    const myUrls = new Set<string>();
+    const myUrls   = new Set<string>();
+    const myTags   = new Set<string>();
+    const myWords  = new Set<string>();
+
     for (const t of myTacks || []) {
       myUrls.add(t.content_url);
       if (t.source) myDomains.add(t.source);
-      try {
-        const hostname = new URL(t.content_url).hostname.replace('www.', '');
-        myDomains.add(hostname);
-      } catch {}
+      try { myDomains.add(new URL(t.content_url).hostname.replace('www.', '')); } catch {}
+      // Tags — highest-fidelity signal
+      if (Array.isArray(t.tags)) {
+        for (const tag of t.tags) { if (tag) myTags.add(tag.toLowerCase().trim()); }
+      }
+      // Words from title / note — softer signal
+      for (const text of [t.title, t.note]) {
+        if (!text) continue;
+        for (const word of text.toLowerCase().split(/\W+/)) {
+          if (word.length > 4) myWords.add(word);
+        }
+      }
     }
 
     // Score each public tack by interest overlap
@@ -105,11 +114,23 @@ export async function GET(request: Request) {
       .filter(t => !myUrls.has(t.content_url)) // never show things they already have
       .map(t => {
         let score = 0;
+        // Domain match (e.g. same Pinterest board, same site the user likes)
         try {
-          const host = new URL(t.content_url).hostname.replace('www.', '');
-          if (myDomains.has(host)) score += 2;
+          if (myDomains.has(new URL(t.content_url).hostname.replace('www.', ''))) score += 2;
         } catch {}
         if (t.source && myDomains.has(t.source)) score += 1;
+        // Tag overlap — strongest relevance signal
+        if (Array.isArray(t.tags)) {
+          for (const tag of t.tags) {
+            if (tag && myTags.has(tag.toLowerCase().trim())) score += 4;
+          }
+        }
+        // Title keyword overlap
+        if (t.title) {
+          for (const word of t.title.toLowerCase().split(/\W+/)) {
+            if (word.length > 4 && myWords.has(word)) score += 1;
+          }
+        }
         return { ...t, _score: score };
       });
 

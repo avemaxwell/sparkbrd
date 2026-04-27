@@ -1134,12 +1134,16 @@ return (
       const isPng = /\.png(\?.*)?$/i.test(tack.content_url);
       const isSvg = /\.svg(\?.*)?$/i.test(tack.content_url);
       const isTransparent = isPng || isSvg;
+      const borderWidth = isTransparent ? 0 : (tack.border_width ?? 8);
+      const borderColor = tack.border_color ?? '#FFFFFF';
+      const hasBorder = borderWidth > 0;
       const stickerFill = pinColorPresets[tack.pin_color] ?? tack.pin_color ?? '#1A1A1A';
       return (
         <div
-          className={`${isTransparent ? '' : 'bg-white p-2'} rounded-sm ${isTransparent ? '' : 'shadow-xl'} transition-shadow duration-300 ${
-            canEdit ? 'cursor-move' : 'cursor-default'
-          } ${isTransparent ? '' : dragging === tack.id ? 'shadow-2xl' : 'hover:shadow-xl'}`}
+          className={`rounded-sm transition-shadow duration-300 ${canEdit ? 'cursor-move' : 'cursor-default'} ${
+            hasBorder ? (dragging === tack.id ? 'shadow-2xl' : 'shadow-xl hover:shadow-2xl') : ''
+          }`}
+          style={hasBorder ? { backgroundColor: borderColor, padding: `${borderWidth}px` } : {}}
           onMouseDown={canEdit ? (e) => handleDragStart(e, tack.id, tack.position_x, tack.position_y) : undefined}
           onTouchStart={canEdit ? (e) => handleTouchStart(e, tack.id, tack.position_x, tack.position_y) : undefined}
           onClick={(e) => {
@@ -1958,7 +1962,10 @@ function TackDetailModal({
   const [pinColor, setPinColor] = useState(tack.pin_color);
   const [customColor, setCustomColor] = useState(pinColorPresets[tack.pin_color] ? "" : tack.pin_color);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [borderWidth, setBorderWidth] = useState(tack.border_width ?? 8);
+  const [borderColor, setBorderColor] = useState(tack.border_color ?? '#FFFFFF');
   const [saving, setSaving] = useState(false);
+  const isFrameable = !/\.(svg|png)(\?.*)?$/i.test(tack.content_url);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { profile: tackProfile } = useUser();
   const canCustomPin = hasFeature(tackProfile?.plan as Plan | undefined, 'custom_colors');
@@ -2002,16 +2009,23 @@ function TackDetailModal({
   useEffect(() => {
     if (!canEdit) return;
     const timeout = setTimeout(async () => {
-      if (title !== (tack.title || "") || note !== (tack.note || "") || rotation !== tack.rotation || pinColor !== tack.pin_color) {
+      const changed =
+        title !== (tack.title || "") ||
+        note !== (tack.note || "") ||
+        rotation !== tack.rotation ||
+        pinColor !== tack.pin_color ||
+        borderWidth !== (tack.border_width ?? 8) ||
+        borderColor !== (tack.border_color ?? '#FFFFFF');
+      if (changed) {
         setSaving(true);
-        const updates = { title: title || null, note: note || null, rotation, pin_color: pinColor };
+        const updates = { title: title || null, note: note || null, rotation, pin_color: pinColor, border_width: borderWidth, border_color: borderColor };
         await supabase.from("tacks").update(updates).eq("id", tack.id);
         onUpdate(tack.id, updates);
         setSaving(false);
       }
     }, 500);
     return () => clearTimeout(timeout);
-  }, [title, note, rotation, pinColor]);
+  }, [title, note, rotation, pinColor, borderWidth, borderColor]);
 
   const handlePinColorChange = (color: string) => {
     setPinColor(color);
@@ -2122,6 +2136,52 @@ function TackDetailModal({
                   </div>
                 )}
               </div>
+
+              {/* Frame / border controls — only for non-transparent images */}
+              {isFrameable && (
+                <div className="mb-4">
+                  <label className="block text-xs text-ink-soft mb-2">Frame</label>
+                  <div className="flex gap-2 mb-3">
+                    {([{ label: 'None', w: 0 }, { label: 'S', w: 4 }, { label: 'M', w: 8 }, { label: 'L', w: 16 }, { label: 'XL', w: 24 }] as const).map(({ label, w }) => (
+                      <button
+                        key={w}
+                        onClick={() => setBorderWidth(w)}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${borderWidth === w ? 'bg-ink text-white' : 'bg-ink/5 text-ink hover:bg-ink/10'}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {borderWidth > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {['#FFFFFF', '#FAF9F6', '#F0EDE8', '#1A1A1A', '#E24E42'].map(c => (
+                        <button
+                          key={c}
+                          onClick={() => setBorderColor(c)}
+                          className={`w-7 h-7 rounded-lg border-2 transition-all hover:scale-110 ${borderColor === c ? 'border-ink scale-110' : 'border-ink/15'}`}
+                          style={{ backgroundColor: c }}
+                        />
+                      ))}
+                      <div className="relative w-7 h-7">
+                        <input
+                          type="color"
+                          value={borderColor}
+                          onChange={(e) => setBorderColor(e.target.value)}
+                          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                        />
+                        <div
+                          className="w-7 h-7 rounded-lg border-2 border-dashed border-ink/25 flex items-center justify-center"
+                          style={{ backgroundColor: ['#FFFFFF','#FAF9F6','#F0EDE8','#1A1A1A','#E24E42'].includes(borderColor) ? 'transparent' : borderColor }}
+                        >
+                          {['#FFFFFF','#FAF9F6','#F0EDE8','#1A1A1A','#E24E42'].includes(borderColor) && (
+                            <svg className="w-3 h-3 stroke-ink/30 stroke-[1.5] fill-none" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           ) : (
             <>

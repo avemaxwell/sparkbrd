@@ -27,6 +27,8 @@ export interface Tack {
   added_by: string | null;
   added_by_profile: { id: string; name: string | null; avatar_url: string | null } | null;
   hidden_as_ai: boolean;
+  border_width: number | null;
+  border_color: string | null;
 }
 
 export interface TextBlock {
