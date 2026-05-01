@@ -1181,9 +1181,9 @@ return (
     )}
     {/* Tack content */}
     {(() => {
-      const isPng = /\.png(\?.*)?$/i.test(tack.content_url);
+
       const isSvg = /\.svg(\?.*)?$/i.test(tack.content_url);
-      const isTransparent = isPng || isSvg;
+      const isTransparent = isSvg;
       const borderWidth = isTransparent ? 0 : (tack.border_width ?? 8);
       const borderColor = tack.border_color ?? '#FFFFFF';
       const hasBorder = borderWidth > 0;
@@ -1235,7 +1235,7 @@ return (
     })()}
     
     {/* Pin — hidden for transparent stickers (SVG or PNG) */}
-    {!/\.(svg|png)(\?.*)?$/i.test(tack.content_url) && (
+    {!/\.svg(\?.*)?$/i.test(tack.content_url) && (
       <div
         className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full shadow-md pointer-events-none"
         style={{ backgroundColor: pinColorPresets[tack.pin_color] || tack.pin_color }}
@@ -2019,7 +2019,7 @@ function TackDetailModal({
   const [borderWidth, setBorderWidth] = useState(tack.border_width ?? 8);
   const [borderColor, setBorderColor] = useState(tack.border_color ?? '#FFFFFF');
   const [saving, setSaving] = useState(false);
-  const isFrameable = !/\.(svg|png)(\?.*)?$/i.test(tack.content_url);
+  const isFrameable = !/\.svg(\?.*)?$/i.test(tack.content_url);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { profile: tackProfile } = useUser();
   const canCustomPin = hasFeature(tackProfile?.plan as Plan | undefined, 'custom_colors');
