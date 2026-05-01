@@ -1182,8 +1182,7 @@ return (
     {/* Tack content */}
     {(() => {
 
-      const isSvg = /\.svg(\?.*)?$/i.test(tack.content_url);
-      const isTransparent = isSvg;
+      const isTransparent = tack.content_url.includes('/storage/v1/object/public/stickers/');
       const borderWidth = isTransparent ? 0 : (tack.border_width ?? 8);
       const borderColor = tack.border_color ?? '#FFFFFF';
       const hasBorder = borderWidth > 0;
@@ -1209,7 +1208,7 @@ return (
             }
           }}
         >
-          {isSvg ? (
+          {isTransparent ? (
             <StickerImage
               url={tack.content_url}
               color={stickerFill}
@@ -1234,8 +1233,8 @@ return (
       );
     })()}
     
-    {/* Pin — hidden for transparent stickers (SVG or PNG) */}
-    {!/\.svg(\?.*)?$/i.test(tack.content_url) && (
+    {/* Pin — hidden for stickers */}
+    {!tack.content_url.includes('/storage/v1/object/public/stickers/') && (
       <div
         className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full shadow-md pointer-events-none"
         style={{ backgroundColor: pinColorPresets[tack.pin_color] || tack.pin_color }}
@@ -2019,7 +2018,8 @@ function TackDetailModal({
   const [borderWidth, setBorderWidth] = useState(tack.border_width ?? 8);
   const [borderColor, setBorderColor] = useState(tack.border_color ?? '#FFFFFF');
   const [saving, setSaving] = useState(false);
-  const isFrameable = !/\.svg(\?.*)?$/i.test(tack.content_url);
+  const isSticker = tack.content_url.includes('/storage/v1/object/public/stickers/');
+  const isFrameable = !isSticker;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { profile: tackProfile } = useUser();
   const canCustomPin = hasFeature(tackProfile?.plan as Plan | undefined, 'custom_colors');
@@ -2116,7 +2116,7 @@ function TackDetailModal({
       <div className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row">
         <div className="flex-1 bg-ink/5 flex items-center justify-center p-6 min-h-[300px]">
           <div style={{ transform: `rotate(${rotation}deg)`, transition: 'transform 0.2s' }}>
-            {/\.svg(\?.*)?$/i.test(tack.content_url) ? (
+            {isSticker ? (
               <StickerImage
                 url={tack.content_url}
                 color={pinColorPresets[pinColor] ?? pinColor ?? '#1A1A1A'}
@@ -2167,7 +2167,7 @@ function TackDetailModal({
               </div>
 
               <div className="mb-6">
-                <label className="block text-xs text-ink-soft mb-2">{/\.svg(\?.*)?$/i.test(tack.content_url) ? 'Sticker color' : 'Tack color'}</label>
+                <label className="block text-xs text-ink-soft mb-2">{isSticker ? 'Sticker color' : 'Tack color'}</label>
                 <div className="flex gap-2 flex-wrap py-1">
                   {Object.entries(pinColorPresets).map(([name, color]) => (
                     <button key={name} onClick={() => handlePinColorChange(name)} className={`w-8 h-8 rounded-full ${pinColor === name ? 'outline outline-2 outline-offset-2 outline-ink' : ''} hover:scale-110 transition-transform`} style={{ backgroundColor: color }} />
