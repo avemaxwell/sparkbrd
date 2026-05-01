@@ -1309,7 +1309,6 @@ return (
                 left: text.position_x,
                 top: text.position_y,
                 width: 'fit-content',
-                maxWidth: text.width > 0 && !text.nowrap ? text.width : 'none',
                 transform: `rotate(${text.rotation}deg)`,
                 zIndex: text.z_index ?? 0,
               }}
