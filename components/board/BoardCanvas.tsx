@@ -2534,7 +2534,7 @@ function AddTackModal({
 
     const MAX_MB = 20;
     if (file.size > MAX_MB * 1024 * 1024) {
-      setUploadError(`This file is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Please choose an image under ${MAX_MB} MB.`);
+      setUploadError(`This photo is too big to upload. Try saving it as a JPEG first, or use a smaller version.`);
       e.target.value = '';
       return;
     }
@@ -2543,13 +2543,18 @@ function AddTackModal({
     const reader = new FileReader();
     reader.onload = () => setPreviewUrl(reader.result as string);
     reader.readAsDataURL(file);
-    const fileName = `${boardId}/${Date.now()}-${file.name}`;
+    // Sanitize filename: spaces and special characters break Supabase storage keys
+    const safeName = file.name
+      .replace(/\s+/g, '-')
+      .replace(/[^a-zA-Z0-9._-]/g, '')
+      || 'image';
+    const fileName = `${boardId}/${Date.now()}-${safeName}`;
     const { error } = await supabase.storage.from("tacks").upload(fileName, file);
     if (error) {
       console.error("Upload error:", error);
       const msg = error.message?.includes('too large') || error.message?.includes('413')
-        ? `This file is too large. Please choose an image under ${MAX_MB} MB.`
-        : `Upload failed — ${error.message}. Please try again.`;
+        ? `This photo is too big to upload. Try saving it as a JPEG, or use a smaller version (under ${MAX_MB} MB).`
+        : `Something went wrong uploading your image. Please try again.`;
       setUploadError(msg);
       setPreviewUrl(null);
       setUploading(false);

@@ -59,40 +59,59 @@ function heuristicCheck(imageUrl: string): { flagged: boolean; reason: string | 
 
 // ─── Claude vision prompt ────────────────────────────────────────────────────
 
-const AI_DETECTION_PROMPT = `You are an expert visual analyst specializing in detecting AI-generated imagery. Examine this image carefully and determine whether it was produced by an AI image generator or is authentic human-created media.
+const AI_DETECTION_PROMPT = `You are an expert visual analyst specializing in detecting AI-generated imagery. Your default assumption should be AI-generated unless there is clear evidence it is real photography or genuine human art. Examine this image carefully.
 
-STRONG SIGNALS OF AI GENERATION — look for any of these:
-• Hands/fingers: wrong count, fused digits, elongated or anatomically impossible fingers
-• Faces: hyper-symmetric, "too perfect", glassy eyes, uncanny valley effect, pupil irregularities
-• Skin: unnaturally smooth, no real pore variation, airbrushed beyond human retouching
-• Hair: painted-looking, unnaturally detailed or uniform strands, merges with background
-• Text in the image: garbled, misspelled, morphed letters, nonsensical words, distorted logos
-• Lighting: impossibly perfect rim lighting, multiple contradictory light sources, shadows that defy physics
-• Background: dreamlike blur (bokeh that looks "painted"), elements that dissolve or warp, impossible architecture
-• Textures: fabric/wood/metal that looks "rendered" rather than photographed — too uniform, too perfect
-• Accessories & objects: jewelry with distorted engravings, glasses with no reflections, props that warp near edges
-• Specific generator aesthetics:
-  - Midjourney: cinematic drama, hyper-detailed fantasy realism, strong vignette, ultra-sharp subject + soft BG
-  - DALL-E 3: clean conceptual illustrations, flat-ish lighting, editorial illustration style
-  - Stable Diffusion: sometimes noisy or over-saturated, specific skin rendering artifacts
-  - Adobe Firefly: clean commercial look, very smooth, stock-photo-like but subtly off
-  - Flux/SDXL: photorealistic but with telltale smooth skin and slight uncanny faces
-  - Midjourney v6+: almost photographic but backgrounds have a "diffused" painted quality
+STRONG SIGNALS OF AI GENERATION — flag if you see any of these:
 
-REAL / HUMAN-CREATED CONTENT — do NOT flag:
-• Natural human imperfections in skin, hair, uneven lighting
-• Real photographic noise, grain, lens distortion, chromatic aberration
-• Genuine film or photography (even if heavily edited or color-graded)
-• Hand-drawn or painted artwork by human artists (even if digitally painted)
-• Stock photography that happens to look very polished
-• Classical paintings, historical artwork, sculptures
-• Graphic design, typography, logos made by humans
+HUMAN SUBJECTS:
+• Hands/fingers: wrong count, fused digits, elongated or anatomically impossible
+• Faces: hyper-symmetric, "too perfect", glassy or glow-y eyes, uncanny valley
+• Skin: unnaturally smooth, plastic-looking, no real pore variation
+• Hair: painted-looking, unnaturally uniform strands, merges with background
+• Eyes: reflections that don't match the scene, pupils that look painted
+
+CONCEPT ART / CGI-STYLE IMAGES (very common in AI generators):
+• Robots, androids, cyborgs, mechs: if the image has a "Midjourney tech" look —
+  hyper-detailed metallic surfaces, glowing accent lights (especially orange/blue orbs),
+  impossible reflections on polished surfaces, dramatic cinematic lighting with no real
+  studio setup that could produce it — this is almost certainly AI-generated
+• Sci-fi/fantasy scenes: floating UI elements, holographic displays, "concept art" style
+  with perfect dramatic lighting is a strong AI signal
+• The "AI concept art aesthetic": extreme sharpness on subject, painterly/soft background
+  bokeh, volumetric lighting with rays, complementary color grading (orange + teal is
+  extremely common in AI images), everything looks "epic" and cinematic
+• Architectural visualizations, product renders, fantasy landscapes that look "too perfect"
+
+TELL-TALE TECHNICAL ARTIFACTS:
+• Text: garbled, misspelled, morphed letters, distorted logos or signs
+• Background: dreamlike blur that looks "painted" not photographed, dissolving elements
+• Textures: fabric/wood/metal that looks "rendered" — too uniform, too perfect
+• Objects that warp or merge near image edges
+• Multiple contradictory light sources, shadows that defy physics
+
+SPECIFIC GENERATOR SIGNATURES:
+• Midjourney: cinematic drama, strong vignette, ultra-sharp subject + dreamy soft BG,
+  hyper-detailed fantasy/tech realism, that distinct "MJ glow"
+• DALL-E 3: clean editorial illustrations, concept-art style, flat-ish deliberate lighting
+• Stable Diffusion / SDXL: sometimes over-saturated, specific smooth-skin artifacts
+• Adobe Firefly: very clean commercial look, stock-photo-like but plasticky
+• Flux: photorealistic but with telltale smooth skin and slight facial uncanny valley
+• Midjourney v6+: near-photographic but backgrounds have a distinctive "diffused" quality
+
+REAL / HUMAN-CREATED — only clear-evidence exceptions:
+• Actual photographs with real photographic noise, lens distortion, chromatic aberration
+• Scanned/photographed hand-drawn or painted artwork (brush strokes, paper texture visible)
+• Real 3D renders where you can identify the specific software aesthetic (Cinema 4D, Blender
+  default materials) AND there is no AI-generator aesthetic present
+• Classical paintings, historical artwork
+• When in doubt between "AI" and "professional 3D render" — lean toward AI
 
 CALIBRATION:
-• Only output high confidence (>0.80) if you see multiple strong AI indicators
-• Medium confidence (0.45–0.79) if you see 1–2 ambiguous signals
-• If it could plausibly be real photography or human art, lean toward NOT AI
-• A heavily retouched real photo is NOT AI-generated
+• High confidence (≥ 0.75): clear AI aesthetic OR multiple strong AI indicators
+• Medium confidence (0.45–0.74): 1–2 ambiguous signals, or strong-but-not-certain AI aesthetic
+• Low confidence (< 0.45): genuinely looks like real photography or human artwork
+• Do NOT give low confidence just because the subject matter is a robot or CGI object —
+  focus on whether the GENERATION METHOD shows AI characteristics
 
 Also assess:
 • Explicit content: nudity, graphic sexual acts, sexualized content. Do NOT flag: swimwear, lingerie shown non-sexually, artistic non-sexual nudity, athletic wear, classical art.
@@ -203,10 +222,10 @@ export async function POST(request: Request) {
     }
 
     // AI detection thresholds:
-    //   ≥ 0.70 → hard block (no override)
-    //   0.40–0.69 → soft warn (user can override)
-    const hardBlocked = parsed.isAI && parsed.aiConfidence >= 0.70;
-    const softWarned  = parsed.isAI && parsed.aiConfidence >= 0.40 && !hardBlocked;
+    //   ≥ 0.65 → hard block (no override)
+    //   0.35–0.64 → soft warn (user can override)
+    const hardBlocked = parsed.isAI && parsed.aiConfidence >= 0.65;
+    const softWarned  = parsed.isAI && parsed.aiConfidence >= 0.35 && !hardBlocked;
 
     return NextResponse.json({
       isLikelyAI: parsed.isAI,
