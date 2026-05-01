@@ -2435,6 +2435,7 @@ function AddTackModal({
   const [mode, setMode] = useState<"upload" | "url" | "scrape" | "stickers">("upload");
   const [stickerData, setStickerData] = useState<Record<string, { name: string; url: string }[]>>({});
   const [stickerCategory, setStickerCategory] = useState("doodles");
+  const STICKER_CATEGORIES = ['doodles', 'mid century', 'arrows', 'lines', 'shapes', 'flowers + leaves'];
   const [stickersLoading, setStickersLoading] = useState(false);
   const [stickerColor, setStickerColor] = useState("#1A1A1A");
   const [url, setUrl] = useState("");
@@ -2680,7 +2681,7 @@ function AddTackModal({
   <div>
     {/* Category tabs */}
     <div className="flex gap-2 mb-4 flex-wrap">
-      {Object.keys(stickerData).map(cat => (
+      {STICKER_CATEGORIES.map(cat => (
         <button
           key={cat}
           onClick={() => setStickerCategory(cat)}
