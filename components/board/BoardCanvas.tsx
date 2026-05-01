@@ -60,6 +60,8 @@ export default function BoardCanvas() {
   const [board, setBoard] = useState<Board | null>(null);
   const [tacks, setTacks] = useState<Tack[]>([]);
   const [textBlocks, setTextBlocks] = useState<TextBlock[]>([]);
+  // ID of the most recently placed text block — keeps selection ring visible
+  const [newlyAddedTextId, setNewlyAddedTextId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // 'owner' | 'editor' | 'viewer' — resolved after board loads
@@ -375,6 +377,7 @@ const handleDrag = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     const isBackground = target.id === 'board-canvas-inner' || target.id === 'board-viewport';
     if (isBackground) {
+      setNewlyAddedTextId(null);
       setIsPanning(true);
       setPanStart({ x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y });
     }
@@ -670,11 +673,19 @@ const handleRotate = (e: React.MouseEvent) => {
 
 const handleRotateEnd = async () => {
   if (!rotating) return;
-  const tack = tacks.find(t => t.id === rotating);
-  if (tack) {
-    await saveItem(boardId, 'tacks', tack.id, { rotation: tack.rotation });
-  }
+  const id = rotating;
   setRotating(null);
+  const tack = tacks.find(t => t.id === id);
+  if (tack) {
+    const snapped = Math.round(tack.rotation);
+    // Ignore accidental sub-1.5° jitter from clicking the handle
+    if (Math.abs(snapped - rotateStartRotation) < 1.5) {
+      setTacks(prev => prev.map(t => t.id === id ? { ...t, rotation: rotateStartRotation } : t));
+      return;
+    }
+    setTacks(prev => prev.map(t => t.id === id ? { ...t, rotation: snapped } : t));
+    await saveItem(boardId, 'tacks', id, { rotation: snapped });
+  }
 };
 
 const handleTextResizeStart = (e: React.MouseEvent, textId: string) => {
@@ -682,8 +693,12 @@ const handleTextResizeStart = (e: React.MouseEvent, textId: string) => {
   e.stopPropagation();
   const text = textBlocks.find(t => t.id === textId);
   if (!text) return;
+  // When width is 0 (fit-content), read the rendered element width as the baseline
+  const startWidth = text.width > 0
+    ? text.width
+    : (document.getElementById(`text-wrapper-${textId}`)?.offsetWidth ?? 120);
   setTextResizing(textId);
-  setTextResizeStart({ x: e.clientX, y: e.clientY, width: text.width, fontSize: text.font_size });
+  setTextResizeStart({ x: e.clientX, y: e.clientY, width: startWidth, fontSize: text.font_size });
 };
 
 const handleTextResize = (e: React.MouseEvent) => {
@@ -742,11 +757,18 @@ const handleTextRotate = (e: React.MouseEvent) => {
 
 const handleTextRotateEnd = async () => {
   if (!textRotating) return;
-  const text = textBlocks.find(t => t.id === textRotating);
-  if (text) {
-    await saveItem(boardId, 'text_blocks', text.id, { rotation: text.rotation });
-  }
+  const id = textRotating;
   setTextRotating(null);
+  const text = textBlocks.find(t => t.id === id);
+  if (text) {
+    const snapped = Math.round(text.rotation);
+    if (Math.abs(snapped - textRotateStartRotation) < 1.5) {
+      setTextBlocks(prev => prev.map(t => t.id === id ? { ...t, rotation: textRotateStartRotation } : t));
+      return;
+    }
+    setTextBlocks(prev => prev.map(t => t.id === id ? { ...t, rotation: snapped } : t));
+    await saveItem(boardId, 'text_blocks', id, { rotation: snapped });
+  }
 };
 
   // Add tack
@@ -866,7 +888,7 @@ const handleTextRotateEnd = async () => {
       color: overrideColor ?? (board.vibe === "dark" ? "#FFFFFF" : "#1A1A1A"),
       position_x: Math.round(150 + Math.random() * 200),
       position_y: Math.round(150 + Math.random() * 200),
-      width: 300,
+      width: 0,  // 0 = fit-content; resize handle sets an explicit px width
       rotation: 0,
       z_index: Math.max(0, ...tacks.map(t => t.z_index ?? 0), ...textBlocks.map(t => t.z_index ?? 0)) + 1,
       nowrap: false,
@@ -880,6 +902,7 @@ const handleTextRotateEnd = async () => {
 
     if (!error && data) {
       setTextBlocks(prev => [...prev, data]);
+      setNewlyAddedTextId(data.id);
       setAddTextModalOpen(false);
     } else if (error) {
       console.error("Add text block error:", error);
@@ -1277,7 +1300,7 @@ return (
               id={`text-wrapper-${text.id}`}
               className={`absolute group rounded-sm transition-shadow ${canEdit ? 'cursor-move' : 'cursor-default'} ${
                 canEdit
-                  ? (dragging === `text-${text.id}` || textResizing === text.id || textRotating === text.id)
+                  ? (dragging === `text-${text.id}` || textResizing === text.id || textRotating === text.id || text.id === newlyAddedTextId)
                     ? 'ring-2 ring-papaya/70 ring-offset-[3px]'
                     : 'hover:ring-2 hover:ring-papaya/40 hover:ring-offset-[3px]'
                   : ''
@@ -1285,7 +1308,7 @@ return (
               style={{
                 left: text.position_x,
                 top: text.position_y,
-                width: text.width,
+                width: text.width > 0 ? text.width : 'fit-content',
                 transform: `rotate(${text.rotation}deg)`,
                 zIndex: text.z_index ?? 0,
               }}
