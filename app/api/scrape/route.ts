@@ -277,20 +277,28 @@ export async function POST(request: Request) {
       } catch { /* skip */ }
     });
 
-    // ── 5. srcset attributes — pick largest variant only ──────────────────
-    $('img[srcset], source[srcset]').each((_, el) => {
-      const srcset = $(el).attr('srcset') || '';
-      addImage(bestSrcsetUrl(srcset) ?? undefined);
-    });
-
-    // ── 6. Standard img src + common lazy-load attributes ─────────────────
+    // ── 5 & 6. img elements — one pass to avoid duplicates ────────────────
+    // If srcset is present, use the largest variant and skip the src
+    // attribute (which is typically a low-res fallback pointing to the same
+    // image). Processing both would add two URLs for the same image that
+    // only differ by resolution, slipping past the canonical-key dedup.
     $('img').each((_, el) => {
       const $el = $(el);
-      for (const attr of ['src', 'data-src', 'data-lazy-src', 'data-original',
-                          'data-img-src', 'data-lazy', 'data-delayed-url',
-                          'data-srcset', 'data-hi-res-src']) {
-        addImage($el.attr(attr));
+      const srcset = $el.attr('srcset') || $el.attr('data-srcset') || '';
+      if (srcset) {
+        addImage(bestSrcsetUrl(srcset) ?? undefined);
+      } else {
+        for (const attr of ['src', 'data-src', 'data-lazy-src', 'data-original',
+                            'data-img-src', 'data-lazy', 'data-delayed-url',
+                            'data-hi-res-src']) {
+          addImage($el.attr(attr));
+        }
       }
+    });
+    // Also handle <source srcset> inside <picture> elements
+    $('source[srcset]').each((_, el) => {
+      const srcset = $(el).attr('srcset') || '';
+      addImage(bestSrcsetUrl(srcset) ?? undefined);
     });
 
     // ── 7. picture source tags ─────────────────────────────────────────────

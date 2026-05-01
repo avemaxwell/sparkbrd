@@ -62,6 +62,13 @@ export default function BoardCanvas() {
   const [textBlocks, setTextBlocks] = useState<TextBlock[]>([]);
   // ID of the most recently placed text block — keeps selection ring visible
   const [newlyAddedTextId, setNewlyAddedTextId] = useState<string | null>(null);
+
+  // Copy/paste clipboard — text blocks and sticker tacks only
+  type ClipboardItem =
+    | { type: 'text'; payload: Omit<TextBlock, 'id'> }
+    | { type: 'sticker'; payload: Omit<Tack, 'id'> };
+  const [clipboard, setClipboard] = useState<ClipboardItem | null>(null);
+  const [lastCopyTargetId, setLastCopyTargetId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // 'owner' | 'editor' | 'viewer' — resolved after board loads
@@ -232,6 +239,79 @@ const screenToCanvas = (screenX: number, screenY: number) => {
     }, 400);
   }, [zoom, pan, boardId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Copy / paste (Cmd+C / Cmd+V) for text blocks and sticker tacks ────────
+  useEffect(() => {
+    const onKeyDown = async (e: KeyboardEvent) => {
+      if (!e.metaKey && !e.ctrlKey) return;
+      // Skip if focus is inside a text input/textarea
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      if (e.key === 'c') {
+        if (!lastCopyTargetId) return;
+        const [kind, id] = lastCopyTargetId.split(':');
+        if (kind === 'text') {
+          const text = textBlocks.find(t => t.id === id);
+          if (text) {
+            const { id: _id, ...payload } = text as any;
+            setClipboard({ type: 'text', payload });
+          }
+        } else if (kind === 'sticker') {
+          const tack = tacks.find(t => t.id === id);
+          if (tack) {
+            const { id: _id, added_by, added_by_profile, ...payload } = tack as any;
+            setClipboard({ type: 'sticker', payload });
+          }
+        }
+      }
+
+      if (e.key === 'v' && clipboard) {
+        e.preventDefault();
+        const vp = document.getElementById('board-viewport');
+        const cx = vp ? vp.clientWidth  / (2 * zoom) - pan.x : 400;
+        const cy = vp ? vp.clientHeight / (2 * zoom) - pan.y : 300;
+        const offset = 30;
+
+        if (clipboard.type === 'text') {
+          const maxZ = Math.max(0, ...tacks.map(t => t.z_index ?? 0), ...textBlocks.map(t => t.z_index ?? 0));
+          const row = { ...clipboard.payload, position_x: Math.round(cx + offset), position_y: Math.round(cy + offset), z_index: maxZ + 1 };
+          const res = await fetch(`/api/board/${boardId}/items`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ table: 'text_blocks', data: row }),
+          });
+          if (res.ok) {
+            const { data } = await res.json();
+            if (data) {
+              setTextBlocks(prev => [...prev, data]);
+              setNewlyAddedTextId(data.id);
+            }
+          }
+        } else if (clipboard.type === 'sticker') {
+          const maxZ = Math.max(0, ...tacks.map(t => t.z_index ?? 0), ...textBlocks.map(t => t.z_index ?? 0));
+          const row = {
+            ...clipboard.payload,
+            position_x: Math.round(cx + offset),
+            position_y: Math.round(cy + offset),
+            z_index: maxZ + 1,
+            rotation: 0,
+          };
+          const res = await fetch(`/api/board/${boardId}/items`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ table: 'tacks', data: row }),
+          });
+          if (res.ok) {
+            const { data } = await res.json();
+            if (data) setTacks(prev => [...prev, data]);
+          }
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [lastCopyTargetId, clipboard, textBlocks, tacks, boardId, zoom, pan]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Check if we should auto-open the add tack modal
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -287,8 +367,14 @@ const screenToCanvas = (screenX: number, screenY: number) => {
     });
     if (tackId.startsWith('text-')) {
       bringToFront(tackId.replace('text-', ''), 'text');
+      setLastCopyTargetId(`text:${tackId.replace('text-', '')}`);
     } else {
       bringToFront(tackId, 'tack');
+      // Only track stickers as copy targets (not regular image tacks)
+      const t = tacks.find(t => t.id === tackId);
+      if (t?.content_url.includes('/storage/v1/object/public/stickers/')) {
+        setLastCopyTargetId(`sticker:${tackId}`);
+      }
     }
   };
 
