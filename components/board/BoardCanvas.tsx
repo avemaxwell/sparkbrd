@@ -2453,6 +2453,7 @@ function AddTackModal({
   const [checking, setChecking] = useState(false);
   const [aiWarning, setAiWarning] = useState<string | null>(null);
   const [aiHardBlocked, setAiHardBlocked] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [showAiConfirm, setShowAiConfirm] = useState(false);
   const [showExplicitBlock, setShowExplicitBlock] = useState(false);
   const [pendingUpload, setPendingUpload] = useState<{url: string, note: string, pinColor: string, source?: string} | null>(null);
@@ -2528,15 +2529,17 @@ function AddTackModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setUploadError(null);
+    setAiWarning(null);
+
     const MAX_MB = 20;
     if (file.size > MAX_MB * 1024 * 1024) {
-      alert(`This file is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Please upload an image under ${MAX_MB} MB.`);
+      setUploadError(`This file is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Please choose an image under ${MAX_MB} MB.`);
       e.target.value = '';
       return;
     }
 
     setUploading(true);
-    setAiWarning(null);
     const reader = new FileReader();
     reader.onload = () => setPreviewUrl(reader.result as string);
     reader.readAsDataURL(file);
@@ -2544,9 +2547,11 @@ function AddTackModal({
     const { error } = await supabase.storage.from("tacks").upload(fileName, file);
     if (error) {
       console.error("Upload error:", error);
-      alert(error.message?.includes('too large') || error.message?.includes('413')
-        ? `This file is too large. Please upload an image under ${MAX_MB} MB.`
-        : `Upload failed: ${error.message}. Please try again.`);
+      const msg = error.message?.includes('too large') || error.message?.includes('413')
+        ? `This file is too large. Please choose an image under ${MAX_MB} MB.`
+        : `Upload failed — ${error.message}. Please try again.`;
+      setUploadError(msg);
+      setPreviewUrl(null);
       setUploading(false);
       return;
     }
@@ -2743,16 +2748,29 @@ function AddTackModal({
                     </button>
                   </div>
                 ) : (
-                  <label className="block border-2 border-dashed border-ink/20 rounded-xl p-8 text-center hover:border-papaya hover:bg-papaya/5 transition-colors cursor-pointer">
-                    <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-                    {uploading ? <p className="text-ink-soft">Uploading...</p> : (
-                      <>
-                        <svg className="w-12 h-12 stroke-ink-soft stroke-[1.5] fill-none mx-auto mb-3" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        <p className="font-medium text-ink mb-1">Drop an image here</p>
-                        <p className="text-sm text-ink-soft">or click to browse</p>
-                      </>
+                  <>
+                    <label className="block border-2 border-dashed border-ink/20 rounded-xl p-8 text-center hover:border-papaya hover:bg-papaya/5 transition-colors cursor-pointer">
+                      <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                      {uploading ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="w-6 h-6 border-2 border-ink/20 border-t-papaya rounded-full animate-spin" />
+                          <p className="text-sm text-ink-soft">Uploading…</p>
+                        </div>
+                      ) : (
+                        <>
+                          <svg className="w-12 h-12 stroke-ink-soft stroke-[1.5] fill-none mx-auto mb-3" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                          <p className="font-medium text-ink mb-1">Drop an image here</p>
+                          <p className="text-sm text-ink-soft">or click to browse · max 20 MB</p>
+                        </>
+                      )}
+                    </label>
+                    {uploadError && (
+                      <div className="mt-2 flex items-start gap-2 px-3 py-2.5 bg-red-50 border border-red-100 rounded-xl">
+                        <svg className="w-4 h-4 stroke-red-500 stroke-[1.5] fill-none flex-shrink-0 mt-0.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        <p className="text-sm text-red-600">{uploadError}</p>
+                      </div>
                     )}
-                  </label>
+                  </>
                 )}
               </div>
               <div className="mb-4">
@@ -2760,7 +2778,12 @@ function AddTackModal({
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Describe what catches your eye — colors, mood, subject, style. The more specific, the more findable." rows={3} className="w-full bg-ink/5 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-papaya/30 resize-none" />
               </div>
               <PinColorPicker pinColor={pinColor} setPinColor={setPinColor} customPinColor={customPinColor} setCustomPinColor={setCustomPinColor} showCustomPinColor={showCustomPinColor} setShowCustomPinColor={setShowCustomPinColor} />
-              <button type="submit" disabled={!url || uploading || checking} className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{checking ? 'Checking...' : 'Tack it'}</button>
+              {!url && !uploading && !uploadError && (
+                <p className="text-xs text-ink/40 text-center mb-2">Choose an image above to continue</p>
+              )}
+              <button type="submit" disabled={!url || uploading || checking} className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                {checking ? 'Checking…' : uploading ? 'Uploading…' : 'Tack it'}
+              </button>
             </form>
           )}
 
