@@ -2527,6 +2527,14 @@ function AddTackModal({
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const MAX_MB = 20;
+    if (file.size > MAX_MB * 1024 * 1024) {
+      alert(`This file is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Please upload an image under ${MAX_MB} MB.`);
+      e.target.value = '';
+      return;
+    }
+
     setUploading(true);
     setAiWarning(null);
     const reader = new FileReader();
@@ -2534,7 +2542,14 @@ function AddTackModal({
     reader.readAsDataURL(file);
     const fileName = `${boardId}/${Date.now()}-${file.name}`;
     const { error } = await supabase.storage.from("tacks").upload(fileName, file);
-    if (error) { console.error("Upload error:", error); setUploading(false); return; }
+    if (error) {
+      console.error("Upload error:", error);
+      alert(error.message?.includes('too large') || error.message?.includes('413')
+        ? `This file is too large. Please upload an image under ${MAX_MB} MB.`
+        : `Upload failed: ${error.message}. Please try again.`);
+      setUploading(false);
+      return;
+    }
     const { data: { publicUrl } } = supabase.storage.from("tacks").getPublicUrl(fileName);
     setUrl(publicUrl);
     setUploading(false);
