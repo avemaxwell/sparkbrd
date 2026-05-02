@@ -45,7 +45,13 @@ function notifUrl(n: NotificationItem): string | null {
   return `/board/${n.board_id}`;
 }
 
-export default function NotificationBell() {
+export default function NotificationBell({
+  asMenuItem = false,
+  onClose,
+}: {
+  asMenuItem?: boolean;
+  onClose?: () => void;
+} = {}) {
   const { profile } = useUser();
   const router = useRouter();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -104,6 +110,7 @@ export default function NotificationBell() {
   }, [profile?.id]);
 
   const handleOpen = async () => {
+    onClose?.();          // close parent board menu if present
     setOpen(true);
     const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
     if (unreadIds.length > 0) {
@@ -119,28 +126,52 @@ export default function NotificationBell() {
 
   if (!profile) return null;
 
+  const bellIcon = (
+    <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none flex-shrink-0" viewBox="0 0 24 24">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
+  );
+
   return (
-    <div className="relative">
-      <button
-        onClick={open ? () => setOpen(false) : handleOpen}
-        className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md shadow-lg flex items-center justify-center hover:bg-white transition-colors relative"
-        aria-label="Notifications"
-      >
-        <svg className="w-5 h-5 stroke-[#1A1A1A] stroke-[1.5] fill-none" viewBox="0 0 24 24">
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-        </svg>
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-papaya text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-            {unreadCount > 9 ? '9+' : unreadCount}
-          </span>
-        )}
-      </button>
+    <div className={asMenuItem ? 'contents' : 'relative'}>
+      {asMenuItem ? (
+        <button
+          onClick={open ? () => setOpen(false) : handleOpen}
+          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-ink hover:bg-ink/5 transition-colors relative"
+        >
+          {bellIcon}
+          <span className="flex-1 text-left">Notifications</span>
+          {unreadCount > 0 && (
+            <span className="w-5 h-5 bg-papaya text-white text-[10px] font-bold rounded-full flex items-center justify-center flex-shrink-0">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
+      ) : (
+        <button
+          onClick={open ? () => setOpen(false) : handleOpen}
+          className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md shadow-lg flex items-center justify-center hover:bg-white transition-colors relative"
+          aria-label="Notifications"
+        >
+          <svg className="w-5 h-5 stroke-[#1A1A1A] stroke-[1.5] fill-none" viewBox="0 0 24 24">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-papaya text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
+      )}
 
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-ink/5 z-50 overflow-hidden">
+          <div className={`${asMenuItem ? 'fixed top-14 right-4' : 'absolute right-0 top-full mt-2'} w-80 bg-white rounded-2xl shadow-2xl border border-ink/5 z-50 overflow-hidden`}
+            style={asMenuItem ? { marginTop: 'max(0px, env(safe-area-inset-top))' } : undefined}
+          >
             <div className="px-4 py-3 border-b border-ink/5">
               <h3 className="font-medium text-sm text-ink">Notifications</h3>
             </div>
@@ -196,3 +227,4 @@ export default function NotificationBell() {
     </div>
   );
 }
+

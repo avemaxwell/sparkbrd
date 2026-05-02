@@ -161,9 +161,19 @@ export function useBoardSync(
         (payload: PgPayload) => {
           const incoming = payload.new as unknown as TextBlock;
           setTextBlocks((prev) =>
-            prev.map((t) =>
-              t.id === incoming.id ? { ...t, ...incoming } : t
-            )
+            prev.map((t) => {
+              if (t.id !== incoming.id) return t;
+              // Mirror the tack protection: while this block is being dragged/
+              // resized/rotated locally, don't let a Realtime echo overwrite the
+              // in-flight position or size.
+              const isActive = activeManipulationRef?.current === t.id;
+              if (isActive) {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { position_x, position_y, width, ...nonPositionFields } = incoming;
+                return { ...t, ...nonPositionFields };
+              }
+              return { ...t, ...incoming };
+            })
           );
         }
       )

@@ -5,6 +5,7 @@ export const PLAN_LIMITS = {
     max_tacks_per_board: 25,
     custom_colors: false,
     export_boards: false,
+    tack_frames: false,
     collaboration: false,
     no_branding: false,
     studio_boards: false,
@@ -15,6 +16,7 @@ export const PLAN_LIMITS = {
     max_tacks_per_board: 200,
     custom_colors: true,
     export_boards: true,
+    tack_frames: true,
     collaboration: false,
     no_branding: true,
     studio_boards: false,
@@ -25,6 +27,7 @@ export const PLAN_LIMITS = {
     max_tacks_per_board: Infinity,
     custom_colors: true,
     export_boards: true,
+    tack_frames: true,
     collaboration: true,
     no_branding: true,
     studio_boards: true,
@@ -80,7 +83,11 @@ export function getUpgradeMessage(plan: Plan | null | undefined, feature: Featur
   }
   
   if (feature === 'export_boards') {
-    return 'Upgrade to Pro to export your boards';
+    return 'Upgrade to Pro to download tacks and export boards';
+  }
+
+  if (feature === 'tack_frames') {
+    return 'Upgrade to Pro to add frames and borders to your tacks';
   }
   
   if (feature === 'collaboration') {

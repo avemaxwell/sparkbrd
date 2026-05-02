@@ -88,6 +88,44 @@ export default function BoardCanvas() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sharePanelOpen, setSharePanelOpen] = useState(false);
+  const [boardMenuOpen, setBoardMenuOpen] = useState(false);
+
+  // Help / bug-report panel (board-page equivalent of HelpBubble)
+  const [helpPanelOpen, setHelpPanelOpen] = useState(false);
+  const [helpMessage, setHelpMessage] = useState('');
+  const [helpEmail, setHelpEmail] = useState('');
+  const [helpSent, setHelpSent] = useState(false);
+  const [helpSending, setHelpSending] = useState(false);
+  const [helpSendError, setHelpSendError] = useState<string | null>(null);
+
+  const openHelp = () => {
+    setBoardMenuOpen(false);
+    if (profile?.email) setHelpEmail(profile.email);
+    setHelpPanelOpen(true);
+  };
+  const closeHelp = () => {
+    setHelpPanelOpen(false);
+    setTimeout(() => { setHelpSent(false); setHelpSendError(null); setHelpMessage(''); }, 300);
+  };
+  const sendHelp = async () => {
+    if (!helpMessage.trim() || helpSending) return;
+    setHelpSending(true);
+    setHelpSendError(null);
+    try {
+      const res = await fetch('/api/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: helpMessage.trim(), email: helpEmail.trim() }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      setHelpSent(true);
+    } catch {
+      setHelpSendError("Couldn't send your message. Please try again or email admin@sparkurio.com directly.");
+    } finally {
+      setHelpSending(false);
+    }
+  };
+
   const [selectedTack, setSelectedTack] = useState<Tack | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addTextModalOpen, setAddTextModalOpen] = useState(false);
@@ -138,6 +176,10 @@ const [lastPinchMid, setLastPinchMid] = useState<{ x: number; y: number } | null
 
 // Ref to track latest drag position — avoids stale-closure bug when persisting on drag end
 const lastDragPos = useRef<{ x: number; y: number } | null>(null);
+
+// z_index computed at drag start; saved together with position at drag end so
+// there is never a separate z_index echo that arrives with a stale position.
+const dragZIndexRef = useRef<number | null>(null);
 
 // Long-press detection on touch: record touch start info so handleCanvasTouchEnd
 // can open the detail modal when the finger barely moved but held ≥450ms.
@@ -335,9 +377,11 @@ const screenToCanvas = (screenX: number, screenY: number) => {
     }
   }, [tacks, boardId]);
 
-  // Bring an element to the front (highest z_index) on interaction
-  const bringToFront = (id: string, type: 'tack' | 'text') => {
-    if (!canEdit) return;
+  // Bring an element to the front (highest z_index) on interaction.
+  // Updates local state immediately for visual feedback; the DB write is deferred
+  // to drag end so it's batched with the position save into a single Realtime
+  // echo — eliminating the race where a z_index echo arrives with a stale position.
+  const bringToFront = (id: string, type: 'tack' | 'text'): number => {
     const allZ = [
       ...tacks.map(t => t.z_index ?? 0),
       ...textBlocks.map(t => t.z_index ?? 0),
@@ -345,11 +389,10 @@ const screenToCanvas = (screenX: number, screenY: number) => {
     const newZ = (allZ.length > 0 ? Math.max(...allZ) : 0) + 1;
     if (type === 'tack') {
       setTacks(prev => prev.map(t => t.id === id ? { ...t, z_index: newZ } : t));
-      saveItem(boardId, 'tacks', id, { z_index: newZ });
     } else {
       setTextBlocks(prev => prev.map(t => t.id === id ? { ...t, z_index: newZ } : t));
-      saveItem(boardId, 'text_blocks', id, { z_index: newZ });
     }
+    return newZ;
   };
 
   // Drag handlers
@@ -366,10 +409,10 @@ const screenToCanvas = (screenX: number, screenY: number) => {
       y: canvasPos.y - currentY,
     });
     if (tackId.startsWith('text-')) {
-      bringToFront(tackId.replace('text-', ''), 'text');
+      dragZIndexRef.current = bringToFront(tackId.replace('text-', ''), 'text');
       setLastCopyTargetId(`text:${tackId.replace('text-', '')}`);
     } else {
-      bringToFront(tackId, 'tack');
+      dragZIndexRef.current = bringToFront(tackId, 'tack');
       // Only track stickers as copy targets (not regular image tacks)
       const t = tacks.find(t => t.id === tackId);
       if (t?.content_url.includes('/storage/v1/object/public/stickers/')) {
@@ -401,18 +444,25 @@ const handleDrag = (e: React.MouseEvent) => {
     if (!dragging) return;
     const id = dragging;           // capture before any state clears
     const pos = lastDragPos.current;
+    const zIndex = dragZIndexRef.current;
     lastDragPos.current = null;
+    dragZIndexRef.current = null;
     setDragging(null);             // clear immediately so UI feels responsive
 
     if (pos) {
-      // Keep activeManipulationRef set during the DB write so any Realtime echo
-      // from the bringToFront z_index update (fired at drag start) can't overwrite
-      // the in-flight position with the pre-drag position from the DB.
+      // Batch position + z_index into one save so there is only a single
+      // Realtime echo carrying the correct (post-drag) position. Previously
+      // z_index was saved at drag start — that echo could arrive with the
+      // stale pre-drag position after activeManipulationRef was released.
       if (id.startsWith('text-')) {
         const textId = id.replace('text-', '');
-        await saveItem(boardId, 'text_blocks', textId, { position_x: Math.round(pos.x), position_y: Math.round(pos.y) });
+        const updates: Record<string, unknown> = { position_x: Math.round(pos.x), position_y: Math.round(pos.y) };
+        if (zIndex !== null) updates.z_index = zIndex;
+        await saveItem(boardId, 'text_blocks', textId, updates);
       } else {
-        await saveItem(boardId, 'tacks', id, { position_x: Math.round(pos.x), position_y: Math.round(pos.y) });
+        const updates: Record<string, unknown> = { position_x: Math.round(pos.x), position_y: Math.round(pos.y) };
+        if (zIndex !== null) updates.z_index = zIndex;
+        await saveItem(boardId, 'tacks', id, updates);
       }
     }
     activeManipulationRef.current = null; // release Realtime protection after save
@@ -626,15 +676,20 @@ const handleCanvasTouchEnd = async (e: React.TouchEvent) => {
       }
     }
 
+    const zIndex = dragZIndexRef.current;
     lastDragPos.current = null;
+    dragZIndexRef.current = null;
     setDragging(null);
     if (pos) {
-      // Keep ref set during save (mirrors handleDragEnd mouse logic)
       if (id.startsWith('text-')) {
         const textId = id.replace('text-', '');
-        await saveItem(boardId, 'text_blocks', textId, { position_x: Math.round(pos.x), position_y: Math.round(pos.y) });
+        const updates: Record<string, unknown> = { position_x: Math.round(pos.x), position_y: Math.round(pos.y) };
+        if (zIndex !== null) updates.z_index = zIndex;
+        await saveItem(boardId, 'text_blocks', textId, updates);
       } else {
-        await saveItem(boardId, 'tacks', id, { position_x: Math.round(pos.x), position_y: Math.round(pos.y) });
+        const updates: Record<string, unknown> = { position_x: Math.round(pos.x), position_y: Math.round(pos.y) };
+        if (zIndex !== null) updates.z_index = zIndex;
+        await saveItem(boardId, 'tacks', id, updates);
       }
     }
     activeManipulationRef.current = null; // release after save
@@ -676,9 +731,9 @@ const handleTouchStart = (e: React.TouchEvent, tackId: string, currentX: number,
   setTouching(true);
   setDragOffset({ x: canvasPos.x - currentX, y: canvasPos.y - currentY });
   if (tackId.startsWith('text-')) {
-    bringToFront(tackId.replace('text-', ''), 'text');
+    dragZIndexRef.current = bringToFront(tackId.replace('text-', ''), 'text');
   } else {
-    bringToFront(tackId, 'tack');
+    dragZIndexRef.current = bringToFront(tackId, 'tack');
   }
 };
 
@@ -738,6 +793,7 @@ const handleRotateStart = (e: React.MouseEvent, tackId: string) => {
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
   const angle = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
+  activeManipulationRef.current = tackId;
   setRotating(tackId);
   setRotateStartAngle(angle);
   setRotateStartRotation(tack.rotation);
@@ -767,11 +823,13 @@ const handleRotateEnd = async () => {
     // Ignore accidental sub-1.5° jitter from clicking the handle
     if (Math.abs(snapped - rotateStartRotation) < 1.5) {
       setTacks(prev => prev.map(t => t.id === id ? { ...t, rotation: rotateStartRotation } : t));
+      activeManipulationRef.current = null;
       return;
     }
     setTacks(prev => prev.map(t => t.id === id ? { ...t, rotation: snapped } : t));
     await saveItem(boardId, 'tacks', id, { rotation: snapped });
   }
+  activeManipulationRef.current = null;
 };
 
 const handleTextResizeStart = (e: React.MouseEvent, textId: string) => {
@@ -783,6 +841,7 @@ const handleTextResizeStart = (e: React.MouseEvent, textId: string) => {
   const startWidth = text.width > 0
     ? text.width
     : (document.getElementById(`text-wrapper-${textId}`)?.offsetWidth ?? 120);
+  activeManipulationRef.current = textId;
   setTextResizing(textId);
   setTextResizeStart({ x: e.clientX, y: e.clientY, width: startWidth, fontSize: text.font_size });
 };
@@ -805,10 +864,11 @@ const handleTextResize = (e: React.MouseEvent) => {
 const handleTextResizeEnd = async () => {
   if (!textResizing) return;
   const text = textBlocks.find(t => t.id === textResizing);
+  setTextResizing(null);
   if (text) {
     await saveItem(boardId, 'text_blocks', text.id, { font_size: text.font_size, width: text.width });
   }
-  setTextResizing(null);
+  activeManipulationRef.current = null;
 };
 
 const handleTextRotateStart = (e: React.MouseEvent, textId: string) => {
@@ -822,6 +882,7 @@ const handleTextRotateStart = (e: React.MouseEvent, textId: string) => {
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
   const angle = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
+  activeManipulationRef.current = textId;
   setTextRotating(textId);
   setTextRotateStartAngle(angle);
   setTextRotateStartRotation(text.rotation);
@@ -850,11 +911,13 @@ const handleTextRotateEnd = async () => {
     const snapped = Math.round(text.rotation);
     if (Math.abs(snapped - textRotateStartRotation) < 1.5) {
       setTextBlocks(prev => prev.map(t => t.id === id ? { ...t, rotation: textRotateStartRotation } : t));
+      activeManipulationRef.current = null;
       return;
     }
     setTextBlocks(prev => prev.map(t => t.id === id ? { ...t, rotation: snapped } : t));
     await saveItem(boardId, 'text_blocks', id, { rotation: snapped });
   }
+  activeManipulationRef.current = null;
 };
 
   // Add tack
@@ -1121,88 +1184,152 @@ return (
         </div>
         
         <div className="flex items-center gap-2">
-          {/* Mode toggle — Edit only shown to editors/owners */}
-          <div className="bg-white/80 backdrop-blur-md rounded-full p-1 flex shadow-lg">
-            {canEdit && (
-              <button
-                onClick={() => { setCanvasMode('edit'); setCommentDrawerTack(null); }}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                  canvasMode === 'edit' ? 'bg-ink text-white shadow-sm' : 'text-ink/60 hover:text-ink'
-                }`}
-              >
-                Edit
-              </button>
-            )}
-            <button
-              onClick={() => setCanvasMode('comment')}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                canvasMode === 'comment' ? 'bg-papaya text-white shadow-sm' : 'text-ink/60 hover:text-ink'
-              }`}
-            >
-              Comment
-            </button>
-          </div>
-
           <PresenceAvatars collaborators={collaborators} />
 
-          <NotificationBell />
-
-          {canEdit && collaborationEnabled && memberRole === 'owner' && (
+          {/* Compact board menu */}
+          <div className="relative">
             <button
-              onClick={() => setSharePanelOpen(true)}
-              className="hidden sm:flex items-center gap-1.5 bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink hover:bg-white transition-colors"
-            >
-              <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24">
-                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-                <polyline points="16 6 12 2 8 6"/>
-                <line x1="12" y1="2" x2="12" y2="15"/>
-              </svg>
-              Share
-            </button>
-          )}
-
-          {canEdit && memberRole === 'owner' && (
-            <button
-              onClick={() => setSettingsOpen(true)}
-              className="bg-white/80 backdrop-blur-md rounded-full shadow-lg text-ink hover:bg-white transition-colors w-10 h-10 sm:w-auto sm:h-auto flex items-center justify-center sm:px-4 sm:py-2.5"
-            >
-              <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none sm:hidden" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-              </svg>
-              <span className="hidden sm:inline text-sm font-medium">Edit board</span>
-            </button>
-          )}
-
-          {/* Follow button — shown to logged-in non-owners viewing a public board */}
-          {profile && memberRole !== 'owner' && board?.is_public && board.owner_id && (
-            <button
-              onClick={async () => {
-                setFollowLoading(true);
-                const res = await fetch(`/api/users/${board.owner_id}/follow`, { method: 'POST' });
-                const data = await res.json();
-                setFollowingOwner(data.following);
-                setFollowLoading(false);
-              }}
-              disabled={followLoading}
-              className={`hidden sm:flex items-center gap-1.5 rounded-full px-4 py-2.5 shadow-lg text-sm font-medium transition-colors disabled:opacity-50 ${
-                followingOwner
-                  ? 'bg-white/80 backdrop-blur-md text-ink/60 hover:bg-red-50 hover:text-red-500'
-                  : 'bg-ink text-white hover:bg-ink/85'
+              onClick={() => setBoardMenuOpen(o => !o)}
+              className={`w-10 h-10 rounded-full backdrop-blur-md shadow-lg flex items-center justify-center transition-colors relative ${
+                boardMenuOpen ? 'bg-ink text-white' : 'bg-white/80 hover:bg-white'
               }`}
             >
-              {followLoading ? '...' : followingOwner ? 'Following' : ownerName ? `Follow ${ownerName}` : 'Follow'}
+              {/* Mode indicator dot */}
+              {canvasMode === 'comment' && !boardMenuOpen && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-papaya border border-white" />
+              )}
+              <svg className={`w-4 h-4 stroke-[1.5] fill-none ${boardMenuOpen ? 'stroke-white' : 'stroke-ink'}`} viewBox="0 0 24 24">
+                <circle cx="12" cy="5" r="1" fill="currentColor" stroke="none"/>
+                <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
+                <circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/>
+              </svg>
             </button>
-          )}
 
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md shadow-lg flex items-center justify-center hover:bg-white transition-colors"
-          >
-            <svg className="w-5 h-5 stroke-[#1A1A1A] stroke-[1.5] fill-none" viewBox="0 0 24 24">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
-          </button>
+            {boardMenuOpen && (
+              <>
+                {/* Backdrop to close on outside click */}
+                <div className="fixed inset-0 z-40" onClick={() => setBoardMenuOpen(false)} />
+
+                <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-ink/8 z-50 overflow-hidden py-1.5">
+
+                  {/* Mode toggle */}
+                  {canEdit && (
+                    <div className="px-2 pb-1.5 pt-1">
+                      <div className="flex rounded-xl bg-ink/5 p-1 gap-1">
+                        <button
+                          onClick={() => { setCanvasMode('edit'); setCommentDrawerTack(null); setBoardMenuOpen(false); }}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${canvasMode === 'edit' ? 'bg-ink text-white shadow-sm' : 'text-ink/60 hover:text-ink'}`}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => { setCanvasMode('comment'); setBoardMenuOpen(false); }}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${canvasMode === 'comment' ? 'bg-papaya text-white shadow-sm' : 'text-ink/60 hover:text-ink'}`}
+                        >
+                          Comment
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {!canEdit && (
+                    <div className="px-2 pb-1.5 pt-1">
+                      <div className="flex rounded-xl bg-ink/5 p-1">
+                        <button
+                          onClick={() => { setCanvasMode('comment'); setBoardMenuOpen(false); }}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${canvasMode === 'comment' ? 'bg-papaya text-white shadow-sm' : 'text-ink/60 hover:text-ink'}`}
+                        >
+                          Comment mode
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="h-px bg-ink/6 mx-2 my-1" />
+
+                  {/* Notifications */}
+                  <div className="px-1">
+                    <NotificationBell asMenuItem onClose={() => setBoardMenuOpen(false)} />
+                  </div>
+
+                  {/* Share — team plan owners */}
+                  {canEdit && collaborationEnabled && memberRole === 'owner' && (
+                    <button
+                      onClick={() => { setSharePanelOpen(true); setBoardMenuOpen(false); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-ink hover:bg-ink/5 transition-colors"
+                    >
+                      <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none flex-shrink-0" viewBox="0 0 24 24">
+                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+                      </svg>
+                      Share
+                    </button>
+                  )}
+
+                  {/* Edit board — owner */}
+                  {canEdit && memberRole === 'owner' && (
+                    <button
+                      onClick={() => { setSettingsOpen(true); setBoardMenuOpen(false); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-ink hover:bg-ink/5 transition-colors"
+                    >
+                      <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none flex-shrink-0" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                      </svg>
+                      Edit board
+                    </button>
+                  )}
+
+                  {/* Follow — non-owner on public board */}
+                  {profile && memberRole !== 'owner' && board?.is_public && board.owner_id && (
+                    <button
+                      onClick={async () => {
+                        setFollowLoading(true);
+                        const res = await fetch(`/api/users/${board.owner_id}/follow`, { method: 'POST' });
+                        const data = await res.json();
+                        setFollowingOwner(data.following);
+                        setFollowLoading(false);
+                        setBoardMenuOpen(false);
+                      }}
+                      disabled={followLoading}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors disabled:opacity-50 ${
+                        followingOwner ? 'text-red-500 hover:bg-red-50' : 'text-ink hover:bg-ink/5'
+                      }`}
+                    >
+                      <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none flex-shrink-0" viewBox="0 0 24 24">
+                        {followingOwner
+                          ? <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="22" y1="9" x2="16" y2="9"/></>
+                          : <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="22" y1="9" x2="16" y2="9"/><line x1="19" y1="6" x2="19" y2="12"/></>
+                        }
+                      </svg>
+                      {followLoading ? '...' : followingOwner ? 'Unfollow' : ownerName ? `Follow ${ownerName}` : 'Follow'}
+                    </button>
+                  )}
+
+                  {/* Activity / comments sidebar */}
+                  <button
+                    onClick={() => { setSidebarOpen(true); setBoardMenuOpen(false); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-ink hover:bg-ink/5 transition-colors"
+                  >
+                    <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none flex-shrink-0" viewBox="0 0 24 24">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    Activity
+                  </button>
+
+                  <div className="h-px bg-ink/6 mx-2 my-1" />
+
+                  {/* Help / report a bug */}
+                  <button
+                    onClick={openHelp}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-ink/60 hover:text-ink hover:bg-ink/5 transition-colors"
+                  >
+                    <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none flex-shrink-0" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r="0.75" fill="currentColor" stroke="none"/>
+                    </svg>
+                    Help / report a bug
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -1735,6 +1862,73 @@ return (
           onClose={() => setShowUpgradeModal(false)}
         />
       )}
+
+      {/* Help / bug report panel */}
+      {helpPanelOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-end p-4" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeHelp} />
+          <div className="relative w-full sm:w-96 bg-white rounded-2xl shadow-2xl border border-ink/5 overflow-hidden mt-14">
+            <div className="flex items-start justify-between px-5 py-4 border-b border-ink/5">
+              <div>
+                <p className="font-semibold text-ink text-base">Need help?</p>
+                <p className="text-xs text-ink/40 mt-0.5">We&apos;re here for you</p>
+              </div>
+              <button onClick={closeHelp} className="w-7 h-7 rounded-full hover:bg-ink/5 flex items-center justify-center transition-colors flex-shrink-0 mt-0.5">
+                <svg className="w-4 h-4 stroke-ink/40 stroke-[1.5] fill-none" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div className="p-5">
+              <div className="bg-papaya/8 rounded-xl px-4 py-3 mb-5">
+                <p className="text-xs text-ink/70 leading-relaxed">
+                  <span className="font-semibold text-ink/90">We&apos;re in our early launch phase.</span>{' '}
+                  A few rough edges are expected as we grow — we&apos;re working around the clock to make sure your experience is smooth. Thank you for being here.
+                </p>
+              </div>
+              {helpSent ? (
+                <div className="text-center py-6">
+                  <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-6 h-6 stroke-green-600 stroke-[1.5] fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <p className="font-semibold text-ink mb-1">Message sent!</p>
+                  <p className="text-xs text-ink/50 mb-4">We&apos;ll get back to you as soon as we can.</p>
+                  <button onClick={closeHelp} className="px-5 py-2 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors">Close</button>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-ink/50 mb-1.5">What&apos;s going on?</label>
+                    <textarea
+                      value={helpMessage}
+                      onChange={(e) => setHelpMessage(e.target.value)}
+                      placeholder="Describe what happened or what you need help with..."
+                      rows={4}
+                      className="w-full px-3 py-2.5 text-sm bg-ink/5 rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 resize-none transition-all placeholder:text-ink/30"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-xs font-medium text-ink/50 mb-1.5">Your email <span className="font-normal text-ink/30">(so we can follow up)</span></label>
+                    <input
+                      type="email"
+                      value={helpEmail}
+                      onChange={(e) => setHelpEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      className="w-full px-3 py-2.5 text-sm bg-ink/5 rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 transition-all placeholder:text-ink/30"
+                    />
+                  </div>
+                  {helpSendError && <p className="text-xs text-red-500 mb-3">{helpSendError}</p>}
+                  <button
+                    onClick={sendHelp}
+                    disabled={!helpMessage.trim() || helpSending}
+                    className="w-full py-2.5 bg-papaya text-white rounded-full text-sm font-medium hover:bg-papaya/90 transition-colors disabled:opacity-40"
+                  >
+                    {helpSending ? 'Sending…' : 'Send message'}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2112,6 +2306,8 @@ function TackDetailModal({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { profile: tackProfile } = useUser();
   const canCustomPin = hasFeature(tackProfile?.plan as Plan | undefined, 'custom_colors');
+  const canFrame = hasFeature(tackProfile?.plan as Plan | undefined, 'tack_frames');
+  const canDownload = hasFeature(tackProfile?.plan as Plan | undefined, 'export_boards');
 
   // Retack state (read-only view)
   type RetackState = 'idle' | 'picking' | 'saving' | 'done' | 'error';
@@ -2283,45 +2479,62 @@ function TackDetailModal({
               {/* Frame / border controls — only for non-transparent images */}
               {isFrameable && (
                 <div className="mb-4">
-                  <label className="block text-xs text-ink-soft mb-2">Frame</label>
-                  <div className="flex gap-2 mb-3">
-                    {([{ label: 'None', w: 0 }, { label: 'S', w: 4 }, { label: 'M', w: 8 }, { label: 'L', w: 16 }, { label: 'XL', w: 24 }] as const).map(({ label, w }) => (
-                      <button
-                        key={w}
-                        onClick={() => setBorderWidth(w)}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${borderWidth === w ? 'bg-ink text-white' : 'bg-ink/5 text-ink hover:bg-ink/10'}`}
-                      >
-                        {label}
-                      </button>
-                    ))}
+                  <div className="flex items-center gap-2 mb-2">
+                    <label className="text-xs text-ink-soft">Frame</label>
+                    {!canFrame && (
+                      <a href="/settings/billing" className="flex items-center gap-1 text-[10px] font-medium text-papaya hover:underline">
+                        <svg className="w-3 h-3 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        Pro
+                      </a>
+                    )}
                   </div>
-                  {borderWidth > 0 && (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {['#FFFFFF', '#FAF9F6', '#F0EDE8', '#1A1A1A', '#E24E42'].map(c => (
-                        <button
-                          key={c}
-                          onClick={() => setBorderColor(c)}
-                          className={`w-7 h-7 rounded-lg border-2 transition-all hover:scale-110 ${borderColor === c ? 'border-ink scale-110' : 'border-ink/15'}`}
-                          style={{ backgroundColor: c }}
-                        />
-                      ))}
-                      <div className="relative w-7 h-7">
-                        <input
-                          type="color"
-                          value={borderColor}
-                          onChange={(e) => setBorderColor(e.target.value)}
-                          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                        />
-                        <div
-                          className="w-7 h-7 rounded-lg border-2 border-dashed border-ink/25 flex items-center justify-center"
-                          style={{ backgroundColor: ['#FFFFFF','#FAF9F6','#F0EDE8','#1A1A1A','#E24E42'].includes(borderColor) ? 'transparent' : borderColor }}
-                        >
-                          {['#FFFFFF','#FAF9F6','#F0EDE8','#1A1A1A','#E24E42'].includes(borderColor) && (
-                            <svg className="w-3 h-3 stroke-ink/30 stroke-[1.5] fill-none" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-                          )}
-                        </div>
+                  {canFrame ? (
+                    <>
+                      <div className="flex gap-2 mb-3">
+                        {([{ label: 'None', w: 0 }, { label: 'S', w: 4 }, { label: 'M', w: 8 }, { label: 'L', w: 16 }, { label: 'XL', w: 24 }] as const).map(({ label, w }) => (
+                          <button
+                            key={w}
+                            onClick={() => setBorderWidth(w)}
+                            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${borderWidth === w ? 'bg-ink text-white' : 'bg-ink/5 text-ink hover:bg-ink/10'}`}
+                          >
+                            {label}
+                          </button>
+                        ))}
                       </div>
-                    </div>
+                      {borderWidth > 0 && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {['#FFFFFF', '#FAF9F6', '#F0EDE8', '#1A1A1A', '#E24E42'].map(c => (
+                            <button
+                              key={c}
+                              onClick={() => setBorderColor(c)}
+                              className={`w-7 h-7 rounded-lg border-2 transition-all hover:scale-110 ${borderColor === c ? 'border-ink scale-110' : 'border-ink/15'}`}
+                              style={{ backgroundColor: c }}
+                            />
+                          ))}
+                          <div className="relative w-7 h-7">
+                            <input
+                              type="color"
+                              value={borderColor}
+                              onChange={(e) => setBorderColor(e.target.value)}
+                              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                            />
+                            <div
+                              className="w-7 h-7 rounded-lg border-2 border-dashed border-ink/25 flex items-center justify-center"
+                              style={{ backgroundColor: ['#FFFFFF','#FAF9F6','#F0EDE8','#1A1A1A','#E24E42'].includes(borderColor) ? 'transparent' : borderColor }}
+                            >
+                              {['#FFFFFF','#FAF9F6','#F0EDE8','#1A1A1A','#E24E42'].includes(borderColor) && (
+                                <svg className="w-3 h-3 stroke-ink/30 stroke-[1.5] fill-none" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <a href="/settings/billing" className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl bg-papaya/5 border border-papaya/15 hover:bg-papaya/10 transition-colors group">
+                      <svg className="w-4 h-4 stroke-papaya stroke-[1.5] fill-none flex-shrink-0" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      <span className="text-xs text-papaya font-medium">Upgrade to Pro to add frames</span>
+                    </a>
                   )}
                 </div>
               )}
@@ -2344,10 +2557,17 @@ function TackDetailModal({
                 </div>
               ) : (
                 <div className="flex gap-2">
-                  <button onClick={handleDownload} className="flex-1 px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors flex items-center justify-center gap-2">
-                    <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Download
-                  </button>
+                  {canDownload ? (
+                    <button onClick={handleDownload} className="flex-1 px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors flex items-center justify-center gap-2">
+                      <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      Download
+                    </button>
+                  ) : (
+                    <a href="/settings/billing" className="flex-1 px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-papaya/10 transition-colors flex items-center justify-center gap-2 group">
+                      <svg className="w-4 h-4 stroke-ink/40 stroke-[1.5] fill-none group-hover:stroke-papaya transition-colors" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      <span className="text-ink/50 group-hover:text-papaya transition-colors">Download</span>
+                    </a>
+                  )}
                   <button onClick={() => setConfirmDelete(true)} className="flex-1 px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-red-50 hover:text-red-500 transition-colors">Delete</button>
                 </div>
               )
@@ -2400,10 +2620,17 @@ function TackDetailModal({
                   </button>
                 )}
 
-                <button onClick={handleDownload} className="w-full px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors flex items-center justify-center gap-2">
-                  <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Download
-                </button>
+                {canDownload ? (
+                  <button onClick={handleDownload} className="w-full px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download
+                  </button>
+                ) : (
+                  <a href="/settings/billing" className="w-full px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-papaya/10 transition-colors flex items-center justify-center gap-2 group">
+                    <svg className="w-4 h-4 stroke-ink/40 stroke-[1.5] fill-none group-hover:stroke-papaya transition-colors" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <span className="text-ink/50 group-hover:text-papaya transition-colors">Download — Pro</span>
+                  </a>
+                )}
               </div>
             )}
           </div>
