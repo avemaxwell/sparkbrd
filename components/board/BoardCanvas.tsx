@@ -1393,7 +1393,10 @@ return (
               style={{
                 left: text.position_x,
                 top: text.position_y,
-                width: 'fit-content',
+                // During resize, lock to the stored width so the resize handle
+                // doesn't run away from the cursor as the font reflows.
+                // At all other times, fit-content hugs the actual text.
+                width: textResizing === text.id && text.width > 0 ? text.width : 'fit-content',
                 transform: `rotate(${text.rotation}deg)`,
                 zIndex: text.z_index ?? 0,
               }}

@@ -6,41 +6,53 @@ const CATEGORIES = ['doodles', 'mid century', 'arrows', 'lines', 'shapes', 'flow
 export async function GET() {
   try {
     const supabase = createAdminClient();
+
+    // List the bucket root first so we get the exact folder names as Supabase
+    // stores them (handles any encoding differences for names with spaces).
+    const { data: rootFolders, error: rootError } = await supabase.storage
+      .from('stickers')
+      .list('', { limit: 50 });
+
+    if (rootError) {
+      console.error('[stickers] root list error:', rootError);
+    }
+
+    // Build a lookup: our category name → exact Supabase folder name
+    const folderMap: Record<string, string> = {};
+    for (const cat of CATEGORIES) {
+      const match = rootFolders?.find(
+        f => f.name.toLowerCase() === cat.toLowerCase()
+      );
+      folderMap[cat] = match?.name ?? cat; // fall back to our string if not found
+    }
+
     const result: Record<string, { name: string; url: string }[]> = {};
 
     await Promise.all(
       CATEGORIES.map(async (category) => {
+        const folderName = folderMap[category];
         try {
-          // Try without sortBy first — Supabase can behave oddly with
-          // folder names that contain spaces when sortBy is specified.
           const { data, error } = await supabase.storage
             .from('stickers')
-            .list(category, { limit: 200 });
+            .list(folderName, { limit: 200 });
 
           if (error) {
-            console.error(`[stickers] list error for '${category}':`, error);
+            console.error(`[stickers] list error for '${category}' (folder: '${folderName}'):`, error);
             result[category] = [];
             return;
           }
 
-          if (!data || data.length === 0) {
-            result[category] = [];
-            return;
-          }
-
-          const files = data.filter(
+          const files = (data ?? []).filter(
             f => !f.name.startsWith('.') && f.name !== '.emptyFolderPlaceholder'
           );
 
           result[category] = files.map(f => {
-            // Build path and ensure spaces are properly encoded in the URL
-            const path = `${category}/${f.name}`;
-            const { data: urlData } = supabase.storage.from('stickers').getPublicUrl(path);
-            // Encode any spaces that getPublicUrl might leave unencoded
-            const publicUrl = urlData.publicUrl.replace(/ /g, '%20');
+            const { data: urlData } = supabase.storage
+              .from('stickers')
+              .getPublicUrl(`${folderName}/${f.name}`);
             return {
               name: f.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
-              url: publicUrl,
+              url: urlData.publicUrl,
             };
           });
         } catch (e) {
