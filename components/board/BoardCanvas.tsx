@@ -63,6 +63,9 @@ export default function BoardCanvas() {
   // ID of the most recently placed text block — keeps selection ring visible
   const [newlyAddedTextId, setNewlyAddedTextId] = useState<string | null>(null);
 
+  // Touch-selected item on mobile — controls handle visibility (tack.id or "text-<id>")
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+
   // Copy/paste clipboard — text blocks and sticker tacks only
   type ClipboardItem =
     | { type: 'text'; payload: Omit<TextBlock, 'id'> }
@@ -327,6 +330,7 @@ const screenToCanvas = (screenX: number, screenY: number) => {
             if (data) {
               setTextBlocks(prev => [...prev, data]);
               setNewlyAddedTextId(data.id);
+              setSelectedItemId(`text-${data.id}`);
             }
           }
         } else if (clipboard.type === 'sticker') {
@@ -514,6 +518,7 @@ const handleDrag = (e: React.MouseEvent) => {
     const isBackground = target.id === 'board-canvas-inner' || target.id === 'board-viewport';
     if (isBackground) {
       setNewlyAddedTextId(null);
+      setSelectedItemId(null);
       setIsPanning(true);
       setPanStart({ x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y });
     }
@@ -564,6 +569,7 @@ const handleCanvasTouchStart = (e: React.TouchEvent) => {
     const target = e.target as HTMLElement;
     const isCanvas = target.id === 'board-canvas-inner' || target.id === 'board-viewport' || target === e.currentTarget;
     if (isCanvas) {
+      setSelectedItemId(null);
       const t = e.touches[0];
       setIsPanning(false);
       setPanStart({ x: t.clientX, y: t.clientY, panX: pan.x, panY: pan.y });
@@ -727,6 +733,7 @@ const handleTouchStart = (e: React.TouchEvent, tackId: string, currentX: number,
 
   const canvasPos = screenToCanvas(touch.clientX, touch.clientY);
   activeManipulationRef.current = tackId.startsWith('text-') ? tackId.replace('text-', '') : tackId;
+  setSelectedItemId(tackId);
   setDragging(tackId);
   setTouching(true);
   setDragOffset({ x: canvasPos.x - currentX, y: canvasPos.y - currentY });
@@ -1052,6 +1059,7 @@ const handleTextRotateEnd = async () => {
     if (!error && data) {
       setTextBlocks(prev => [...prev, data]);
       setNewlyAddedTextId(data.id);
+      setSelectedItemId(`text-${data.id}`);
       setAddTextModalOpen(false);
     } else if (error) {
       console.error("Add text block error:", error);
@@ -1383,7 +1391,7 @@ return (
     {/* Rotation handle — editors/owners only */}
     {canEdit && (
       <div
-        className="absolute -top-8 left-1/2 -translate-x-1/2 w-8 h-8 md:w-7 md:h-7 bg-white rounded-full cursor-grab opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md hover:bg-papaya hover:scale-110 z-10"
+        className={`absolute -top-8 left-1/2 -translate-x-1/2 w-8 h-8 md:w-7 md:h-7 bg-white rounded-full cursor-grab ${selectedItemId === tack.id ? 'opacity-100' : 'opacity-0'} md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md hover:bg-papaya hover:scale-110 z-10`}
         onMouseDown={(e) => handleRotateStart(e, tack.id)}
         title="Drag to rotate"
       >
@@ -1494,7 +1502,7 @@ return (
     {/* Resize Handle — editors/owners only */}
     {canEdit && (
       <div
-        className="absolute -bottom-3 -right-3 w-8 h-8 md:w-6 md:h-6 bg-papaya rounded-full cursor-se-resize opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg active:scale-110"
+        className={`absolute -bottom-3 -right-3 w-8 h-8 md:w-6 md:h-6 bg-papaya rounded-full cursor-se-resize ${selectedItemId === tack.id ? 'opacity-100' : 'opacity-0'} md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg active:scale-110`}
         onMouseDown={(e) => handleResizeStart(e, tack.id)}
         onTouchStart={(e) => handleResizeTouchStart(e, tack.id)}
       >
@@ -1512,7 +1520,7 @@ return (
               id={`text-wrapper-${text.id}`}
               className={`absolute group rounded-sm transition-shadow ${canEdit ? 'cursor-move' : 'cursor-default'} ${
                 canEdit
-                  ? (dragging === `text-${text.id}` || textResizing === text.id || textRotating === text.id || text.id === newlyAddedTextId)
+                  ? (dragging === `text-${text.id}` || textResizing === text.id || textRotating === text.id || text.id === newlyAddedTextId || selectedItemId === `text-${text.id}`)
                     ? 'ring-2 ring-papaya/70 ring-offset-[3px]'
                     : 'hover:ring-2 hover:ring-papaya/40 hover:ring-offset-[3px]'
                   : ''
@@ -1539,7 +1547,7 @@ return (
               {/* Text rotate handle — editors/owners only */}
               {canEdit && (
                 <div
-                  className="absolute -top-8 left-1/2 -translate-x-1/2 w-8 h-8 md:w-7 md:h-7 bg-white rounded-full cursor-grab opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md hover:bg-papaya hover:scale-110 z-10"
+                  className={`absolute -top-8 left-1/2 -translate-x-1/2 w-8 h-8 md:w-7 md:h-7 bg-white rounded-full cursor-grab ${selectedItemId === `text-${text.id}` ? 'opacity-100' : 'opacity-0'} md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md hover:bg-papaya hover:scale-110 z-10`}
                   onMouseDown={(e) => handleTextRotateStart(e, text.id)}
                   title="Drag to rotate"
                 >
@@ -1583,7 +1591,7 @@ return (
               {/* Text resize handle — editors/owners only */}
               {canEdit && (
                 <div
-                  className="absolute -bottom-3 -right-3 w-8 h-8 md:w-7 md:h-7 bg-papaya rounded-full cursor-se-resize opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md z-10"
+                  className={`absolute -bottom-3 -right-3 w-8 h-8 md:w-7 md:h-7 bg-papaya rounded-full cursor-se-resize ${selectedItemId === `text-${text.id}` ? 'opacity-100' : 'opacity-0'} md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md z-10`}
                   onMouseDown={(e) => handleTextResizeStart(e, text.id)}
                   title="Drag to resize"
                 >
