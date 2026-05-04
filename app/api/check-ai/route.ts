@@ -147,7 +147,8 @@ export async function POST(request: Request) {
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ isLikelyAI: false, confidence: 0, blocked: false, reason: null });
+      // No API key → fail closed. Every image is blocked until detection is configured.
+      return NextResponse.json({ isLikelyAI: true, confidence: 0, blocked: true, softWarned: false, reason: 'Image verification is temporarily unavailable. Please try again later.' });
     }
 
     const client = new Anthropic({ apiKey });
