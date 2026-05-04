@@ -31,10 +31,10 @@ async function checkForAI(imageUrl: string): Promise<{ ok: boolean; reason?: str
       body: JSON.stringify({ imageUrl }),
     });
     const data = await res.json();
-    if (data.isLikelyAI || data.blocked) return { ok: false, reason: data.reason };
+    if (data.blocked) return { ok: false, reason: data.reason };
     return { ok: true };
   } catch {
-    return { ok: true }; // fail open
+    return { ok: false, reason: 'This image could not be verified. Please try a different one.' }; // fail closed
   }
 }
 

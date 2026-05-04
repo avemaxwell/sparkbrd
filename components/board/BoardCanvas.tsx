@@ -2827,8 +2827,9 @@ function AddTackModal({
       return 'ok';
     } catch (error) {
       console.error('AI check failed:', error);
+      setAiWarning('This image could not be verified. Please try a different one.');
       setChecking(false);
-      return 'ok'; // Fail open if detection itself errors
+      return 'hard_blocked'; // Fail closed — unverifiable images are not allowed
     }
   };
 
@@ -3173,58 +3174,30 @@ function AddTackModal({
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
           <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
             <div className="flex items-start gap-3 mb-4">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${aiHardBlocked ? 'bg-red-100' : 'bg-yellow-100'}`}>
-                {aiHardBlocked ? (
-                  <svg className="w-5 h-5 stroke-red-600 stroke-2 fill-none" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5 stroke-yellow-600 stroke-2 fill-none" viewBox="0 0 24 24">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-                  </svg>
-                )}
+              <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-red-100">
+                <svg className="w-5 h-5 stroke-red-600 stroke-2 fill-none" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                </svg>
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold text-ink mb-1">
-                  {aiHardBlocked ? 'AI-generated content not allowed' : 'This may be AI-generated'}
-                </h3>
+                <h3 className="font-semibold text-ink mb-1">AI-generated content not allowed</h3>
                 <p className="text-sm text-ink-soft">{aiWarning}</p>
               </div>
             </div>
 
-            <div className={`rounded-xl p-4 mb-4 ${aiHardBlocked ? 'bg-red-50' : 'bg-ink/5'}`}>
+            <div className="rounded-xl p-4 mb-4 bg-red-50">
               <p className="text-sm text-ink-soft">
                 <strong className="text-ink">Sparkurio is for human-made inspiration.</strong>{' '}
-                {aiHardBlocked
-                  ? 'This image has been identified as AI-generated with high confidence and cannot be uploaded. Please choose a human-created image instead.'
-                  : "We're building a space free from AI-generated content. If this is your own human-made work, you may proceed."}
+                This image appears to be AI-generated and cannot be uploaded. Please choose a human-created image instead.
               </p>
             </div>
 
-            {aiHardBlocked ? (
-              <button
-                onClick={handleCancelUpload}
-                className="w-full px-4 py-3 bg-ink text-white rounded-full text-sm font-medium hover:bg-ink/90 transition-colors"
-              >
-                Choose a different image
-              </button>
-            ) : (
-              <div className="flex gap-3">
-                <button
-                  onClick={handleCancelUpload}
-                  className="flex-1 px-4 py-3 bg-ink text-white rounded-full text-sm font-medium hover:bg-ink/90 transition-colors"
-                >
-                  Go back
-                </button>
-                <button
-                  onClick={proceedWithUpload}
-                  className="flex-1 px-4 py-3 bg-ink/10 text-ink rounded-full text-sm font-medium hover:bg-ink/20 transition-colors"
-                >
-                  It&apos;s human-made
-                </button>
-              </div>
-            )}
+            <button
+              onClick={handleCancelUpload}
+              className="w-full px-4 py-3 bg-ink text-white rounded-full text-sm font-medium hover:bg-ink/90 transition-colors"
+            >
+              Choose a different image
+            </button>
           </div>
         </div>
       )}

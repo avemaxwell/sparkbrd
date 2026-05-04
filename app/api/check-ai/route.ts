@@ -107,11 +107,15 @@ REAL / HUMAN-CREATED — only clear-evidence exceptions:
 • When in doubt between "AI" and "professional 3D render" — lean toward AI
 
 CALIBRATION:
-• High confidence (≥ 0.75): clear AI aesthetic OR multiple strong AI indicators
-• Medium confidence (0.45–0.74): 1–2 ambiguous signals, or strong-but-not-certain AI aesthetic
-• Low confidence (< 0.45): genuinely looks like real photography or human artwork
+• High confidence (≥ 0.70): clear AI aesthetic OR multiple strong AI indicators
+• Medium confidence (0.40–0.69): 1–2 ambiguous signals, or strong-but-not-certain AI aesthetic
+• Low confidence (< 0.40): genuinely looks like real photography or human artwork with
+  clear evidence of photographic noise, real lens distortion, or visible human art media
 • Do NOT give low confidence just because the subject matter is a robot or CGI object —
   focus on whether the GENERATION METHOD shows AI characteristics
+• When uncertain between "photorealistic AI" and "real photograph", lean AI — modern
+  generators (Flux, MJ v6+, DALL-E 3) produce near-perfect images. Real photos almost
+  always show sensor noise, slight focus fall-off, or subtle chromatic aberration.
 
 Also assess:
 • Explicit content: nudity, graphic sexual acts, sexualized content. Do NOT flag: swimwear, lingerie shown non-sexually, artistic non-sexual nudity, athletic wear, classical art.
@@ -222,18 +226,21 @@ export async function POST(request: Request) {
     }
 
     // AI detection thresholds:
-    //   ≥ 0.65 → hard block (no override)
-    //   0.35–0.64 → soft warn (user can override)
-    const hardBlocked = parsed.isAI && parsed.aiConfidence >= 0.65;
-    const softWarned  = parsed.isAI && parsed.aiConfidence >= 0.35 && !hardBlocked;
+    //   ≥ 0.45 → hard block, no user override
+    //   0.25–0.44 → soft block with gentler message, still no override
+    // Previously 0.65/0.35 — lowered because photorealistic AI (Flux, MJ v6+) was
+    // consistently scoring in the 0.40–0.60 range and slipping through.
+    const hardBlocked = parsed.isAI && parsed.aiConfidence >= 0.45;
+    const softWarned  = parsed.isAI && parsed.aiConfidence >= 0.25 && !hardBlocked;
 
     return NextResponse.json({
       isLikelyAI: parsed.isAI,
       confidence: parsed.aiConfidence,
-      blocked: hardBlocked,
-      softWarned,
+      blocked: hardBlocked || softWarned,   // both are now hard blocks — no user bypass
+      softWarned: false,                    // no soft-warn override path in UI anymore
       explicitBlocked: false,
       reason: parsed.aiReason,
+      lowConfidence: softWarned,            // lets UI show gentler message
     });
 
   } catch (error) {
