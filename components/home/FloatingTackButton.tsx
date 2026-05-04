@@ -438,22 +438,16 @@ function TackUploader({
       {/* AI warning overlay */}
       {aiWarning && (
         <div className="absolute inset-0 bg-white/95 backdrop-blur-sm rounded-2xl flex flex-col justify-center p-6 z-10">
-          <div className="flex items-start gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 stroke-yellow-600 stroke-2 fill-none" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <div className="flex items-start gap-3 mb-5">
+            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 stroke-red-600 stroke-2 fill-none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
             </div>
             <div>
-              <h3 className="font-semibold text-ink mb-1">This may be AI-generated</h3>
-              <p className="text-sm text-ink/60">{aiWarning}</p>
+              <h3 className="font-semibold text-ink mb-1">AI-generated images aren&apos;t allowed</h3>
+              <p className="text-sm text-ink/60">Sparkurio is a space for human-made work only.</p>
             </div>
           </div>
-          <div className="bg-ink/5 rounded-xl p-3 mb-4">
-            <p className="text-xs text-ink/60"><strong className="text-ink">Sparkurio is for human-made inspiration.</strong> Uploading AI imagery violates our community standards.</p>
-          </div>
-          <div className="flex gap-3">
-            <button onClick={() => { setAiWarning(null); setPendingUrl(null); }} className="flex-1 py-3 bg-ink text-white rounded-full text-sm font-medium hover:bg-ink/90 transition-colors">Go back</button>
-            <button onClick={handleAiProceed} className="flex-1 py-3 bg-ink/10 text-ink rounded-full text-sm font-medium hover:bg-ink/20 transition-colors">Upload anyway</button>
-          </div>
+          <button onClick={() => { setAiWarning(null); setPendingUrl(null); }} className="w-full py-3 bg-ink text-white rounded-full text-sm font-medium hover:bg-ink/90 transition-colors">Choose a different image</button>
         </div>
       )}
     </ModalShell>

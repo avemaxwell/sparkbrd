@@ -3180,16 +3180,9 @@ function AddTackModal({
                 </svg>
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold text-ink mb-1">AI-generated content not allowed</h3>
-                <p className="text-sm text-ink-soft">{aiWarning}</p>
+                <h3 className="font-semibold text-ink mb-1">AI-generated images aren&apos;t allowed</h3>
+                <p className="text-sm text-ink-soft">Sparkurio is a space for human-made work only.</p>
               </div>
-            </div>
-
-            <div className="rounded-xl p-4 mb-4 bg-red-50">
-              <p className="text-sm text-ink-soft">
-                <strong className="text-ink">Sparkurio is for human-made inspiration.</strong>{' '}
-                This image appears to be AI-generated and cannot be uploaded. Please choose a human-created image instead.
-              </p>
             </div>
 
             <button
