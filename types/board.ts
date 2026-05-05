@@ -12,6 +12,7 @@ export interface Board {
 
 export interface Tack {
   id: string;
+  board_id: string | null;
   content_url: string;
   title: string | null;
   note: string | null;

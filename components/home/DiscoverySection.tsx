@@ -106,7 +106,7 @@ export default function DiscoverySection() {
                 className={`group relative break-inside-avoid mb-2 transition-opacity duration-500 ${mounted ? "opacity-100" : "opacity-0"}`}
                 style={{ transitionDelay: `${Math.min(i * 30, 600)}ms` }}
               >
-                <Link href={`/board/${tack.board_id}`} className="block relative">
+                <Link href={`/tack/${tack.id}`} className="block relative">
                   <img
                     src={tackThumb(tack.content_url)}
                     alt={tack.title || ""}
