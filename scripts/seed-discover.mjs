@@ -1,152 +1,94 @@
 /**
- * Seed the discover feed with ~1,000 curated Unsplash photos.
+ * Seed the discover feed from a hand-picked list of image URLs.
  *
- * Prerequisites:
- *   1. Free Unsplash developer account → https://unsplash.com/developers
- *      Create an app and copy the "Access Key" (not Secret Key).
- *   2. Your Supabase user ID (the account that will own the seed board).
- *      Find it in Supabase Dashboard → Authentication → Users.
+ * HOW TO USE
+ * ──────────
+ * 1. Create scripts/seed-urls.txt — one image URL per line.
+ *    To get an Unsplash URL: open a photo → right-click the image → "Copy image address".
+ *    Works with any public image URL (Unsplash, Pexels, editorial sites, etc.).
  *
- * Add to .env.local:
- *   UNSPLASH_ACCESS_KEY=your_unsplash_access_key
- *   SEED_USER_ID=your_supabase_user_id
+ * 2. Add to .env.local (if not already there):
+ *      SEED_USER_ID=your_supabase_user_uuid
+ *    (Supabase Dashboard → Authentication → Users → copy your UUID)
  *
- * Run:
- *   node --env-file=.env.local scripts/seed-discover.mjs
+ * 3. Run:
+ *      node --env-file=.env.local scripts/seed-discover.mjs
  *
- * Re-running is safe — it skips images already in the seed board.
- * To top up later, just run it again; new images will be added.
+ * Safe to re-run — already-uploaded images are skipped.
+ * Add more URLs to seed-urls.txt any time and run again.
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
+import { readFileSync, existsSync } from 'fs';
+import { resolve, extname } from 'path';
+import { createHash } from 'crypto';
 
-// ─── Config ──────────────────────────────────────────────────────────────────
+// ─── Config ───────────────────────────────────────────────────────────────────
 
-const SUPABASE_URL        = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_URL         = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const UNSPLASH_KEY        = process.env.UNSPLASH_ACCESS_KEY;
-const SEED_USER_ID        = process.env.SEED_USER_ID;
-const SEED_BOARD_NAME     = 'Sparkurio Curated';
+const SEED_USER_ID         = process.env.SEED_USER_ID;
+const SEED_BOARD_NAME      = 'Sparkurio Curated';
+const URLS_FILE            = resolve(process.cwd(), 'scripts/seed-urls.txt');
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !UNSPLASH_KEY || !SEED_USER_ID) {
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !SEED_USER_ID) {
   console.error(`
-Missing required environment variables. Make sure .env.local contains:
+Missing env vars. Ensure .env.local contains:
   NEXT_PUBLIC_SUPABASE_URL
   SUPABASE_SERVICE_ROLE_KEY
-  UNSPLASH_ACCESS_KEY
   SEED_USER_ID
+`);
+  process.exit(1);
+}
+
+if (!existsSync(URLS_FILE)) {
+  console.error(`
+No scripts/seed-urls.txt found.
+Create the file and add one image URL per line, e.g.:
+
+  https://images.unsplash.com/photo-1506905925346-21bda4d32df4?...
+  https://images.unsplash.com/photo-1441986300917-64674bd600d8?...
 `);
   process.exit(1);
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-// ─── Curated categories ───────────────────────────────────────────────────────
-// Each entry: what to search, relevant tags, preferred orientation, target count.
-// orientations: 'portrait' | 'squarish' | 'landscape' | 'any'
-
-const CATEGORIES = [
-  // Interior design & home
-  { query: 'interior design living room',           tags: ['interior', 'home', 'living room', 'design'],      orientation: 'landscape', count: 50 },
-  { query: 'bedroom aesthetic cozy home',           tags: ['bedroom', 'cozy', 'home', 'interior'],            orientation: 'portrait',  count: 40 },
-  { query: 'home decor styling shelves',            tags: ['home', 'decor', 'styling', 'shelf'],              orientation: 'portrait',  count: 40 },
-  { query: 'kitchen interior minimal',              tags: ['kitchen', 'interior', 'minimal', 'home'],         orientation: 'landscape', count: 30 },
-  { query: 'bathroom interior design spa',          tags: ['bathroom', 'interior', 'spa', 'home'],            orientation: 'portrait',  count: 30 },
-
-  // Fashion & style
-  { query: 'fashion editorial portrait',            tags: ['fashion', 'editorial', 'portrait', 'style'],      orientation: 'portrait',  count: 60 },
-  { query: 'street style outfit aesthetic',         tags: ['fashion', 'street style', 'outfit'],              orientation: 'portrait',  count: 50 },
-  { query: 'clothing flat lay aesthetic',           tags: ['fashion', 'flat lay', 'clothing', 'style'],       orientation: 'squarish',  count: 40 },
-  { query: 'shoes accessories editorial',           tags: ['fashion', 'accessories', 'shoes', 'editorial'],   orientation: 'squarish',  count: 30 },
-
-  // Vintage & retro
-  { query: 'vintage objects retro nostalgia',       tags: ['vintage', 'retro', 'nostalgia', 'objects'],       orientation: 'squarish',  count: 50 },
-  { query: 'antique market flea market finds',      tags: ['vintage', 'antique', 'retro'],                    orientation: 'squarish',  count: 40 },
-  { query: 'film camera analog retro',              tags: ['vintage', 'analog', 'film', 'camera'],            orientation: 'squarish',  count: 30 },
-  { query: '70s aesthetic retro color',             tags: ['retro', '70s', 'vintage', 'color'],               orientation: 'squarish',  count: 30 },
-
-  // Floral & botanical
-  { query: 'flower close up macro',                 tags: ['floral', 'flower', 'botanical', 'macro'],         orientation: 'squarish',  count: 50 },
-  { query: 'botanical plant aesthetic',             tags: ['botanical', 'plant', 'green', 'nature'],          orientation: 'portrait',  count: 40 },
-  { query: 'dried flowers arrangement',             tags: ['floral', 'dried flowers', 'arrangement'],         orientation: 'squarish',  count: 30 },
-  { query: 'garden flowers blooming',               tags: ['garden', 'flowers', 'blooming', 'floral'],        orientation: 'squarish',  count: 30 },
-
-  // Still life & objects
-  { query: 'still life objects aesthetic',          tags: ['still life', 'objects', 'aesthetic'],             orientation: 'squarish',  count: 50 },
-  { query: 'flat lay aesthetic minimal',            tags: ['flat lay', 'minimal', 'aesthetic', 'styling'],    orientation: 'squarish',  count: 40 },
-  { query: 'candle minimal aesthetic',              tags: ['candle', 'minimal', 'cozy', 'aesthetic'],         orientation: 'squarish',  count: 30 },
-  { query: 'perfume beauty product editorial',      tags: ['beauty', 'perfume', 'product', 'editorial'],      orientation: 'squarish',  count: 30 },
-
-  // Art & creative
-  { query: 'art print gallery wall',                tags: ['art', 'gallery', 'print', 'wall'],                orientation: 'portrait',  count: 40 },
-  { query: 'painting artwork studio',               tags: ['art', 'painting', 'studio', 'creative'],          orientation: 'squarish',  count: 40 },
-  { query: 'illustration drawing sketchbook',       tags: ['illustration', 'drawing', 'art', 'sketch'],       orientation: 'squarish',  count: 30 },
-  { query: 'moodboard creative editorial',          tags: ['editorial', 'creative', 'moodboard'],             orientation: 'portrait',  count: 30 },
-
-  // Film & analog photography
-  { query: 'film photography grain 35mm',           tags: ['film', 'analog', '35mm', 'grain'],                orientation: 'squarish',  count: 40 },
-  { query: 'polaroid instant film photo',           tags: ['polaroid', 'film', 'instant', 'analog'],          orientation: 'squarish',  count: 30 },
-
-  // Food & café lifestyle
-  { query: 'food styling aesthetic editorial',      tags: ['food', 'styling', 'aesthetic', 'editorial'],      orientation: 'squarish',  count: 40 },
-  { query: 'cafe aesthetic coffee morning',         tags: ['cafe', 'coffee', 'morning', 'cozy'],              orientation: 'squarish',  count: 40 },
-  { query: 'baking pastry aesthetic',               tags: ['baking', 'pastry', 'food', 'sweet'],              orientation: 'squarish',  count: 30 },
-
-  // Ceramics & craft
-  { query: 'ceramics pottery handmade craft',       tags: ['ceramics', 'pottery', 'handmade', 'craft'],       orientation: 'squarish',  count: 40 },
-  { query: 'textile fabric weaving craft',          tags: ['textile', 'fabric', 'craft', 'handmade'],         orientation: 'squarish',  count: 30 },
-
-  // Typography & graphic
-  { query: 'neon sign typography street',           tags: ['neon', 'sign', 'typography', 'street'],           orientation: 'squarish',  count: 30 },
-  { query: 'book pages typography reading',         tags: ['book', 'typography', 'reading', 'aesthetic'],     orientation: 'squarish',  count: 30 },
-
-  // Color & mood
-  { query: 'pastel color aesthetic soft',           tags: ['pastel', 'color', 'soft', 'aesthetic'],           orientation: 'squarish',  count: 30 },
-  { query: 'moody dark aesthetic dramatic',         tags: ['moody', 'dark', 'dramatic', 'aesthetic'],         orientation: 'portrait',  count: 30 },
-  { query: 'earth tones warm color palette',        tags: ['earth tones', 'warm', 'color', 'palette'],        orientation: 'squarish',  count: 30 },
-];
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-async function unsplashSearch(query, orientation, page, perPage = 30) {
-  const params = new URLSearchParams({
-    query,
-    page: String(page),
-    per_page: String(perPage),
-    order_by: 'relevant',
-    ...(orientation !== 'any' && { orientation }),
-  });
-  const res = await fetch(`https://api.unsplash.com/search/photos?${params}`, {
-    headers: {
-      Authorization: `Client-ID ${UNSPLASH_KEY}`,
-      'Accept-Version': 'v1',
-    },
-  });
-  if (res.status === 429) throw new Error('Rate limited by Unsplash — wait an hour and retry.');
-  if (!res.ok) throw new Error(`Unsplash error ${res.status}: ${await res.text()}`);
-  return res.json();
+function urlToStorageKey(url) {
+  // Stable filename based on a hash of the source URL so re-runs skip it.
+  const hash = createHash('md5').update(url).digest('hex').slice(0, 16);
+  // Try to detect extension from the URL; fall back to .jpg
+  const rawPath = new URL(url).pathname;
+  const ext = ['.jpg', '.jpeg', '.png', '.webp'].find(e => rawPath.toLowerCase().includes(e)) ?? '.jpg';
+  return `seeds/${hash}${ext}`;
 }
 
-function extractUrl(photo) {
-  // Use the "regular" size (1080px) — good quality, reasonable file size
-  return photo.urls.regular;
-}
-
-function extractSource(photo) {
-  const user = photo.user?.name ?? photo.user?.username ?? null;
-  return user ? `unsplash.com/@${photo.user.username}` : 'unsplash.com';
+function guessSourceDomain(url) {
+  try { return new URL(url).hostname.replace('www.', ''); } catch { return null; }
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log('🌱  Sparkurio discover seed script\n');
+  console.log('🌱  Sparkurio discover seed\n');
 
-  // 1. Find or create the seed board
+  // Parse URL list — ignore blank lines and comments
+  const lines = readFileSync(URLS_FILE, 'utf8')
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l && !l.startsWith('#'));
+
+  if (lines.length === 0) {
+    console.error('seed-urls.txt is empty. Add some image URLs and try again.');
+    process.exit(1);
+  }
+  console.log(`📋  ${lines.length} URLs loaded from seed-urls.txt`);
+
+  // Find or create the seed board
   let boardId;
   const { data: existing } = await supabase
     .from('boards')
@@ -172,99 +114,111 @@ async function main() {
       })
       .select('id')
       .single();
-    if (error) { console.error('Failed to create board:', error); process.exit(1); }
+    if (error) { console.error('Failed to create board:', error.message); process.exit(1); }
     boardId = created.id;
     console.log(`✓  Created new board: ${boardId}`);
   }
 
-  // 2. Load URLs already in this board so we can skip duplicates
-  const { data: existing_tacks } = await supabase
+  // Check which storage keys already exist so we can skip them
+  const { data: existingFiles } = await supabase.storage.from('tacks').list('seeds', { limit: 10000 });
+  const existingKeys = new Set((existingFiles ?? []).map(f => `seeds/${f.name}`));
+  console.log(`ℹ  ${existingKeys.size} images already uploaded — will skip these.\n`);
+
+  let inserted = 0;
+  let skipped  = 0;
+  let failed   = 0;
+
+  // Get current max z_index for the board
+  const { data: zRow } = await supabase
     .from('tacks')
-    .select('content_url')
-    .eq('board_id', boardId);
-  const existingUrls = new Set((existing_tacks ?? []).map(t => t.content_url));
-  console.log(`ℹ  ${existingUrls.size} images already in board — will skip these.\n`);
+    .select('z_index')
+    .eq('board_id', boardId)
+    .order('z_index', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let zIndex = (zRow?.z_index ?? 0) + 1;
 
-  // 3. Fetch and insert
-  let totalInserted = 0;
-  let totalSkipped = 0;
-  let requestCount = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const url = lines[i];
+    const storageKey = urlToStorageKey(url);
+    const progress = `[${i + 1}/${lines.length}]`;
 
-  for (const cat of CATEGORIES) {
-    console.log(`\n📂  ${cat.query} (target: ${cat.count})`);
-    const toFetch = cat.count;
-    const pages = Math.ceil(toFetch / 30);
-    const photos = [];
-
-    for (let page = 1; page <= pages; page++) {
-      const perPage = page === pages ? (toFetch % 30 || 30) : 30;
-
-      // Unsplash free tier: 50 req/hour → ~1.2s between requests
-      if (requestCount > 0) await sleep(1300);
-      requestCount++;
-
-      try {
-        const result = await unsplashSearch(cat.query, cat.orientation, page, perPage);
-        photos.push(...(result.results ?? []));
-        process.stdout.write(`  page ${page}/${pages} → ${result.results?.length ?? 0} photos`);
-      } catch (err) {
-        console.error(`\n  ✗ ${err.message}`);
-        if (err.message.includes('Rate limited')) process.exit(1);
-        break;
-      }
+    if (existingKeys.has(storageKey)) {
+      process.stdout.write(`${progress} skip (already uploaded)\n`);
+      skipped++;
+      continue;
     }
 
-    // Build tack rows, deduplicating against existing and within this batch
-    const seenThisBatch = new Set();
-    const rows = [];
-    let zBase = totalInserted + 1;
-
-    for (const photo of photos) {
-      const url = extractUrl(photo);
-      if (existingUrls.has(url) || seenThisBatch.has(url)) { totalSkipped++; continue; }
-      seenThisBatch.add(url);
-      existingUrls.add(url); // prevent cross-category dupes
-
-      rows.push({
-        board_id:     boardId,
-        user_id:      SEED_USER_ID,
-        added_by:     SEED_USER_ID,
-        content_url:  url,
-        title:        photo.description || photo.alt_description || null,
-        source:       extractSource(photo),
-        tags:         cat.tags,
-        pin_color:    'papaya',
-        position_x:   Math.round(100 + Math.random() * 2400),
-        position_y:   Math.round(100 + Math.random() * 1600),
-        width:        300,
-        height:       Math.round(300 * (photo.height / photo.width)),
-        rotation:     0,
-        z_index:      zBase++,
-        hidden_as_ai: false,
+    // Download the image
+    let imageBuffer, contentType;
+    try {
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(15000),
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Sparkurio/1.0)' },
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      contentType = res.headers.get('content-type') ?? 'image/jpeg';
+      // Reject non-images (HTML error pages, etc.)
+      if (!contentType.startsWith('image/')) throw new Error(`not an image (${contentType})`);
+      imageBuffer = Buffer.from(await res.arrayBuffer());
+    } catch (err) {
+      process.stdout.write(`${progress} ✗ download failed: ${err.message}\n`);
+      failed++;
+      continue;
     }
 
-    if (rows.length === 0) { console.log('  — nothing new to insert'); continue; }
+    // Upload to Supabase storage
+    const { error: uploadError } = await supabase.storage
+      .from('tacks')
+      .upload(storageKey, imageBuffer, { contentType, upsert: false });
 
-    // Insert in batches of 50
-    const BATCH = 50;
-    for (let i = 0; i < rows.length; i += BATCH) {
-      const batch = rows.slice(i, i + BATCH);
-      const { error } = await supabase.from('tacks').insert(batch);
-      if (error) {
-        console.error(`\n  ✗ Insert error:`, error.message);
-      } else {
-        totalInserted += batch.length;
-        process.stdout.write(`  ✓ inserted ${batch.length}`);
-      }
+    if (uploadError) {
+      process.stdout.write(`${progress} ✗ upload failed: ${uploadError.message}\n`);
+      failed++;
+      continue;
     }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage.from('tacks').getPublicUrl(storageKey);
+
+    // Insert tack
+    const { error: tackError } = await supabase.from('tacks').insert({
+      board_id:     boardId,
+      user_id:      SEED_USER_ID,
+      added_by:     SEED_USER_ID,
+      content_url:  publicUrl,
+      source:       guessSourceDomain(url),
+      pin_color:    'papaya',
+      position_x:   Math.round(100 + Math.random() * 2400),
+      position_y:   Math.round(100 + Math.random() * 1600),
+      width:        300,
+      height:       300,
+      rotation:     0,
+      z_index:      zIndex++,
+      hidden_as_ai: false,
+    });
+
+    if (tackError) {
+      process.stdout.write(`${progress} ✗ tack insert failed: ${tackError.message}\n`);
+      failed++;
+      continue;
+    }
+
+    existingKeys.add(storageKey);
+    inserted++;
+    process.stdout.write(`${progress} ✓ ${guessSourceDomain(url)}\n`);
+
+    // Small delay to avoid hammering the source server
+    if (i < lines.length - 1) await sleep(300);
   }
 
-  console.log(`\n\n✅  Done!`);
-  console.log(`   Inserted: ${totalInserted}`);
-  console.log(`   Skipped (already existed): ${totalSkipped}`);
-  console.log(`   Total in board: ${existingUrls.size}`);
-  console.log(`\n   Board is public — images will appear in the discover feed immediately.`);
+  console.log(`\n✅  Done`);
+  console.log(`   Inserted : ${inserted}`);
+  console.log(`   Skipped  : ${skipped}`);
+  console.log(`   Failed   : ${failed}`);
+  if (inserted > 0) {
+    console.log(`\n   Images are live in the discover feed immediately.`);
+  }
 }
 
 main().catch(err => { console.error(err); process.exit(1); });
