@@ -62,10 +62,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ tacks: feed, personalized: false });
     }
 
-    // If not logged in — return latest public tacks, deduped by URL
+    // If not logged in — shuffle then dedupe so each visit shows a different slice
     if (!user) {
+      const shuffled = [...filtered].sort(() => Math.random() - 0.5);
       const seen = new Set<string>();
-      const feed = filtered.filter(t => {
+      const feed = shuffled.filter(t => {
         if (seen.has(t.content_url)) return false;
         seen.add(t.content_url);
         return true;
@@ -134,8 +135,9 @@ export async function GET(request: Request) {
         return { ...t, _score: score };
       });
 
-    // Sort: high-interest first, then recency (already sorted by created_at desc)
-    scored.sort((a, b) => b._score - a._score);
+    // Sort: high-interest first. Within each score tier, shuffle so the same
+    // images don't always win on repeat visits.
+    scored.sort((a, b) => b._score - a._score || Math.random() - 0.5);
 
     // Dedupe by URL, take limit
     const seen = new Set<string>();
