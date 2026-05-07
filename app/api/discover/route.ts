@@ -11,7 +11,9 @@ export async function GET(request: Request) {
     // Get current user (optional — personalization only if logged in)
     const { data: { user } } = await supabase.auth.getUser();
 
-    // Fetch tacks from public boards — exclude SVG stickers
+    // Fetch tacks from public boards — exclude SVG stickers.
+    // No ORDER BY for discovery queries so PostgreSQL returns rows in varying
+    // heap order, giving us a naturally different pool on each request.
     let query = supabase
       .from('tacks')
       .select(`
@@ -24,14 +26,13 @@ export async function GET(request: Request) {
         boards!inner(id, name, owner_id, is_public)
       `)
       .eq('boards.is_public', true)
-      .not('content_url', 'ilike', '%.svg%')
-      .order('created_at', { ascending: false });
+      .not('content_url', 'ilike', '%.svg%');
 
     // If searching, filter server-side on title, source, and tags
     if (q) {
       query = query.or(`title.ilike.%${q}%,source.ilike.%${q}%`);
     } else {
-      query = query.limit(200);
+      query = query.limit(800);
     }
 
     const { data: publicTacks, error } = await query;
@@ -135,17 +136,27 @@ export async function GET(request: Request) {
         return { ...t, _score: score };
       });
 
-    // Sort: high-interest first. Within each score tier, shuffle so the same
-    // images don't always win on repeat visits.
-    scored.sort((a, b) => b._score - a._score || Math.random() - 0.5);
-
-    // Dedupe by URL, take limit
+    // Weighted random sampling: higher-scored items are more likely to appear
+    // but are never guaranteed, so the feed feels fresh on every visit.
+    // Weight = score + 1 (minimum 1 so zero-score items still have a chance).
+    const feed: typeof scored = [];
+    const pool = [...scored];
     const seen = new Set<string>();
-    const feed = scored.filter(t => {
-      if (seen.has(t.content_url)) return false;
-      seen.add(t.content_url);
-      return true;
-    }).slice(0, limit);
+
+    while (feed.length < limit && pool.length > 0) {
+      const totalWeight = pool.reduce((s, t) => s + t._score + 1, 0);
+      let rand = Math.random() * totalWeight;
+      let picked = pool.length - 1;
+      for (let i = 0; i < pool.length; i++) {
+        rand -= pool[i]._score + 1;
+        if (rand <= 0) { picked = i; break; }
+      }
+      const item = pool.splice(picked, 1)[0];
+      if (!seen.has(item.content_url)) {
+        seen.add(item.content_url);
+        feed.push(item);
+      }
+    }
 
     return NextResponse.json({ tacks: feed, personalized: true });
 

@@ -12,7 +12,7 @@
  *    (Supabase Dashboard → Authentication → Users → copy your UUID)
  *
  * 3. Run:
- *      node --env-file=.env.local scripts/seed-discover.mjs
+ *      node scripts/seed-discover.mjs
  *
  * Safe to re-run — already-uploaded images are skipped.
  * Add more URLs to seed-urls.txt any time and run again.
@@ -20,8 +20,22 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, existsSync } from 'fs';
-import { resolve, extname } from 'path';
+import { resolve } from 'path';
 import { createHash } from 'crypto';
+
+// Parse .env.local manually — node --env-file can't handle values with < > & characters
+const envPath = resolve(process.cwd(), '.env.local');
+if (existsSync(envPath)) {
+  for (const line of readFileSync(envPath, 'utf8').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    const val = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
+    if (key && !(key in process.env)) process.env[key] = val;
+  }
+}
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -52,11 +66,45 @@ Create the file and add one image URL per line, e.g.:
   process.exit(1);
 }
 
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+async function generateTags(imageUrl) {
+  if (!ANTHROPIC_KEY) return null;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 150,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'url', url: imageUrl } },
+            { type: 'text', text: 'Generate 12-15 descriptive search tags for this image. Focus on: objects, colors, mood, style, setting, materials, activities. Return only comma-separated lowercase keywords, nothing else.' },
+          ],
+        }],
+      }),
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const text = data.content?.[0]?.text?.trim() ?? '';
+    if (!text) return null;
+    return text.replace(/\.$/, '').split(',').map(t => t.trim()).filter(Boolean);
+  } catch {
+    return null;
+  }
+}
 
 function urlToStorageKey(url) {
   // Stable filename based on a hash of the source URL so re-runs skip it.
@@ -110,7 +158,6 @@ async function main() {
         is_public: true,
         vibe: 'gradient',
         background_color: '#fef3e2,#fce7f3',
-        status: 'approved',
       })
       .select('id')
       .single();
@@ -181,6 +228,9 @@ async function main() {
     // Get public URL
     const { data: { publicUrl } } = supabase.storage.from('tacks').getPublicUrl(storageKey);
 
+    // Generate tags via Claude Haiku
+    const tags = await generateTags(publicUrl);
+
     // Insert tack
     const { error: tackError } = await supabase.from('tacks').insert({
       board_id:     boardId,
@@ -188,6 +238,7 @@ async function main() {
       added_by:     SEED_USER_ID,
       content_url:  publicUrl,
       source:       guessSourceDomain(url),
+      tags:         tags ?? [],
       pin_color:    'papaya',
       position_x:   Math.round(100 + Math.random() * 2400),
       position_y:   Math.round(100 + Math.random() * 1600),
@@ -219,6 +270,54 @@ async function main() {
   if (inserted > 0) {
     console.log(`\n   Images are live in the discover feed immediately.`);
   }
+
+  // ── Backfill tags for any seed tacks that have no tags yet ──────────────────
+  if (!ANTHROPIC_KEY) {
+    console.log(`\nℹ  No ANTHROPIC_API_KEY found — skipping tag backfill.`);
+    return;
+  }
+
+  const { data: untagged } = await supabase
+    .from('tacks')
+    .select('id, content_url')
+    .eq('board_id', boardId)
+    .or('tags.is.null,tags.eq.{}');
+
+  if (!untagged || untagged.length === 0) {
+    console.log(`\n✓  All images already have tags.`);
+    return;
+  }
+
+  console.log(`\n🏷   Tagging ${untagged.length} images without tags…`);
+  let tagged = 0;
+
+  for (let i = 0; i < untagged.length; i++) {
+    const tack = untagged[i];
+    const progress = `[${i + 1}/${untagged.length}]`;
+
+    const tags = await generateTags(tack.content_url);
+    if (!tags) {
+      process.stdout.write(`${progress} ✗ tagging failed\n`);
+      continue;
+    }
+
+    const { error } = await supabase
+      .from('tacks')
+      .update({ tags })
+      .eq('id', tack.id);
+
+    if (error) {
+      process.stdout.write(`${progress} ✗ update failed: ${error.message}\n`);
+    } else {
+      process.stdout.write(`${progress} ✓ ${tags.slice(0, 3).join(', ')}…\n`);
+      tagged++;
+    }
+
+    // Stay well under Anthropic rate limits
+    if (i < untagged.length - 1) await sleep(500);
+  }
+
+  console.log(`\n✅  Tagged ${tagged}/${untagged.length} images.`);
 }
 
 main().catch(err => { console.error(err); process.exit(1); });
