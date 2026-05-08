@@ -52,17 +52,20 @@ function heuristicCheck(imageUrl: string): { flagged: boolean } {
 // ─── Claude vision prompt ────────────────────────────────────────────────────
 // Kept intentionally short — fewer input tokens = faster response.
 
-const AI_DETECTION_PROMPT = `You detect AI-generated images. Default to AI unless you see clear photographic evidence otherwise.
+const AI_DETECTION_PROMPT = `You detect AI-generated images. Look for specific AI generator artifacts — do NOT flag clean professional photography just because it looks polished.
 
-FLAG AS AI:
-- Faces/skin: unnaturally smooth, perfect symmetry, glassy eyes, no visible pores
-- Hands: wrong finger count, fused or distorted digits
-- AI aesthetic: extreme subject sharpness + painterly soft background, volumetric lighting, orange+teal grading, "Midjourney glow"
-- Concept art style: mechs/robots with glowing accents, sci-fi/fantasy with impossible lighting
-- Textures that look rendered rather than photographed
-- Garbled or distorted text in the image
+FLAG AS AI — only if you actually see these:
+- Hands/fingers: wrong count, fused digits, anatomically impossible
+- Faces: uncanny valley — glassy/painted eyes, hyper-symmetrical, plastic skin with no pores
+- AI cinematic aesthetic: extreme subject sharpness + painted/dreamy soft background, orange+teal color grading, "Midjourney glow", volumetric light rays
+- Concept/fantasy art: mechs, robots, sci-fi scenes with impossible lighting
+- Garbled or morphed text in the image
+- Backgrounds that look painted or dissolving rather than photographed
 
-ALLOW as real/human only if you see: visible sensor noise, real lens distortion, chromatic aberration, or actual brushstrokes/paper texture. When uncertain, lean AI.
+DO NOT FLAG:
+- Product photography and fashion shots on clean white/grey studio backgrounds — these are deliberately noise-free and perfectly lit. Clean = professional, not AI.
+- Editorial and portrait photography, even when heavily retouched
+- Any image where hands, face, fabric, and proportions look anatomically correct
 
 Also flag: explicit sexual content (not swimwear/art nudity), or sexualization of minors.
 
