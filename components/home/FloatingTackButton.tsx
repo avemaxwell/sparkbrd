@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import FileSizeModal from "@/components/FileSizeModal";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/hooks/useUser";
@@ -209,6 +210,7 @@ function TackUploader({
   const [checking, setChecking] = useState(false);
   const [aiWarning, setAiWarning] = useState<string | null>(null);
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
+  const [fileSizeInfo, setFileSizeInfo] = useState<{ name: string; sizeMB: string } | null>(null);
 
   const saveTack = async (imageUrl: string, source?: string) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -239,7 +241,7 @@ function TackUploader({
 
     const MAX_MB = 20;
     if (file.size > MAX_MB * 1024 * 1024) {
-      alert(`This photo is too big to upload. Try saving it as a JPEG first, or use a smaller version.`);
+      setFileSizeInfo({ name: file.name, sizeMB: (file.size / (1024 * 1024)).toFixed(1) });
       e.target.value = '';
       return;
     }
@@ -256,9 +258,9 @@ function TackUploader({
     const { error } = await supabase.storage.from('tacks').upload(fileName, file);
     if (error) {
       console.error('Upload error:', error);
-      alert(error.message?.includes('too large') || error.message?.includes('413')
-        ? `This photo is too big to upload. Try saving it as a JPEG first, or use a smaller version.`
-        : `Something went wrong uploading your image. Please try again.`);
+      if (error.message?.includes('too large') || error.message?.includes('413')) {
+        setFileSizeInfo({ name: file.name, sizeMB: (file.size / (1024 * 1024)).toFixed(1) });
+      }
       setUploading(false);
       return;
     }
@@ -436,6 +438,14 @@ function TackUploader({
       )}
 
       {/* AI warning overlay */}
+      {fileSizeInfo && (
+        <FileSizeModal
+          fileName={fileSizeInfo.name}
+          sizeMB={fileSizeInfo.sizeMB}
+          onClose={() => setFileSizeInfo(null)}
+        />
+      )}
+
       {aiWarning && (
         <div className="absolute inset-0 bg-white/95 backdrop-blur-sm rounded-2xl flex flex-col justify-center p-6 z-10">
           <div className="flex items-start gap-3 mb-5">

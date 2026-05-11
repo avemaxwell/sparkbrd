@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { canAddTack, getUpgradeMessage, hasFeature } from "../../lib/plan-limits";
 import type { Plan } from "../../lib/plan-limits";
 import UpgradeModal from "@/components/UpgradeModal";
+import FileSizeModal from "@/components/FileSizeModal";
 import { useUser } from "@/hooks/useUser";
 import CommentDrawer from "@/components/board/CommentDrawer";
 import BoardActivityFeed from "@/components/board/BoardActivityFeed";
@@ -2779,6 +2780,7 @@ function AddTackModal({
   const [aiWarning, setAiWarning] = useState<string | null>(null);
   const [aiHardBlocked, setAiHardBlocked] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [fileSizeInfo, setFileSizeInfo] = useState<{ name: string; sizeMB: string } | null>(null);
   const [showAiConfirm, setShowAiConfirm] = useState(false);
   const [showExplicitBlock, setShowExplicitBlock] = useState(false);
   const [pendingUpload, setPendingUpload] = useState<{url: string, note: string, pinColor: string, source?: string} | null>(null);
@@ -2860,7 +2862,7 @@ function AddTackModal({
 
     const MAX_MB = 20;
     if (file.size > MAX_MB * 1024 * 1024) {
-      setUploadError(`This photo is too big to upload. Try saving it as a JPEG first, or use a smaller version.`);
+      setFileSizeInfo({ name: file.name, sizeMB: (file.size / (1024 * 1024)).toFixed(1) });
       e.target.value = '';
       return;
     }
@@ -2878,10 +2880,11 @@ function AddTackModal({
     const { error } = await supabase.storage.from("tacks").upload(fileName, file);
     if (error) {
       console.error("Upload error:", error);
-      const msg = error.message?.includes('too large') || error.message?.includes('413')
-        ? `This photo is too big to upload. Try saving it as a JPEG, or use a smaller version (under ${MAX_MB} MB).`
-        : `Something went wrong uploading your image. Please try again.`;
-      setUploadError(msg);
+      if (error.message?.includes('too large') || error.message?.includes('413')) {
+        setFileSizeInfo({ name: file.name, sizeMB: (file.size / (1024 * 1024)).toFixed(1) });
+      } else {
+        setUploadError('Something went wrong uploading your image. Please try again.');
+      }
       setPreviewUrl(null);
       setUploading(false);
       return;
@@ -3196,6 +3199,14 @@ function AddTackModal({
       )}
 
       {/* Explicit Content Modal */}
+      {fileSizeInfo && (
+        <FileSizeModal
+          fileName={fileSizeInfo.name}
+          sizeMB={fileSizeInfo.sizeMB}
+          onClose={() => setFileSizeInfo(null)}
+        />
+      )}
+
       {showExplicitBlock && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
