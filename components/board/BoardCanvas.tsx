@@ -1435,15 +1435,15 @@ return (
               url={tack.content_url}
               color={stickerFill}
               className="w-full pointer-events-none"
-              style={{ height: 'auto', maxHeight: '400px', objectFit: 'contain' }}
+              style={{ height: 'auto', display: 'block' }}
             />
           ) : (
             <>
               <img
                 src={tackCanvas(tack.content_url)}
                 alt={tack.title || ""}
-                className={`w-full pointer-events-none ${isTransparent ? '' : 'rounded-sm'}`}
-                style={{ height: 'auto', maxHeight: '400px', objectFit: 'contain' }}
+                className={`w-full pointer-events-none rounded-sm`}
+                style={{ height: 'auto', display: 'block' }}
                 draggable={false}
               />
               {tack.title && !isTransparent && (
@@ -2853,21 +2853,61 @@ function AddTackModal({
     setPendingUpload(null);
   };
 
+  // Resize and compress an image file client-side before uploading.
+  // Handles EXIF orientation via canvas (browser auto-corrects on drawImage).
+  // Returns a compressed JPEG — typically 5-15× smaller than the original.
+  const compressImage = (file: File): Promise<File> =>
+    new Promise((resolve) => {
+      const MAX_PX = 1600;
+      const url = URL.createObjectURL(file);
+      const img = new window.Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const { naturalWidth: w, naturalHeight: h } = img;
+        const scale = Math.min(1, MAX_PX / w, MAX_PX / h);
+        const canvas = document.createElement('canvas');
+        canvas.width  = Math.round(w * scale);
+        canvas.height = Math.round(h * scale);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { resolve(file); return; }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) { resolve(file); return; }
+            const compressed = new File(
+              [blob],
+              file.name.replace(/\.[^.]+$/, '.jpg'),
+              { type: 'image/jpeg' }
+            );
+            resolve(compressed);
+          },
+          'image/jpeg',
+          0.85
+        );
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const raw = e.target.files?.[0];
+    if (!raw) return;
 
     setUploadError(null);
     setAiWarning(null);
 
     const MAX_MB = 20;
-    if (file.size > MAX_MB * 1024 * 1024) {
-      setFileSizeInfo({ name: file.name, sizeMB: (file.size / (1024 * 1024)).toFixed(1) });
+    if (raw.size > MAX_MB * 1024 * 1024) {
+      setFileSizeInfo({ name: raw.name, sizeMB: (raw.size / (1024 * 1024)).toFixed(1) });
       e.target.value = '';
       return;
     }
 
     setUploading(true);
+
+    // Compress before upload — reduces storage and fixes EXIF orientation
+    const file = await compressImage(raw);
+
     const reader = new FileReader();
     reader.onload = () => setPreviewUrl(reader.result as string);
     reader.readAsDataURL(file);
