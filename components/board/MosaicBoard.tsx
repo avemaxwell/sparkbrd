@@ -197,45 +197,41 @@ export default function MosaicBoard() {
             )}
           </div>
         ) : (
-          <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 gap-2 md:gap-3">
+          <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 gap-x-2 px-1">
             {tacks.map((tack) => (
               <div
                 key={tack.id}
-                className={`group relative break-inside-avoid mb-2 md:mb-3 cursor-pointer transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}
+                className={`group relative break-inside-avoid mb-2 cursor-pointer transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}
                 onClick={() => setDetail(tack)}
               >
-                {/* Cap extreme aspect ratios at 520px from the top — clips bottom only */}
-                <div className="relative overflow-hidden rounded-lg" style={{ maxHeight: '520px' }}>
-                  <img
-                    src={tackThumb(tack.content_url)}
-                    alt={tack.title || ""}
-                    className="w-full h-auto block"
-                    loading="lazy"
-                    onError={(e) => { (e.currentTarget.parentElement!.parentElement as HTMLElement).style.display = 'none'; }}
-                  />
-                  {tack.title && (
-                    <div className="absolute bottom-0 inset-x-0 px-2 py-1.5 bg-gradient-to-t from-black/50 to-transparent">
-                      <p className="text-white text-[11px] font-medium truncate">{tack.title}</p>
-                    </div>
-                  )}
-                  <div className="absolute inset-0 md:bg-black/0 md:group-hover:bg-black/10 md:transition-colors md:duration-300" />
-                  {canEdit && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(tack.id); }}
-                      disabled={deleting === tack.id}
-                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 z-10"
-                      title="Remove"
-                    >
-                      {deleting === tack.id ? (
-                        <div className="w-3 h-3 border border-white/60 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        <svg className="w-3 h-3 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
-                          <path d="M18 6L6 18M6 6l12 12"/>
-                        </svg>
-                      )}
-                    </button>
-                  )}
-                </div>
+                <img
+                  src={tackThumb(tack.content_url)}
+                  alt={tack.title || ""}
+                  className="w-full h-auto block rounded-lg max-h-[500px] object-cover object-top"
+                  loading="lazy"
+                  onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }}
+                />
+                {tack.title && (
+                  <div className="absolute bottom-0 inset-x-0 px-2 py-1.5 bg-gradient-to-t from-black/50 to-transparent rounded-b-lg">
+                    <p className="text-white text-[11px] font-medium truncate">{tack.title}</p>
+                  </div>
+                )}
+                {canEdit && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(tack.id); }}
+                    disabled={deleting === tack.id}
+                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 z-10"
+                    title="Remove"
+                  >
+                    {deleting === tack.id ? (
+                      <div className="w-3 h-3 border border-white/60 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-3 h-3 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                      </svg>
+                    )}
+                  </button>
+                )}
               </div>
             ))}
           </div>
