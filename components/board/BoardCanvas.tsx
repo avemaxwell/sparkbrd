@@ -19,6 +19,7 @@ import PresenceAvatars from "@/components/board/PresenceAvatars";
 import CollaboratorCursors from "@/components/board/CollaboratorCursors";
 import type { Board, Tack, TextBlock } from "@/types/board";
 import { tackCanvas, tackDetail, tackMini } from "@/lib/image-transform";
+import { BoardTypeIcon } from "@/components/board/MosaicBoard";
 
 // Routes all tack/text_block writes through the admin-client API so RLS on
 // UPDATE never silently drops saves (board owners are not in board_members).
@@ -2082,6 +2083,15 @@ function SettingsSidebar({
         </div>
 
         <div className="flex-1 overflow-y-auto">
+          {/* Board type — read-only, set at creation */}
+          <div className="px-6 py-3 border-b border-ink/5 flex items-center gap-2">
+            <BoardTypeIcon type={board.board_type ?? 'canvas'} className="w-3.5 h-3.5 stroke-ink/40 flex-shrink-0" />
+            <span className="text-xs text-ink/40 font-medium">
+              {board.board_type === 'mosaic' ? 'Mosaic board' : 'Moodboard'}
+            </span>
+            <span className="text-[10px] text-ink/25 ml-auto">Can&apos;t be changed</span>
+          </div>
+
           <div className="p-6 border-b border-ink/5">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-medium text-ink-soft uppercase tracking-wide">Board Name</p>

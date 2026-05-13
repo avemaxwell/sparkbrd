@@ -8,6 +8,7 @@ export interface Board {
   is_public: boolean;
   team_id: string | null;
   status: 'draft' | 'in_review' | 'approved';
+  board_type: 'canvas' | 'mosaic';
 }
 
 export interface Tack {

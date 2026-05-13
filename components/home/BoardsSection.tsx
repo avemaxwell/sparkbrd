@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Board } from "@/types/board";
+import { BoardTypeIcon } from "@/components/board/MosaicBoard";
 import { usePlan } from "@/hooks/usePlan";
 import { canCreateBoard, getUpgradeMessage } from "@/lib/plan-limits";
 import UpgradeModal from "@/components/UpgradeModal";
@@ -76,6 +77,9 @@ function BoardCard({
           </div>
           <div className="absolute top-4 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-white/70 group-hover:bg-white/90 transition-colors z-20" />
           <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/50 to-transparent z-20">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <BoardTypeIcon type={board.board_type ?? 'canvas'} className="w-3 h-3 stroke-white/50 flex-shrink-0" />
+            </div>
             <h3 className="font-serif text-base text-white line-clamp-2 leading-snug">{board.name}</h3>
             {badge}
           </div>
@@ -128,6 +132,9 @@ function BoardCardMobile({
             />
           ))}
           <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/50 to-transparent z-10">
+            <div className="flex items-center gap-1 mb-0.5">
+              <BoardTypeIcon type={board.board_type ?? 'canvas'} className="w-3 h-3 stroke-white/50 flex-shrink-0" />
+            </div>
             <h3 className="font-serif text-sm text-white line-clamp-2 leading-snug">{board.name}</h3>
           </div>
         </div>

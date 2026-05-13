@@ -20,7 +20,7 @@ export default function NewBoardPage() {
 function NewBoardForm() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [template, setTemplate] = useState<'blank' | 'studio'>('blank');
+  const [boardKind, setBoardKind] = useState<'moodboard' | 'studio' | 'mosaic'>('moodboard');
   const [bgStyle, setBgStyle] = useState("gradient");
   const [color1, setColor1] = useState("#fef3e2");
   const [color2, setColor2] = useState("#fce7f3");
@@ -65,6 +65,7 @@ function NewBoardForm() {
         vibe: bgStyle,
         background_color: `${color1},${color2}`,
         owner_id: session.user.id,
+        board_type: boardKind === 'mosaic' ? 'mosaic' : 'canvas',
         ...(teamId ? { team_id: teamId } : {}),
       })
       .select()
@@ -76,8 +77,8 @@ function NewBoardForm() {
       return;
     }
 
-    // Pre-populate Studio Board template sections via API (admin client bypasses RLS)
-    if (template === 'studio') {
+    // Pre-populate Studio Board template sections
+    if (boardKind === 'studio') {
       await fetch(`/api/board/${data.id}/sections`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -294,51 +295,78 @@ function NewBoardForm() {
             />
           </div>
 
-          {/* Template */}
+          {/* Board type */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-ink mb-3">Start with a template</label>
-            <div className="grid grid-cols-2 gap-3">
+            <label className="block text-sm font-medium text-ink mb-3">Board type</label>
+            <div className="grid grid-cols-3 gap-2">
+              {/* Moodboard */}
               <button
                 type="button"
-                onClick={() => setTemplate('blank')}
-                className={`p-4 rounded-xl border-2 text-left transition-all ${template === 'blank' ? 'border-papaya bg-papaya/5' : 'border-ink/10 hover:border-ink/20'}`}
+                onClick={() => setBoardKind('moodboard')}
+                className={`p-3 rounded-xl border-2 text-left transition-all flex flex-col gap-2 ${boardKind === 'moodboard' ? 'border-papaya bg-papaya/5' : 'border-ink/10 hover:border-ink/20'}`}
               >
-                <div className="w-8 h-8 rounded-lg bg-ink/5 flex items-center justify-center mb-2">
-                  <svg className="w-4 h-4 stroke-ink/40 stroke-[1.5] fill-none" viewBox="0 0 24 24">
-                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <div className="w-8 h-8 rounded-lg bg-ink/5 flex items-center justify-center">
+                  <svg className="w-4 h-4 stroke-ink/50 stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                    <rect x="2" y="6" width="13" height="10" rx="1.5"/>
+                    <rect x="9" y="3" width="13" height="10" rx="1.5" strokeOpacity="0.4"/>
                   </svg>
                 </div>
-                <p className="font-medium text-sm text-ink">Blank Board</p>
-                <p className="text-xs text-ink/40 mt-0.5">Start fresh</p>
+                <div>
+                  <p className="font-semibold text-xs text-ink">Moodboard</p>
+                  <p className="text-[10px] text-ink/40 mt-0.5 leading-tight">Freeform canvas</p>
+                </div>
               </button>
+
+              {/* Studio */}
               <button
                 type="button"
-                onClick={() => canUseStudio ? setTemplate('studio') : undefined}
-                className={`p-4 rounded-xl border-2 text-left transition-all relative ${
+                onClick={() => canUseStudio ? setBoardKind('studio') : undefined}
+                className={`p-3 rounded-xl border-2 text-left transition-all flex flex-col gap-2 relative ${
                   !canUseStudio ? 'border-ink/10 opacity-60 cursor-default' :
-                  template === 'studio' ? 'border-papaya bg-papaya/5' : 'border-ink/10 hover:border-ink/20'
+                  boardKind === 'studio' ? 'border-papaya bg-papaya/5' : 'border-ink/10 hover:border-ink/20'
                 }`}
               >
                 {!canUseStudio && (
-                  <span className="absolute top-2 right-2 text-[10px] font-semibold bg-ink/10 text-ink/50 px-1.5 py-0.5 rounded-full">Team</span>
+                  <span className="absolute top-1.5 right-1.5 text-[9px] font-bold bg-ink/10 text-ink/40 px-1 py-0.5 rounded-full">Pro</span>
                 )}
-                <div className="w-8 h-8 rounded-lg bg-papaya/10 flex items-center justify-center mb-2">
+                <div className="w-8 h-8 rounded-lg bg-papaya/10 flex items-center justify-center">
                   <svg className="w-4 h-4 stroke-papaya stroke-[1.5] fill-none" viewBox="0 0 24 24">
-                    <line x1="3" y1="8" x2="21" y2="8"/>
-                    <line x1="3" y1="4" x2="8" y2="4"/>
-                    <line x1="3" y1="16" x2="21" y2="16"/>
-                    <line x1="3" y1="12" x2="8" y2="12"/>
-                    <line x1="3" y1="20" x2="8" y2="20"/>
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <line x1="3" y1="9" x2="21" y2="9"/>
+                    <line x1="3" y1="15" x2="21" y2="15"/>
                   </svg>
                 </div>
-                <p className="font-medium text-sm text-ink">Studio Board</p>
-                <p className="text-xs text-ink/40 mt-0.5">Pre-built for creative briefs</p>
+                <div>
+                  <p className="font-semibold text-xs text-ink">Studio</p>
+                  <p className="text-[10px] text-ink/40 mt-0.5 leading-tight">Creative briefs</p>
+                </div>
+              </button>
+
+              {/* Mosaic */}
+              <button
+                type="button"
+                onClick={() => setBoardKind('mosaic')}
+                className={`p-3 rounded-xl border-2 text-left transition-all flex flex-col gap-2 ${boardKind === 'mosaic' ? 'border-papaya bg-papaya/5' : 'border-ink/10 hover:border-ink/20'}`}
+              >
+                <div className="w-8 h-8 rounded-lg bg-ink/5 flex items-center justify-center">
+                  <svg className="w-4 h-4 stroke-ink/50 stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                    <rect x="3" y="3" width="8" height="8" rx="1"/>
+                    <rect x="13" y="3" width="8" height="8" rx="1"/>
+                    <rect x="3" y="13" width="8" height="8" rx="1"/>
+                    <rect x="13" y="13" width="8" height="8" rx="1"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-semibold text-xs text-ink">Mosaic</p>
+                  <p className="text-[10px] text-ink/40 mt-0.5 leading-tight">Gallery grid</p>
+                </div>
               </button>
             </div>
-            {template === 'studio' && (
-              <p className="text-xs text-ink/50 mt-2 leading-relaxed">
-                Drops in 5 section labels: Art Direction, Color Story, Reference Images, Typography Feels, What to Avoid.
-              </p>
+            {boardKind === 'studio' && (
+              <p className="text-xs text-ink/50 mt-2 leading-relaxed">Drops in 5 section labels to structure your creative brief.</p>
+            )}
+            {boardKind === 'mosaic' && (
+              <p className="text-xs text-ink/50 mt-2 leading-relaxed">Images arrange automatically in a masonry grid, newest first.</p>
             )}
           </div>
 
