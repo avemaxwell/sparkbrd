@@ -7,6 +7,24 @@ const LOGO = "https://vqaaxqvyepouqcrxduiw.supabase.co/storage/v1/object/public/
 
 const BASE = "https://vqaaxqvyepouqcrxduiw.supabase.co/storage/v1/object/public/tacks/2711858a-2413-47ca-98aa-d2fe964a2b4e/";
 
+// Mobile strip — shown below the logged-in greeting as a decorative horizontal scroll
+const STRIP_CARDS = [
+  { src: BASE + "1775145510453-compagnons-SEGkN8Gu-_M-unsplash.jpg",            rotate: -4, aspect: "3/4"  },
+  { src: BASE + "1775225653404-roberto-nickson-q5Q_T0y7qrk-unsplash.jpg",        rotate:  3, aspect: "4/3"  },
+  { src: BASE + "1775145642313-buddy-an-VptjauiOVQE-unsplash.jpg",               rotate: -5, aspect: "2/3"  },
+  { src: BASE + "1775225864912-fiona-murray-degraaff-0oaonllhaRA-unsplash.jpg",  rotate:  4, aspect: "1/1"  },
+  { src: BASE + "1775145672331-petra-nevezi-YcoIBuCRGWY-unsplash.jpg",           rotate: -3, aspect: "3/4"  },
+  { src: BASE + "1775145718678-kevin-charit-w33xcR8DltA-unsplash.jpg",           rotate:  5, aspect: "2/3"  },
+];
+
+// Mobile hero cards — 4 cards in a scattered fan below the CTA
+const MOBILE_HERO_CARDS = [
+  { src: BASE + "1775225864912-fiona-murray-degraaff-0oaonllhaRA-unsplash.jpg",     rotate: -8, aspect: "4/3", delay: "0ms"   },
+  { src: BASE + "1775145510453-compagnons-SEGkN8Gu-_M-unsplash.jpg",               rotate:  5, aspect: "3/4", delay: "60ms"  },
+  { src: BASE + "1775225487965-steph-wilson-9kK34JrqJgs-unsplash.jpg",              rotate: -4, aspect: "2/3", delay: "120ms" },
+  { src: BASE + "1775928652334-meg-wagener-vuXTB1lR3AY-unsplash.jpg",               rotate:  7, aspect: "3/4", delay: "180ms" },
+];
+
 // Cards kept in the left ~36% so they never bleed into the text column
 const CARDS = [
   // Top cluster
@@ -69,11 +87,11 @@ export default function HeroSection() {
 
   const firstName = profile?.name?.split(" ")[0];
 
-  // ── Logged-in: compact personal greeting ──────────────────
+  // ── Logged-in: greeting + decorative photo strip on mobile ──
   if (!loading && profile) {
     return (
-      <section className="relative pt-24 md:pt-32 pb-4 px-6 overflow-hidden">
-        <div className="max-w-7xl mx-auto">
+      <section className="relative pt-24 md:pt-32 pb-4 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-6">
           <div
             className={`transition-all duration-700 ${
               mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
@@ -86,6 +104,37 @@ export default function HeroSection() {
               )}
             </h1>
             <p className="text-ink/40 mt-2 text-base">Spark what inspires you.</p>
+          </div>
+        </div>
+
+        {/* Decorative photo strip — mobile only */}
+        <div className="md:hidden mt-6 overflow-x-auto scrollbar-none pl-6">
+          <div className="flex gap-3 pb-4 pr-6" style={{ width: 'max-content' }}>
+            {STRIP_CARDS.map((card, i) => (
+              <div
+                key={i}
+                className={`flex-shrink-0 transition-all duration-500 ${
+                  mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+                }`}
+                style={{ transitionDelay: `${i * 60}ms` }}
+              >
+                <div style={{ transform: `rotate(${card.rotate}deg)` }}>
+                  <div className="bg-white shadow-lg rounded-sm overflow-hidden" style={{ padding: '5px', width: '110px' }}>
+                    <img
+                      src={card.src}
+                      alt=""
+                      className="w-full object-cover block rounded-[1px]"
+                      style={{ aspectRatio: card.aspect }}
+                      loading="lazy"
+                    />
+                  </div>
+                  <div
+                    className="absolute -top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full shadow-sm ring-[1.5px] ring-white"
+                    style={{ backgroundColor: "#E24E42" }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -108,7 +157,7 @@ export default function HeroSection() {
         }}
       />
 
-      {/* Card collage — left half only, hidden on mobile */}
+      {/* Card collage — desktop: absolute left half / mobile: hidden (fan below CTA instead) */}
       <div className="absolute inset-0 pointer-events-none hidden md:block">
         {CARDS.map((card, i) => (
           <div
@@ -124,11 +173,8 @@ export default function HeroSection() {
               transitionDelay: `${i * 75}ms`,
             }}
           >
-            {/* Static rotation */}
             <div style={{ transform: `rotate(${card.rotate}deg)` }}>
-              {/* Float animation */}
               <div style={{ animation: mounted ? `hero-float ${card.float} ease-in-out infinite` : "none" }}>
-                {/* Card — thin white border matching board tack style */}
                 <div
                   className={`bg-white shadow-xl overflow-hidden rounded-sm transition-all duration-500 ${
                     newCard === i ? "ring-2 ring-papaya ring-offset-2 shadow-2xl scale-[1.03]" : ""
@@ -143,8 +189,6 @@ export default function HeroSection() {
                     loading="eager"
                   />
                 </div>
-
-                {/* Papaya tack pin — matches the "spark." color */}
                 <div
                   className="absolute -top-2 left-1/2 -translate-x-1/2 w-[13px] h-[13px] rounded-full shadow-md ring-[1.5px] ring-white"
                   style={{ backgroundColor: "#E24E42" }}
@@ -164,7 +208,7 @@ export default function HeroSection() {
       {/* Right: headline + CTA */}
       <div className="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-12 flex justify-end">
         <div
-          className={`w-full md:w-[52%] lg:w-[48%] pt-28 pb-16 md:pt-32 transition-all duration-700 delay-100 ${
+          className={`w-full md:w-[52%] lg:w-[48%] pt-28 pb-8 md:pt-32 md:pb-16 transition-all duration-700 delay-100 ${
             mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
           }`}
         >
@@ -213,6 +257,53 @@ export default function HeroSection() {
               </a>
             </div>
           )}
+
+          {/* Mobile card fan — 4 tacked photos below the CTA, desktop hidden */}
+          <div className="md:hidden mt-12 relative h-64">
+            {MOBILE_HERO_CARDS.map((card, i) => {
+              // Positions: two on top, two below, slightly overlapping
+              const positions = [
+                { left: '2%',  top: '0%'  },
+                { left: '28%', top: '8%'  },
+                { left: '54%', top: '2%'  },
+                { left: '72%', top: '12%' },
+              ];
+              const pos = positions[i];
+              return (
+                <div
+                  key={i}
+                  className={`absolute transition-all duration-700 ${
+                    mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+                  }`}
+                  style={{
+                    left: pos.left,
+                    top: pos.top,
+                    width: '120px',
+                    zIndex: i + 1,
+                    transitionDelay: card.delay,
+                  }}
+                >
+                  <div style={{ transform: `rotate(${card.rotate}deg)` }}>
+                    <div style={{ animation: mounted ? `hero-float ${7 + i * 2}s ease-in-out infinite` : "none" }}>
+                      <div className="bg-white shadow-xl rounded-sm overflow-hidden" style={{ padding: '5px' }}>
+                        <img
+                          src={card.src}
+                          alt=""
+                          className="w-full object-cover block rounded-[1px]"
+                          style={{ aspectRatio: card.aspect }}
+                          loading="lazy"
+                        />
+                      </div>
+                      <div
+                        className="absolute -top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full shadow-md ring-[1.5px] ring-white"
+                        style={{ backgroundColor: "#E24E42" }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
