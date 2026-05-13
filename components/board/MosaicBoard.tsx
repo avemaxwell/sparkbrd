@@ -46,8 +46,9 @@ export default function MosaicBoard() {
   const [loading, setLoading] = useState(true);
   const [memberRole, setMemberRole] = useState<'owner' | 'editor' | 'viewer'>('viewer');
   const [columnCount, setColumnCount] = useState(3);
-  const [lightbox, setLightbox] = useState<Tack | null>(null);
+  const [detail, setDetail] = useState<Tack | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
@@ -132,7 +133,7 @@ export default function MosaicBoard() {
       if (path) await supabase.storage.from("tacks").remove([path]);
     }
     setTacks(prev => prev.filter(t => t.id !== tackId));
-    if (lightbox?.id === tackId) setLightbox(null);
+    if (detail?.id === tackId) setDetail(null);
     setDeleting(null);
   };
 
@@ -170,17 +171,31 @@ export default function MosaicBoard() {
             <h1 className="font-serif text-lg truncate leading-tight">{board.name}</h1>
           </div>
         </div>
-        {canEdit && (
-          <button
-            onClick={() => setAddOpen(true)}
-            className="flex items-center gap-1.5 bg-papaya text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-papaya/90 transition-colors flex-shrink-0"
-          >
-            <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
-              <path d="M12 5v14M5 12h14"/>
-            </svg>
-            Add
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {memberRole === 'owner' && (
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="w-9 h-9 rounded-full bg-ink/5 hover:bg-ink/10 flex items-center justify-center transition-colors"
+              title="Board settings"
+            >
+              <svg className="w-4 h-4 stroke-ink/60 stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </button>
+          )}
+          {canEdit && (
+            <button
+              onClick={() => setAddOpen(true)}
+              className="flex items-center gap-1.5 bg-papaya text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-papaya/90 transition-colors"
+            >
+              <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+              Add
+            </button>
+          )}
+        </div>
       </header>
 
       {/* ── Grid ───────────────────────────────────────────────────── */}
@@ -205,15 +220,21 @@ export default function MosaicBoard() {
                   <div
                     key={tack.id}
                     className={`group relative overflow-hidden rounded-lg cursor-pointer transition-all duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}
-                    onClick={() => setLightbox(tack)}
+                    onClick={() => setDetail(tack)}
                   >
                     <img
                       src={tackThumb(tack.content_url)}
                       alt={tack.title || ""}
-                      className="w-full h-auto object-cover block md:transition-transform md:duration-500 md:group-hover:scale-105"
+                      className="w-full object-cover block md:transition-transform md:duration-500 md:group-hover:scale-105"
+                      style={{ maxHeight: '320px' }}
                       loading="lazy"
                       onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }}
                     />
+                    {tack.title && (
+                      <div className="absolute bottom-0 inset-x-0 px-2 py-1.5 bg-gradient-to-t from-black/50 to-transparent">
+                        <p className="text-white text-[11px] font-medium truncate">{tack.title}</p>
+                      </div>
+                    )}
                     <div className="absolute inset-0 md:bg-black/0 md:group-hover:bg-black/15 md:transition-colors md:duration-300" />
                     {/* Delete button — owner/editor only */}
                     {canEdit && (
@@ -240,39 +261,273 @@ export default function MosaicBoard() {
         )}
       </div>
 
-      {/* ── Lightbox ───────────────────────────────────────────────── */}
-      {lightbox && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setLightbox(null)}
-        >
-          <button
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
-            onClick={() => setLightbox(null)}
-          >
-            <svg className="w-5 h-5 stroke-white stroke-[1.5] fill-none" viewBox="0 0 24 24">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
-          </button>
-          <div onClick={(e) => e.stopPropagation()} className="max-w-3xl w-full">
-            <img
-              src={tackDetail(lightbox.content_url)}
-              alt={lightbox.title || ""}
-              className="w-full h-auto max-h-[80vh] object-contain rounded-xl shadow-2xl"
-            />
-            {(lightbox.title || lightbox.note || lightbox.source) && (
-              <div className="mt-3 text-center">
-                {lightbox.title && <p className="text-white font-medium">{lightbox.title}</p>}
-                {lightbox.note && <p className="text-white/60 text-sm mt-1">{lightbox.note}</p>}
-                {lightbox.source && <p className="text-white/40 text-xs mt-1">{lightbox.source}</p>}
-              </div>
-            )}
-          </div>
-        </div>
+      {/* ── Tack detail panel ──────────────────────────────────────── */}
+      {detail && (
+        <TackDetailPanel
+          tack={detail}
+          canEdit={canEdit}
+          onClose={() => setDetail(null)}
+          onUpdate={(updates) => {
+            setTacks(prev => prev.map(t => t.id === detail.id ? { ...t, ...updates } : t));
+            setDetail(prev => prev ? { ...prev, ...updates } : null);
+          }}
+          onDelete={() => { handleDelete(detail.id); }}
+        />
+      )}
+
+      {/* ── Settings panel ─────────────────────────────────────────── */}
+      {settingsOpen && (
+        <MosaicSettings
+          board={board}
+          onClose={() => setSettingsOpen(false)}
+          onUpdate={(updates) => setBoard(prev => prev ? { ...prev, ...updates } : prev)}
+        />
       )}
 
       {/* ── Add tack modal ─────────────────────────────────────────── */}
       {addOpen && <MosaicAddModal boardId={boardId} board={board} onClose={() => setAddOpen(false)} onAdded={(t) => setTacks(prev => [t, ...prev])} />}
+    </div>
+  );
+}
+
+// ── Board settings panel ──────────────────────────────────────────────────────
+function MosaicSettings({ board, onClose, onUpdate }: {
+  board: Board;
+  onClose: () => void;
+  onUpdate: (updates: Partial<Board>) => void;
+}) {
+  const supabase = createClient();
+  const [name, setName] = useState(board.name);
+  const [isPublic, setIsPublic] = useState(board.is_public ?? false);
+  const [status, setStatus] = useState<'draft' | 'in_review' | 'approved'>(board.status ?? 'draft');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      const updates = { name: name.trim() || board.name, is_public: isPublic, status };
+      const changed = updates.name !== board.name || updates.is_public !== board.is_public || updates.status !== board.status;
+      if (!changed) return;
+      setSaving(true);
+      const { error } = await supabase.from("boards").update(updates).eq("id", board.id);
+      if (!error) onUpdate(updates);
+      setSaving(false);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [name, isPublic, status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const STATUS_OPTIONS = [
+    { value: 'draft',     label: 'Draft',     active: 'bg-ink text-white',          inactive: 'bg-ink/5 text-ink/50 hover:bg-ink/10' },
+    { value: 'in_review', label: 'In Review', active: 'bg-amber-400 text-amber-900', inactive: 'bg-amber-50 text-amber-600 hover:bg-amber-100' },
+    { value: 'approved',  label: 'Approved',  active: 'bg-emerald-500 text-white',   inactive: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' },
+  ] as const;
+
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      <div className="flex-1 bg-black/20 backdrop-blur-sm" onClick={onClose} />
+      <div className="w-full sm:w-80 bg-white shadow-2xl flex flex-col overflow-hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="p-5 border-b border-ink/5 flex items-center justify-between">
+          <h2 className="font-serif text-xl">Board settings</h2>
+          <div className="flex items-center gap-2">
+            {saving && <div className="w-4 h-4 border-2 border-ink/20 border-t-papaya rounded-full animate-spin" />}
+            <button onClick={onClose} className="w-8 h-8 rounded-full bg-ink/5 hover:bg-ink/10 flex items-center justify-center transition-colors">
+              <svg className="w-4 h-4 stroke-ink stroke-[1.5] fill-none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {/* Board type — read-only */}
+          <div className="flex items-center gap-2 py-2 px-3 bg-ink/3 rounded-xl">
+            <BoardTypeIcon type="mosaic" className="w-3.5 h-3.5 stroke-ink/40" />
+            <span className="text-xs text-ink/40 font-medium">Mosaic board</span>
+            <span className="text-[10px] text-ink/25 ml-auto">Can&apos;t be changed</span>
+          </div>
+
+          {/* Name */}
+          <div>
+            <label className="block text-xs font-medium text-ink/50 mb-1.5">Board name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2.5 bg-ink/5 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-papaya/30 transition-all"
+            />
+          </div>
+
+          {/* Visibility */}
+          <div>
+            <label className="block text-xs font-medium text-ink/50 mb-2">Visibility</label>
+            <button
+              onClick={() => setIsPublic(!isPublic)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left ${
+                isPublic ? 'border-emerald-400/60 bg-emerald-50' : 'border-ink/10 bg-ink/3'
+              }`}
+            >
+              <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 transition-colors ${isPublic ? 'border-emerald-500 bg-emerald-500' : 'border-ink/20'}`}>
+                {isPublic && <svg className="w-full h-full stroke-white stroke-[3] fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>}
+              </div>
+              <div>
+                <p className={`text-sm font-medium ${isPublic ? 'text-emerald-700' : 'text-ink/60'}`}>{isPublic ? 'Public' : 'Private'}</p>
+                <p className="text-[11px] text-ink/40">{isPublic ? 'Anyone can find and view this board' : 'Only you can see this board'}</p>
+              </div>
+            </button>
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className="block text-xs font-medium text-ink/50 mb-2">Status</label>
+            <div className="flex gap-2">
+              {STATUS_OPTIONS.map(({ value, label, active, inactive }) => (
+                <button
+                  key={value}
+                  onClick={() => setStatus(value)}
+                  className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${status === value ? active : inactive}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Tack detail / edit panel ──────────────────────────────────────────────────
+function TackDetailPanel({ tack, canEdit, onClose, onUpdate, onDelete }: {
+  tack: Tack;
+  canEdit: boolean;
+  onClose: () => void;
+  onUpdate: (updates: Partial<Tack>) => void;
+  onDelete: () => void;
+}) {
+  const supabase = createClient();
+  const [title, setTitle] = useState(tack.title || "");
+  const [note, setNote] = useState(tack.note || "");
+  const [source, setSource] = useState(tack.source || "");
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Auto-save on field change
+  useEffect(() => {
+    if (!canEdit) return;
+    const t = setTimeout(async () => {
+      const updates = {
+        title: title.trim() || null,
+        note: note.trim() || null,
+        source: source.trim() || null,
+      };
+      const changed =
+        (updates.title ?? '') !== (tack.title ?? '') ||
+        (updates.note  ?? '') !== (tack.note  ?? '') ||
+        (updates.source ?? '') !== (tack.source ?? '');
+      if (!changed) return;
+      setSaving(true);
+      await supabase.from("tacks").update(updates).eq("id", tack.id);
+      onUpdate(updates);
+      setSaving(false);
+    }, 600);
+    return () => clearTimeout(t);
+  }, [title, note, source]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
+      <div
+        className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Image */}
+        <div className="relative bg-ink/5 flex-shrink-0">
+          <img
+            src={tackDetail(tack.content_url)}
+            alt={tack.title || ""}
+            className="w-full object-contain"
+            style={{ maxHeight: '45vh' }}
+          />
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center transition-colors"
+          >
+            <svg className="w-4 h-4 stroke-white stroke-[1.5] fill-none" viewBox="0 0 24 24">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+          {saving && (
+            <div className="absolute bottom-3 right-3 w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          )}
+        </div>
+
+        {/* Fields */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-ink/50 mb-1.5">Title</label>
+            {canEdit ? (
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Give this image a title…"
+                className="w-full px-3 py-2.5 bg-ink/5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-papaya/30 transition-all placeholder:text-ink/25"
+              />
+            ) : (
+              <p className="text-sm text-ink">{tack.title || <span className="text-ink/30 italic">No title</span>}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-ink/50 mb-1.5">Notes</label>
+            {canEdit ? (
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Add notes, context, or description…"
+                rows={3}
+                className="w-full px-3 py-2.5 bg-ink/5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-papaya/30 resize-none transition-all placeholder:text-ink/25"
+              />
+            ) : (
+              <p className="text-sm text-ink whitespace-pre-line">{tack.note || <span className="text-ink/30 italic">No notes</span>}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-ink/50 mb-1.5">Source</label>
+            {canEdit ? (
+              <input
+                type="text"
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                placeholder="Where did this come from?"
+                className="w-full px-3 py-2.5 bg-ink/5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-papaya/30 transition-all placeholder:text-ink/25"
+              />
+            ) : (
+              <p className="text-sm text-ink">{tack.source || <span className="text-ink/30 italic">No source</span>}</p>
+            )}
+          </div>
+
+          {canEdit && (
+            <div className="pt-2 border-t border-ink/5">
+              {confirmDelete ? (
+                <div className="flex items-center gap-3">
+                  <p className="text-xs text-ink/50 flex-1">Remove this image?</p>
+                  <button onClick={() => setConfirmDelete(false)} className="text-xs text-ink/40 hover:text-ink transition-colors">Cancel</button>
+                  <button onClick={onDelete} className="text-xs text-red-500 font-medium hover:text-red-600 transition-colors">Remove</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="text-xs text-ink/30 hover:text-red-400 transition-colors flex items-center gap-1.5"
+                >
+                  <svg className="w-3.5 h-3.5 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+                  </svg>
+                  Remove image
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -286,6 +541,9 @@ function MosaicAddModal({ boardId, board, onClose, onAdded }: {
 }) {
   const supabase = createClient();
   const [url, setUrl] = useState("");
+  const [title, setTitle] = useState("");
+  const [note, setNote] = useState("");
+  const [source, setSource] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -338,6 +596,9 @@ function MosaicAddModal({ boardId, board, onClose, onAdded }: {
       user_id: sess.session.user.id,
       added_by: sess.session.user.id,
       content_url: url.trim(),
+      title: title.trim() || null,
+      note: note.trim() || null,
+      source: source.trim() || null,
       pin_color: '#1A1A1A',
       position_x: 0,
       position_y: 0,
@@ -402,6 +663,42 @@ function MosaicAddModal({ boardId, board, onClose, onAdded }: {
             className="w-full px-3 py-2.5 bg-ink/5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-papaya/30 transition-all placeholder:text-ink/25"
           />
         </div>
+
+        {/* Metadata fields — shown once image is ready */}
+        {url && (
+          <div className="space-y-3 pt-1">
+            <div>
+              <label className="block text-xs font-medium text-ink/50 mb-1.5">Title <span className="font-normal text-ink/30">(optional)</span></label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Give it a name…"
+                className="w-full px-3 py-2.5 bg-ink/5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-papaya/30 transition-all placeholder:text-ink/25"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink/50 mb-1.5">Notes <span className="font-normal text-ink/30">(optional)</span></label>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Any context or description…"
+                rows={2}
+                className="w-full px-3 py-2.5 bg-ink/5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-papaya/30 resize-none transition-all placeholder:text-ink/25"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink/50 mb-1.5">Source <span className="font-normal text-ink/30">(optional)</span></label>
+              <input
+                type="text"
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                placeholder="Where did this come from?"
+                className="w-full px-3 py-2.5 bg-ink/5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-papaya/30 transition-all placeholder:text-ink/25"
+              />
+            </div>
+          </div>
+        )}
 
         {error && <p className="text-xs text-red-500">{error}</p>}
 

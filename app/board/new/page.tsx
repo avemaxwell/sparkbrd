@@ -373,8 +373,11 @@ function NewBoardForm() {
           {/* Divider */}
           <div className="border-t border-ink/10 my-6" />
 
-          {/* Background Section */}
-          <div className="mb-6">
+          {/* Background Section — disabled for mosaic (always white) */}
+          <div className={`mb-6 transition-opacity ${boardKind === 'mosaic' ? 'opacity-30 pointer-events-none select-none' : ''}`}>
+            {boardKind === 'mosaic' && (
+              <p className="text-xs text-ink/40 mb-3 italic">Background style doesn&apos;t apply to mosaic boards.</p>
+            )}
             <h3 className="text-sm font-medium text-ink mb-4">Background</h3>
             
             {/* Pattern Selection */}
