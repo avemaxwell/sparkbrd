@@ -221,22 +221,22 @@ export default function MosaicBoard() {
                 {col.map((tack) => (
                   <div
                     key={tack.id}
-                    className={`group relative overflow-hidden rounded-lg cursor-pointer transition-all duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}
+                    className={`group relative cursor-pointer transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}
                     onClick={() => setDetail(tack)}
                   >
                     <img
                       src={tackThumb(tack.content_url)}
                       alt={tack.title || ""}
-                      className="w-full h-auto block md:transition-transform md:duration-500 md:group-hover:scale-105"
+                      className="w-full h-auto block rounded-lg"
                       loading="lazy"
                       onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }}
                     />
                     {tack.title && (
-                      <div className="absolute bottom-0 inset-x-0 px-2 py-1.5 bg-gradient-to-t from-black/50 to-transparent">
+                      <div className="absolute bottom-0 inset-x-0 px-2 py-1.5 bg-gradient-to-t from-black/50 to-transparent rounded-b-lg">
                         <p className="text-white text-[11px] font-medium truncate">{tack.title}</p>
                       </div>
                     )}
-                    <div className="absolute inset-0 md:bg-black/0 md:group-hover:bg-black/15 md:transition-colors md:duration-300" />
+                    <div className="absolute inset-0 rounded-lg md:bg-black/0 md:group-hover:bg-black/10 md:transition-colors md:duration-300" />
                     {/* Delete button — owner/editor only */}
                     {canEdit && (
                       <button
