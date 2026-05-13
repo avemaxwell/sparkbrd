@@ -9,21 +9,21 @@ async function expandQuery(query: string): Promise<string[]> {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 100,
+      max_tokens: 150,
       messages: [
         {
           role: 'user',
-          content: `Expand this visual image search query into 8-10 related keywords that would appear in image tags or descriptions. Query: "${query}"\n\nReturn only comma-separated lowercase keywords, nothing else.`,
+          content: `You are a visual search assistant. Expand this image search query into 12-15 diverse keywords covering: visual appearance, colors, mood, style, materials, setting, activities, synonyms, and related concepts. Be specific and visual — think about what someone would SEE in the image. Query: "${query}"\n\nReturn only comma-separated lowercase keywords, nothing else.`,
         },
       ],
     });
 
     const text = response.content[0].type === 'text' ? response.content[0].text.trim() : query;
     const terms = text.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
-    const original = query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
-    return [...new Set([...original, ...terms])].slice(0, 12);
+    const original = query.toLowerCase().split(/\s+/).filter(t => t.length > 1);
+    return [...new Set([...original, ...terms])].slice(0, 15);
   } catch {
-    return query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+    return query.toLowerCase().split(/\s+/).filter(t => t.length > 1);
   }
 }
 
@@ -40,54 +40,66 @@ export async function GET(request: Request) {
 
     const terms = await expandQuery(query);
 
-    // ── Tack search ──────────────────────────────────────────────────────────
-    const orParts = terms.flatMap(term => {
-      const safe = term.replace(/[%_]/g, '\\$&');
-      return [
-        `tags.ilike.%${safe}%`,
-        `title.ilike.%${safe}%`,
-        `note.ilike.%${safe}%`,
-        `source.ilike.%${safe}%`,
-      ];
-    }).join(',');
+    // Build a tsquery: each term as a prefix match, all OR'd together.
+    // This uses the existing GIN index on (tags || title || source).
+    const tsQuery = terms
+      .map(t => t.replace(/[^a-zA-Z0-9\s]/g, '').trim())
+      .filter(Boolean)
+      .map(t => `${t}:*`)       // prefix matching so "flower" matches "flowers"
+      .join(' | ');
+
+    // Fallback ilike parts for the note field (not in the GIN index)
+    const noteOrParts = terms
+      .map(t => `note.ilike.%${t.replace(/[%_]/g, '\\$&')}%`)
+      .join(',');
 
     type TackResult = { id: string; content_url: string; title: string | null; source: string | null; board_id: string };
 
-    const { data: publicTacks } = await supabase
+    // Primary: full-text search via GIN index
+    const { data: publicTacksFts } = await supabase
       .from('tacks')
       .select('id, content_url, title, source, board_id, boards!inner(is_public, owner_id)')
       .eq('boards.is_public', true)
-      .or(orParts)
+      .textSearch('tags', tsQuery, { type: 'websearch', config: 'english' })
+      .not('content_url', 'ilike', '%.svg%')
       .limit(limit);
 
-    let tacks: TackResult[] = (publicTacks || []).map(t => ({
-      id: t.id, content_url: t.content_url, title: t.title, source: t.source, board_id: t.board_id,
-    }));
+    // Secondary: also search title/note/source via ilike (catches tacks with no tags)
+    const { data: publicTacksFallback } = await supabase
+      .from('tacks')
+      .select('id, content_url, title, source, board_id, boards!inner(is_public, owner_id)')
+      .eq('boards.is_public', true)
+      .or(`title.ilike.%${query.replace(/[%_]/g, '\\$&')}%,${noteOrParts}`)
+      .not('content_url', 'ilike', '%.svg%')
+      .limit(limit);
+
+    const seenIds = new Set<string>();
+    let tacks: TackResult[] = [];
+    for (const t of [...(publicTacksFts || []), ...(publicTacksFallback || [])]) {
+      if (seenIds.has(t.id)) continue;
+      seenIds.add(t.id);
+      tacks.push({ id: t.id, content_url: t.content_url, title: t.title, source: t.source, board_id: t.board_id });
+    }
 
     if (user) {
       const { data: ownTacks } = await supabase
         .from('tacks')
         .select('id, content_url, title, source, board_id, boards!inner(owner_id)')
         .eq('boards.owner_id', user.id)
-        .or(orParts)
+        .or(`tags.ilike.%${query.replace(/[%_]/g, '\\$&')}%,title.ilike.%${query.replace(/[%_]/g, '\\$&')}%,${noteOrParts}`)
+        .not('content_url', 'ilike', '%.svg%')
         .limit(limit);
 
       if (ownTacks) {
-        const existingIds = new Set(tacks.map(t => t.id));
-        const own: TackResult[] = ownTacks
-          .filter(t => !existingIds.has(t.id))
-          .map(t => ({ id: t.id, content_url: t.content_url, title: t.title, source: t.source, board_id: t.board_id }));
-        tacks = [...tacks, ...own];
+        for (const t of ownTacks) {
+          if (seenIds.has(t.id)) continue;
+          seenIds.add(t.id);
+          tacks.push({ id: t.id, content_url: t.content_url, title: t.title, source: t.source, board_id: t.board_id });
+        }
       }
     }
 
-    // Dedupe by content_url
-    const seenUrls = new Set<string>();
-    tacks = tacks.filter(t => {
-      if (seenUrls.has(t.content_url)) return false;
-      seenUrls.add(t.content_url);
-      return true;
-    }).slice(0, limit);
+    tacks = tacks.slice(0, limit);
 
     // ── Board search ─────────────────────────────────────────────────────────
     // Build a simple OR across name and description for the raw query terms

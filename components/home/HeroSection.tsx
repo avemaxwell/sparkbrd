@@ -143,7 +143,7 @@ export default function HeroSection() {
 
   // ── Logged-out: full editorial hero ───────────────────────
   return (
-    <section className="relative min-h-screen overflow-hidden">
+    <section className="relative min-h-screen overflow-hidden" style={{ isolation: 'isolate', zIndex: 0 }}>
 
       {/* Subtle warm gradient wash */}
       <div

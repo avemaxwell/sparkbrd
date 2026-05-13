@@ -6,6 +6,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/hooks/useUser";
 import { tackThumb, tackDetail } from "@/lib/image-transform";
+import { hasFeature } from "@/lib/plan-limits";
+import type { Plan } from "@/lib/plan-limits";
 import type { Board, Tack } from "@/types/board";
 
 // ── Board-type icons (shared with cards / settings) ─────────────────────────
@@ -225,8 +227,7 @@ export default function MosaicBoard() {
                     <img
                       src={tackThumb(tack.content_url)}
                       alt={tack.title || ""}
-                      className="w-full object-cover block md:transition-transform md:duration-500 md:group-hover:scale-105"
-                      style={{ maxHeight: '320px' }}
+                      className="w-full h-auto block md:transition-transform md:duration-500 md:group-hover:scale-105"
                       loading="lazy"
                       onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }}
                     />
@@ -297,6 +298,8 @@ function MosaicSettings({ board, onClose, onUpdate }: {
   onUpdate: (updates: Partial<Board>) => void;
 }) {
   const supabase = createClient();
+  const { profile: settingsProfile } = useUser();
+  const canUseStatus = hasFeature(settingsProfile?.plan as Plan | undefined, 'studio_boards');
   const [name, setName] = useState(board.name);
   const [isPublic, setIsPublic] = useState(board.is_public ?? false);
   const [status, setStatus] = useState<'draft' | 'in_review' | 'approved'>(board.status ?? 'draft');
@@ -359,35 +362,37 @@ function MosaicSettings({ board, onClose, onUpdate }: {
             <label className="block text-xs font-medium text-ink/50 mb-2">Visibility</label>
             <button
               onClick={() => setIsPublic(!isPublic)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left ${
-                isPublic ? 'border-emerald-400/60 bg-emerald-50' : 'border-ink/10 bg-ink/3'
-              }`}
+              className="relative w-full h-10 rounded-full p-1 flex items-center transition-colors"
+              style={{ backgroundColor: isPublic ? 'rgba(0,143,149,0.08)' : 'rgba(26,26,26,0.06)' }}
             >
-              <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 transition-colors ${isPublic ? 'border-emerald-500 bg-emerald-500' : 'border-ink/20'}`}>
-                {isPublic && <svg className="w-full h-full stroke-white stroke-[3] fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>}
-              </div>
-              <div>
-                <p className={`text-sm font-medium ${isPublic ? 'text-emerald-700' : 'text-ink/60'}`}>{isPublic ? 'Public' : 'Private'}</p>
-                <p className="text-[11px] text-ink/40">{isPublic ? 'Anyone can find and view this board' : 'Only you can see this board'}</p>
-              </div>
+              <span
+                className={`absolute top-1 h-8 w-[calc(50%-4px)] rounded-full shadow-sm transition-all duration-200 ${isPublic ? 'left-[calc(50%+2px)] bg-aqua' : 'left-1 bg-ink/70'}`}
+              />
+              <span className={`relative z-10 flex-1 text-center text-xs font-semibold transition-colors ${!isPublic ? 'text-white' : 'text-ink/40'}`}>Private</span>
+              <span className={`relative z-10 flex-1 text-center text-xs font-semibold transition-colors ${isPublic ? 'text-white' : 'text-ink/40'}`}>Public</span>
             </button>
+            <p className="text-[11px] text-ink/40 mt-1.5">
+              {isPublic ? 'Anyone can find and view this board.' : 'Only you can see this board.'}
+            </p>
           </div>
 
-          {/* Status */}
-          <div>
-            <label className="block text-xs font-medium text-ink/50 mb-2">Status</label>
-            <div className="flex gap-2">
-              {STATUS_OPTIONS.map(({ value, label, active, inactive }) => (
-                <button
-                  key={value}
-                  onClick={() => setStatus(value)}
-                  className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${status === value ? active : inactive}`}
-                >
-                  {label}
-                </button>
-              ))}
+          {/* Status — Pro+ only */}
+          {canUseStatus && (
+            <div>
+              <label className="block text-xs font-medium text-ink/50 mb-2">Status</label>
+              <div className="flex gap-2">
+                {STATUS_OPTIONS.map(({ value, label, active, inactive }) => (
+                  <button
+                    key={value}
+                    onClick={() => setStatus(value)}
+                    className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${status === value ? active : inactive}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

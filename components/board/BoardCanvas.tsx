@@ -2117,8 +2117,8 @@ function SettingsSidebar({
             />
           </div>
 
-          {/* Status — team plan only */}
-          {hasFeature(settingsProfile?.plan as Plan | undefined, 'board_status') && (
+          {/* Status — Pro+ only */}
+          {hasFeature(settingsProfile?.plan as Plan | undefined, 'studio_boards') && (
             <div className="p-6 border-b border-ink/5">
               <p className="text-xs font-medium text-ink-soft uppercase tracking-wide mb-3">Status</p>
               <div className="flex gap-2">
@@ -2140,19 +2140,23 @@ function SettingsSidebar({
           )}
 
           <div className="p-6 border-b border-ink/5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-ink">Public board</p>
-                <p className="text-xs text-ink-soft mt-0.5">Tacks appear in Discover for everyone</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsPublic(!isPublic)}
-                className={`relative inline-flex w-11 h-6 rounded-full transition-colors duration-200 flex-shrink-0 ${isPublic ? 'bg-papaya' : 'bg-ink/20'}`}
-              >
-                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${isPublic ? 'translate-x-5' : 'translate-x-0'}`} />
-              </button>
-            </div>
+            <p className="text-xs font-medium text-ink-soft uppercase tracking-wide mb-3">Visibility</p>
+            <button
+              type="button"
+              onClick={() => setIsPublic(!isPublic)}
+              className="relative w-full h-10 rounded-full bg-ink/8 p-1 flex items-center transition-colors"
+              style={{ backgroundColor: isPublic ? 'rgba(0,143,149,0.08)' : 'rgba(26,26,26,0.06)' }}
+            >
+              {/* sliding pill */}
+              <span
+                className={`absolute top-1 h-8 w-[calc(50%-4px)] rounded-full shadow-sm transition-all duration-200 ${isPublic ? 'left-[calc(50%+2px)] bg-aqua' : 'left-1 bg-ink/70'}`}
+              />
+              <span className={`relative z-10 flex-1 text-center text-xs font-semibold transition-colors ${!isPublic ? 'text-white' : 'text-ink/40'}`}>Private</span>
+              <span className={`relative z-10 flex-1 text-center text-xs font-semibold transition-colors ${isPublic ? 'text-white' : 'text-ink/40'}`}>Public</span>
+            </button>
+            <p className="text-[11px] text-ink/40 mt-2">
+              {isPublic ? 'Anyone can find and view this board.' : 'Only you can see this board.'}
+            </p>
           </div>
 
           <div className="p-6 border-b border-ink/5">
