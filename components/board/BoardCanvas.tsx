@@ -954,8 +954,11 @@ const handleTextRotateEnd = async () => {
         img.onload = () => {
           const nw = img.naturalWidth  || 300;
           const nh = img.naturalHeight || 300;
-          // Scale down to fit within a 420×560 canvas-unit box, never upscale.
-          const scale = Math.min(1, 300 / nw, 400 / nh);
+          // Width-only constraint: tacks are always 300 canvas units wide (never
+          // upscaled), height follows the image's natural aspect ratio. A height
+          // cap was previously here but forced portrait images narrower than 300px,
+          // making them appear as thin tall strips.
+          const scale = Math.min(1, 300 / nw);
           tackWidth  = Math.round(nw * scale);
           tackHeight = Math.round(nh * scale);
           resolve();
