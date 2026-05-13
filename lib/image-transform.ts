@@ -35,3 +35,4 @@ export const tackMini    = (url: string) => thumbUrl(url);
 
 // Detail / lightbox — serve the original (≤1600 px, no transform needed)
 export const tackDetail  = (url: string) => url;
+
