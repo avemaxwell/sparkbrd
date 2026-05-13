@@ -521,6 +521,7 @@ function MosaicAddModal({ boardId, board, onClose, onAdded }: {
   onAdded: (t: Tack) => void;
 }) {
   const supabase = createClient();
+  const [mode, setMode] = useState<'upload' | 'scrape'>('upload');
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
@@ -528,6 +529,13 @@ function MosaicAddModal({ boardId, board, onClose, onAdded }: {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Scrape state
+  const [scrapeUrl, setScrapeUrl] = useState("");
+  const [scraping, setScraping] = useState(false);
+  const [scrapedImages, setScrapedImages] = useState<string[]>([]);
+  const [scrapedSource, setScrapedSource] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [adding, setAdding] = useState(false);
 
   const resizeImage = (file: File, maxPx: number, type: string, quality: number): Promise<File> =>
     new Promise((resolve) => {
@@ -571,6 +579,38 @@ function MosaicAddModal({ boardId, board, onClose, onAdded }: {
     });
   };
 
+  const handleScrape = async () => {
+    if (!scrapeUrl.trim()) return;
+    setScraping(true);
+    setScrapedImages([]);
+    setSelected(new Set());
+    try {
+      const normalized = /^https?:\/\//i.test(scrapeUrl.trim()) ? scrapeUrl.trim() : `https://${scrapeUrl.trim()}`;
+      const res = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: normalized }) });
+      const data = await res.json();
+      if (data.error) { setError(data.error); }
+      else { setScrapedImages(data.images || []); setScrapedSource(data.source || ''); }
+    } catch { setError('Failed to fetch images from that page.'); }
+    setScraping(false);
+  };
+
+  const handleAddSelected = async () => {
+    if (selected.size === 0) return;
+    setAdding(true);
+    const { data: sess } = await supabase.auth.getSession();
+    if (!sess?.session?.user) { setAdding(false); return; }
+    for (const imgUrl of selected) {
+      const { data } = await supabase.from("tacks").insert({
+        board_id: boardId, user_id: sess.session.user.id, added_by: sess.session.user.id,
+        content_url: imgUrl, source: scrapedSource || null,
+        pin_color: '#1A1A1A', position_x: 0, position_y: 0, width: 300, height: 300, rotation: 0, z_index: 1,
+      }).select("*").single();
+      if (data) onAdded(data as Tack);
+    }
+    setAdding(false);
+    onClose();
+  };
+
   const handleSubmit = async () => {
     if (!url.trim()) return;
     setUploading(true);
@@ -600,14 +640,23 @@ function MosaicAddModal({ boardId, board, onClose, onAdded }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
-        <div className="flex items-center justify-between">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 flex-shrink-0">
           <h2 className="font-serif text-xl">Add to mosaic</h2>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-ink/5 hover:bg-ink/10 flex items-center justify-center transition-colors">
             <svg className="w-4 h-4 stroke-ink stroke-[1.5] fill-none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
 
+        {/* Tabs */}
+        <div className="flex gap-1 mx-6 mb-4 bg-ink/5 rounded-xl p-1 flex-shrink-0">
+          <button onClick={() => setMode('upload')} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${mode === 'upload' ? 'bg-white shadow-sm text-ink' : 'text-ink/50 hover:text-ink'}`}>Upload</button>
+          <button onClick={() => setMode('scrape')} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${mode === 'scrape' ? 'bg-white shadow-sm text-ink' : 'text-ink/50 hover:text-ink'}`}>From Page</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-4">
+        {mode === 'upload' && (<>
         {url ? (
           <div className="relative rounded-xl overflow-hidden">
             <img src={url} alt="" className="w-full h-48 object-cover" />
@@ -695,6 +744,70 @@ function MosaicAddModal({ boardId, board, onClose, onAdded }: {
         >
           {uploading ? "Saving…" : "Add to mosaic"}
         </button>
+        </>)}
+
+        {/* ── From Page tab ── */}
+        {mode === 'scrape' && (<>
+          <div className="flex gap-2">
+            <input
+              type="url"
+              value={scrapeUrl}
+              onChange={(e) => setScrapeUrl(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleScrape()}
+              placeholder="Paste a page URL to find images"
+              className="flex-1 px-3 py-2.5 bg-ink/5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-papaya/30 transition-all placeholder:text-ink/25"
+            />
+            <button
+              onClick={handleScrape}
+              disabled={!scrapeUrl.trim() || scraping}
+              className="px-4 py-2.5 bg-ink text-white rounded-xl text-sm font-medium hover:bg-ink/80 transition-colors disabled:opacity-50"
+            >
+              {scraping ? 'Finding…' : 'Find'}
+            </button>
+          </div>
+
+          {scraping && (
+            <div className="flex justify-center py-8">
+              <div className="w-6 h-6 border-2 border-ink/10 border-t-papaya rounded-full animate-spin" />
+            </div>
+          )}
+
+          {!scraping && scrapedImages.length === 0 && scrapeUrl && !error && (
+            <p className="text-sm text-ink/40 text-center py-6">Enter a URL and tap Find to discover images.</p>
+          )}
+
+          {scrapedImages.length > 0 && (<>
+            <p className="text-xs text-ink/50">Found {scrapedImages.length} images from <strong className="text-ink/70">{scrapedSource}</strong>. Tap to select.</p>
+            <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto">
+              {scrapedImages.map((imgUrl, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setSelected(prev => { const s = new Set(prev); s.has(imgUrl) ? s.delete(imgUrl) : s.add(imgUrl); return s; })}
+                  className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${selected.has(imgUrl) ? 'border-papaya ring-2 ring-papaya/30' : 'border-transparent hover:border-ink/20'}`}
+                >
+                  <img src={imgUrl} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }} />
+                  {selected.has(imgUrl) && (
+                    <div className="absolute top-1 right-1 w-5 h-5 bg-papaya rounded-full flex items-center justify-center">
+                      <svg className="w-3 h-3 stroke-white stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={handleAddSelected}
+              disabled={selected.size === 0 || adding}
+              className="w-full py-3 bg-papaya text-white rounded-full font-medium text-sm hover:bg-papaya/90 transition-colors disabled:opacity-40"
+            >
+              {adding ? 'Adding…' : `Add ${selected.size > 0 ? selected.size : ''} image${selected.size !== 1 ? 's' : ''}`}
+            </button>
+          </>)}
+
+          {error && <p className="text-xs text-red-500">{error}</p>}
+        </>)}
+
+        </div>{/* end scroll area */}
       </div>
     </div>
   );
