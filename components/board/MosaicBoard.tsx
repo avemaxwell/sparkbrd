@@ -529,23 +529,23 @@ function MosaicAddModal({ boardId, board, onClose, onAdded }: {
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const compressImage = (file: File): Promise<File> =>
+  const resizeImage = (file: File, maxPx: number, type: string, quality: number): Promise<File> =>
     new Promise((resolve) => {
-      const MAX_PX = 1600;
       const objUrl = URL.createObjectURL(file);
       const img = new window.Image();
       img.onload = () => {
         URL.revokeObjectURL(objUrl);
-        const scale = Math.min(1, MAX_PX / img.naturalWidth, MAX_PX / img.naturalHeight);
+        const scale = Math.min(1, maxPx / img.naturalWidth, maxPx / img.naturalHeight);
         const canvas = document.createElement('canvas');
         canvas.width  = Math.round(img.naturalWidth  * scale);
         canvas.height = Math.round(img.naturalHeight * scale);
         const ctx = canvas.getContext('2d');
         if (!ctx) { resolve(file); return; }
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const ext = type === 'image/webp' ? '.webp' : '.jpg';
         canvas.toBlob(
-          (blob) => resolve(blob ? new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }) : file),
-          'image/jpeg', 0.85
+          (blob) => resolve(blob ? new File([blob], file.name.replace(/\.[^.]+$/, ext), { type }) : file),
+          type, quality
         );
       };
       img.onerror = () => { URL.revokeObjectURL(objUrl); resolve(file); };
@@ -556,7 +556,7 @@ function MosaicAddModal({ boardId, board, onClose, onAdded }: {
     setError(null);
     if (file.size > 20 * 1024 * 1024) { setError("File too large (max 20 MB)."); return; }
     setUploading(true);
-    const compressed = await compressImage(file);
+    const compressed = await resizeImage(file, 1600, 'image/jpeg', 0.85);
     const safeName = compressed.name.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9._-]/g, '') || 'image';
     const path = `${boardId}/${Date.now()}-${safeName}`;
     const { error: upErr } = await supabase.storage.from("tacks").upload(path, compressed);
@@ -564,6 +564,11 @@ function MosaicAddModal({ boardId, board, onClose, onAdded }: {
     const { data: { publicUrl } } = supabase.storage.from("tacks").getPublicUrl(path);
     setUrl(publicUrl);
     setUploading(false);
+    // Store 400 px WebP thumbnail — served directly, no transform charges
+    resizeImage(file, 400, 'image/webp', 0.82).then(thumb => {
+      const thumbPath = path.replace(/\.[^/.]+$/, '_400.webp');
+      supabase.storage.from("tacks").upload(thumbPath, thumb, { contentType: 'image/webp' }).catch(() => {});
+    });
   };
 
   const handleSubmit = async () => {

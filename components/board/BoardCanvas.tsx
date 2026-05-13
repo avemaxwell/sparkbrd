@@ -2880,38 +2880,31 @@ function AddTackModal({
   // Resize and compress an image file client-side before uploading.
   // Handles EXIF orientation via canvas (browser auto-corrects on drawImage).
   // Returns a compressed JPEG — typically 5-15× smaller than the original.
-  const compressImage = (file: File): Promise<File> =>
+  const resizeImage = (file: File, maxPx: number, type: string, quality: number): Promise<File> =>
     new Promise((resolve) => {
-      const MAX_PX = 1600;
-      const url = URL.createObjectURL(file);
+      const objUrl = URL.createObjectURL(file);
       const img = new window.Image();
       img.onload = () => {
-        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(objUrl);
         const { naturalWidth: w, naturalHeight: h } = img;
-        const scale = Math.min(1, MAX_PX / w, MAX_PX / h);
+        const scale = Math.min(1, maxPx / w, maxPx / h);
         const canvas = document.createElement('canvas');
         canvas.width  = Math.round(w * scale);
         canvas.height = Math.round(h * scale);
         const ctx = canvas.getContext('2d');
         if (!ctx) { resolve(file); return; }
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const ext = type === 'image/webp' ? '.webp' : '.jpg';
         canvas.toBlob(
-          (blob) => {
-            if (!blob) { resolve(file); return; }
-            const compressed = new File(
-              [blob],
-              file.name.replace(/\.[^.]+$/, '.jpg'),
-              { type: 'image/jpeg' }
-            );
-            resolve(compressed);
-          },
-          'image/jpeg',
-          0.85
+          (blob) => resolve(blob ? new File([blob], file.name.replace(/\.[^.]+$/, ext), { type }) : file),
+          type, quality
         );
       };
-      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
-      img.src = url;
+      img.onerror = () => { URL.revokeObjectURL(objUrl); resolve(file); };
+      img.src = objUrl;
     });
+
+  const compressImage = (file: File) => resizeImage(file, 1600, 'image/jpeg', 0.85);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.files?.[0];
@@ -2956,6 +2949,13 @@ function AddTackModal({
     const { data: { publicUrl } } = supabase.storage.from("tacks").getPublicUrl(fileName);
     setUrl(publicUrl);
     setUploading(false);
+
+    // Store a 400 px WebP thumbnail alongside the original.
+    // Served directly — no Supabase Image Transform charges ever.
+    resizeImage(file, 400, 'image/webp', 0.82).then(thumb => {
+      const thumbName = fileName.replace(/\.[^/.]+$/, '_400.webp');
+      supabase.storage.from("tacks").upload(thumbName, thumb, { contentType: 'image/webp' }).catch(() => {});
+    });
   };
 
   const handleScrape = async () => {
