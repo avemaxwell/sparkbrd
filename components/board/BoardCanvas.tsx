@@ -1446,7 +1446,14 @@ return (
                 src={tackCanvas(tack.content_url)}
                 alt={tack.title || ""}
                 className={`w-full pointer-events-none rounded-sm`}
-                style={{ height: 'auto', display: 'block' }}
+                style={{
+                  height: 'auto',
+                  display: 'block',
+                  // Cap at the stored height so images don't overflow their original
+                  // canvas footprint. No objectFit:contain here — images clip at the
+                  // bottom rather than letterboxing (which caused the thin-strip look).
+                  maxHeight: tack.height ? `${tack.height}px` : '500px',
+                }}
                 draggable={false}
               />
               {tack.title && !isTransparent && (
