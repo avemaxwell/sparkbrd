@@ -47,16 +47,14 @@ async function listAll(folder) {
 
 async function compress(path) {
   const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`;
-  const renderUrl = `${SUPABASE_URL}/storage/v1/render/image/public/${BUCKET}/${path}?width=${MAX_PX}&quality=${QUALITY}&resize=contain`;
-
   // Fetch original size first (HEAD request)
   const head = await fetch(publicUrl, { method: 'HEAD' });
   const originalBytes = parseInt(head.headers.get('content-length') ?? '0', 10);
 
-  // Download compressed version via Supabase Image Transform
-  const res = await fetch(renderUrl);
+  // Download original directly — no Supabase Image Transform
+  const res = await fetch(publicUrl);
   if (!res.ok) {
-    console.warn(`  ✗ transform failed (${res.status}) — skipping ${path}`);
+    console.warn(`  ✗ fetch failed (${res.status}) — skipping ${path}`);
     return { skipped: true };
   }
 
