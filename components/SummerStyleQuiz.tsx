@@ -8,6 +8,10 @@ import { registerQuizOpener } from "@/lib/quiz-trigger";
 
 export type StyleKey = "boho" | "electric" | "coastal" | "timeless" | "enchanted";
 
+// Auto-popup only shows during this annual date window (MMDD, inclusive)
+const QUIZ_ACTIVE_START = 601; // June 1
+const QUIZ_ACTIVE_END   = 620; // June 20
+
 export const STYLE_BOARD_IDS: Record<StyleKey, string | null> = {
   boho:      "9ba1298f-dba9-4ec5-8f46-6e3267316af8",
   electric:  "fdd98123-0b57-42e5-83d8-dd919dc3c716",
@@ -136,6 +140,10 @@ export default function SummerStyleQuiz() {
     if (profile.quiz_result != null) return;
     if (sessionStorage.getItem("quiz_dismissed")) return;
     if (pathname?.startsWith("/login") || pathname?.startsWith("/signup")) return;
+
+    const now = new Date();
+    const mmdd = (now.getMonth() + 1) * 100 + now.getDate();
+    if (mmdd < QUIZ_ACTIVE_START || mmdd > QUIZ_ACTIVE_END) return;
 
     const timer = setTimeout(() => setOpen(true), 1500);
     return () => clearTimeout(timer);
