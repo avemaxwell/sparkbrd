@@ -106,7 +106,7 @@ const QUESTIONS = [
 ];
 
 export default function SummerStyleQuiz() {
-  const { profile, loading } = useUser();
+  const { profile, loading, refreshProfile } = useUser();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -167,6 +167,7 @@ export default function SummerStyleQuiz() {
         .sort((a, b) => b[1] - a[1])[0][0];
       setResult(winner);
       saveResult(winner);
+      sessionStorage.setItem("quiz_dismissed", "1");
       transitionTo("result");
     } else {
       transitionTo(currentQ + 1);
@@ -177,6 +178,7 @@ export default function SummerStyleQuiz() {
     if (!profile) return;
     const supabase = createClient();
     await supabase.from("profiles").update({ quiz_result: style }).eq("id", profile.id);
+    refreshProfile();
   };
 
   const handleViewBoard = () => {
