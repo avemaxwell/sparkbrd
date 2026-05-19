@@ -16,6 +16,7 @@ interface Profile {
   };
   board_count: number;
   created_at: string;
+  quiz_result?: string | null;
 }
 
 // Cache outside component - persists across renders but resets on hot reload

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useUser } from "@/hooks/useUser";
+import { openQuiz } from "@/lib/quiz-trigger";
 
 export default function SettingsPage() {
   const { profile, loading, refreshProfile, signOut } = useUser();
@@ -559,7 +560,16 @@ function AccountSection({ profile }: { profile: any }) {
 // PREFERENCES SECTION
 // ============================================================================
 
+const QUIZ_STYLE_DISPLAY: Record<string, { name: string; emoji: string; gradient: string }> = {
+  boho:      { name: "Free Spirit",     emoji: "🌻", gradient: "linear-gradient(135deg, #FCD34D, #FDA4AF)" },
+  electric:  { name: "Electric",        emoji: "⚡", gradient: "linear-gradient(135deg, #D946EF, #8B5CF6)" },
+  coastal:   { name: "Saltwater",       emoji: "🌊", gradient: "linear-gradient(135deg, #38BDF8, #5EEAD4)" },
+  timeless:  { name: "Timeless",        emoji: "🌹", gradient: "linear-gradient(135deg, #FDA4AF, #D4B896)" },
+  enchanted: { name: "Midnight Garden", emoji: "🥀", gradient: "linear-gradient(135deg, #2D1B4E, #E8658A)" },
+};
+
 function PreferencesSection() {
+  const { profile } = useUser();
   const [defaultBgStyle, setDefaultBgStyle] = useState("gradient");
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [weeklyDigest, setWeeklyDigest] = useState(false);
@@ -671,6 +681,54 @@ function PreferencesSection() {
             />
           </div>
         </label>
+      </div>
+
+      {/* Summer Style Quiz */}
+      <div className="mb-8">
+        <h3 className="text-sm font-medium text-ink mb-4">Summer Style</h3>
+        <div className="rounded-2xl border border-ink/8 overflow-hidden">
+          {profile?.quiz_result && QUIZ_STYLE_DISPLAY[profile.quiz_result] ? (
+            <div className="flex items-center gap-4 p-4">
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+                style={{ background: QUIZ_STYLE_DISPLAY[profile.quiz_result].gradient }}
+              >
+                {QUIZ_STYLE_DISPLAY[profile.quiz_result].emoji}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-ink">
+                  {QUIZ_STYLE_DISPLAY[profile.quiz_result].name}
+                </p>
+                <p className="text-sm text-ink/50">Your current summer aesthetic</p>
+              </div>
+              <button
+                onClick={openQuiz}
+                className="text-sm font-medium text-papaya hover:text-papaya/80 transition-colors flex-shrink-0"
+              >
+                Retake →
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4 p-4">
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+                style={{ background: "linear-gradient(135deg, #D946EF, #EC4899, #FB923C)" }}
+              >
+                🌞
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-ink">What&apos;s your summer style?</p>
+                <p className="text-sm text-ink/50">Take a 4-question quiz to find out</p>
+              </div>
+              <button
+                onClick={openQuiz}
+                className="text-sm font-medium text-papaya hover:text-papaya/80 transition-colors flex-shrink-0"
+              >
+                Take it →
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Save button */}
