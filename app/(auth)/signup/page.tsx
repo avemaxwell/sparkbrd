@@ -96,7 +96,8 @@ export default function SignupPage() {
         // Open mailto so they can reach out, then go home
         window.location.href = "mailto:admin@sparkurio.com?subject=Enterprise inquiry&body=Hi, I just signed up and I'm interested in an Enterprise plan.";
       }
-      router.push("/");
+      const redirectTo = new URLSearchParams(window.location.search).get("redirect") || "/";
+      router.push(redirectTo);
       router.refresh();
     } else {
       // Email confirmation required

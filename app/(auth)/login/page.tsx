@@ -29,7 +29,8 @@ export default function LoginPage() {
       setLoading(false);
     } else {
       resetUserCache();
-      router.push("/");
+      const redirectTo = new URLSearchParams(window.location.search).get("redirect") || "/";
+      router.push(redirectTo);
       router.refresh();
     }
   };
