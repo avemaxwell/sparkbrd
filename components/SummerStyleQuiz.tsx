@@ -9,7 +9,7 @@ import { registerQuizOpener } from "@/lib/quiz-trigger";
 export type StyleKey = "boho" | "electric" | "coastal" | "timeless" | "enchanted";
 
 // Auto-popup only shows during this annual date window (MMDD, inclusive)
-const QUIZ_ACTIVE_START = 601; // June 1
+const QUIZ_ACTIVE_START = 527; // May 27
 const QUIZ_ACTIVE_END   = 620; // June 20
 
 export const STYLE_BOARD_IDS: Record<StyleKey, string | null> = {
