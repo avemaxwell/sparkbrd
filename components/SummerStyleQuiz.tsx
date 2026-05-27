@@ -22,7 +22,7 @@ export const STYLE_BOARD_IDS: Record<StyleKey, string | null> = {
 
 const STYLES: Record<
   StyleKey,
-  { name: string; tagline: string; emoji: string; gradient: string; swatch: string; accentHex: string }
+  { name: string; tagline: string; emoji: string; gradient: string; swatch: string; accentHex: string; font: string; tagFont: string }
 > = {
   boho: {
     name: "Free Spirit",
@@ -31,6 +31,8 @@ const STYLES: Record<
     gradient: "linear-gradient(135deg, #FCD34D 0%, #FB923C 50%, #FDA4AF 100%)",
     swatch: "linear-gradient(135deg, #FCD34D, #FDA4AF)",
     accentHex: "#FB923C",
+    font: "var(--font-great-vibes)",
+    tagFont: "var(--font-dancing-script)",
   },
   electric: {
     name: "Electric",
@@ -39,6 +41,8 @@ const STYLES: Record<
     gradient: "linear-gradient(135deg, #D946EF 0%, #EC4899 50%, #8B5CF6 100%)",
     swatch: "linear-gradient(135deg, #D946EF, #8B5CF6)",
     accentHex: "#D946EF",
+    font: "var(--font-kablammo)",
+    tagFont: "var(--font-bangers)",
   },
   coastal: {
     name: "Saltwater",
@@ -47,6 +51,8 @@ const STYLES: Record<
     gradient: "linear-gradient(135deg, #38BDF8 0%, #22D3EE 50%, #5EEAD4 100%)",
     swatch: "linear-gradient(135deg, #38BDF8, #5EEAD4)",
     accentHex: "#38BDF8",
+    font: "var(--font-pacifico)",
+    tagFont: "var(--font-pacifico)",
   },
   timeless: {
     name: "Timeless",
@@ -55,6 +61,8 @@ const STYLES: Record<
     gradient: "linear-gradient(135deg, #FDA4AF 0%, #D4B896 50%, #FDE68A 100%)",
     swatch: "linear-gradient(135deg, #FDA4AF, #D4B896)",
     accentHex: "#E9967A",
+    font: "var(--font-yeseva)",
+    tagFont: "var(--font-playfair)",
   },
   enchanted: {
     name: "Midnight Garden",
@@ -63,6 +71,8 @@ const STYLES: Record<
     gradient: "linear-gradient(135deg, #2D1B4E 0%, #7B2D5E 50%, #E8658A 100%)",
     swatch: "linear-gradient(135deg, #2D1B4E, #E8658A)",
     accentHex: "#7B2D5E",
+    font: "var(--font-splash)",
+    tagFont: "var(--font-bad-script)",
   },
 };
 
@@ -227,10 +237,18 @@ export default function SummerStyleQuiz() {
                 </svg>
               </button>
               <div className="text-4xl mb-3">🌞</div>
-              <h2 className="font-bold text-white text-2xl leading-tight mb-1">
-                What&apos;s Your<br />Summer Style?
+              <h2
+                className="text-white leading-tight mb-1"
+                style={{ fontFamily: "var(--font-pacifico)", fontSize: "1.75rem" }}
+              >
+                What&apos;s Your Summer Style?
               </h2>
-              <p className="text-white/80 text-sm">4 quick questions to find your aesthetic.</p>
+              <p
+                className="text-white/80 text-base"
+                style={{ fontFamily: "var(--font-caveat)" }}
+              >
+                4 quick questions to find your aesthetic.
+              </p>
               <div className="flex gap-1.5 mt-5">
                 {(Object.keys(STYLES) as StyleKey[]).map((s) => (
                   <div
@@ -247,8 +265,8 @@ export default function SummerStyleQuiz() {
                 {(Object.keys(STYLES) as StyleKey[]).map((s) => (
                   <span
                     key={s}
-                    className="text-xs font-medium px-2.5 py-1 rounded-full text-white"
-                    style={{ background: STYLES[s].accentHex }}
+                    className="text-sm px-3 py-1 rounded-full text-white"
+                    style={{ background: STYLES[s].accentHex, fontFamily: STYLES[s].tagFont }}
                   >
                     {STYLES[s].emoji} {STYLES[s].name}
                   </span>
@@ -256,14 +274,18 @@ export default function SummerStyleQuiz() {
               </div>
               <button
                 onClick={() => setStep(0)}
-                className="w-full py-3.5 text-white font-semibold rounded-2xl hover:opacity-90 transition-opacity"
-                style={{ background: "linear-gradient(135deg, #D946EF, #EC4899)" }}
+                className="w-full py-3.5 text-white rounded-2xl hover:opacity-90 transition-opacity text-lg"
+                style={{
+                  background: "linear-gradient(135deg, #D946EF, #EC4899)",
+                  fontFamily: "var(--font-pacifico)",
+                }}
               >
                 Let&apos;s find out ✨
               </button>
               <button
                 onClick={dismiss}
                 className="w-full mt-3 text-sm text-ink/40 hover:text-ink/60 transition-colors py-1"
+                style={{ fontFamily: "var(--font-caveat)", fontSize: "0.95rem" }}
               >
                 Skip for now
               </button>
@@ -293,10 +315,16 @@ export default function SummerStyleQuiz() {
             </div>
 
             <div className="px-6 pt-3 pb-2">
-              <p className="text-xs text-ink/40 font-medium">
+              <p
+                className="text-ink/40 font-medium"
+                style={{ fontFamily: "var(--font-caveat)", fontSize: "0.95rem" }}
+              >
                 Question {(step as number) + 1} of {QUESTIONS.length}
               </p>
-              <h3 className="text-xl font-bold text-ink leading-snug mt-0.5">
+              <h3
+                className="text-ink leading-snug mt-0.5"
+                style={{ fontFamily: "var(--font-amatic)", fontSize: "2rem", fontWeight: 700 }}
+              >
                 {currentQ.question}
               </h3>
             </div>
@@ -323,7 +351,12 @@ export default function SummerStyleQuiz() {
                     >
                       {answer.emoji}
                     </div>
-                    <span className="text-sm font-medium text-ink">{answer.text}</span>
+                    <span
+                      className="text-ink"
+                      style={{ fontFamily: "var(--font-indie-flower)", fontSize: "1rem" }}
+                    >
+                      {answer.text}
+                    </span>
                   </button>
                 );
               })}
@@ -331,7 +364,8 @@ export default function SummerStyleQuiz() {
 
             <button
               onClick={dismiss}
-              className="w-full pb-4 text-xs text-ink/25 hover:text-ink/45 transition-colors text-center"
+              className="w-full pb-4 text-ink/25 hover:text-ink/45 transition-colors text-center"
+              style={{ fontFamily: "var(--font-caveat)", fontSize: "0.9rem" }}
             >
               Skip quiz
             </button>
@@ -346,26 +380,43 @@ export default function SummerStyleQuiz() {
               style={{ background: style.gradient }}
             >
               <div className="text-5xl mb-4">{style.emoji}</div>
-              <p className="text-white/70 text-xs font-semibold uppercase tracking-widest mb-1">
+              <p
+                className="text-white/80 uppercase tracking-widest mb-1"
+                style={{ fontFamily: "var(--font-caveat)", fontSize: "1rem" }}
+              >
                 Your summer style is
               </p>
-              <h2 className="text-3xl font-bold text-white">{style.name}</h2>
+              <h2
+                className="text-white"
+                style={{ fontFamily: style.font, fontSize: "2.8rem", lineHeight: 1.15 }}
+              >
+                {style.name}
+              </h2>
             </div>
             <div className="p-6 text-center">
-              <p className="font-semibold text-ink">{style.tagline}</p>
-              <p className="text-sm text-ink/50 mt-1.5 mb-6">
+              <p
+                className="text-ink"
+                style={{ fontFamily: "var(--font-indie-flower)", fontSize: "1.1rem" }}
+              >
+                {style.tagline}
+              </p>
+              <p
+                className="text-ink/50 mt-1.5 mb-6"
+                style={{ fontFamily: "var(--font-caveat)", fontSize: "1rem" }}
+              >
                 We put together an inspiration board just for your vibe.
               </p>
               <button
                 onClick={handleViewBoard}
-                className="w-full py-3.5 text-white font-semibold rounded-2xl hover:opacity-90 transition-opacity"
-                style={{ background: style.gradient }}
+                className="w-full py-3.5 text-white rounded-2xl hover:opacity-90 transition-opacity text-lg"
+                style={{ background: style.gradient, fontFamily: style.font }}
               >
                 See my inspiration board →
               </button>
               <button
                 onClick={dismiss}
-                className="w-full mt-3 text-sm text-ink/40 hover:text-ink/60 transition-colors py-1"
+                className="w-full mt-3 text-ink/40 hover:text-ink/60 transition-colors py-1"
+                style={{ fontFamily: "var(--font-caveat)", fontSize: "1rem" }}
               >
                 Explore on my own
               </button>
