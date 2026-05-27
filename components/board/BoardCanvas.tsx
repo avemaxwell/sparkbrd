@@ -18,6 +18,60 @@ import { useBoardSync } from "@/hooks/useBoardSync";
 import PresenceAvatars from "@/components/board/PresenceAvatars";
 import CollaboratorCursors from "@/components/board/CollaboratorCursors";
 import type { Board, Tack, TextBlock } from "@/types/board";
+
+// ─── Font system ────────────────────────────────────────────────────────────
+
+type FontOption = {
+  id: string;
+  label: string;
+  fontFamily: string;
+  fontWeight?: string;
+  fontSize?: string;
+  fontStyle?: React.CSSProperties["fontStyle"];
+  letterSpacing?: string;
+  textTransform?: React.CSSProperties["textTransform"];
+};
+
+const FONT_OPTIONS: FontOption[] = [
+  { id: "heading",        label: "Heading",        fontFamily: "var(--font-serif)",           fontWeight: "700", fontSize: "1.15rem" },
+  { id: "body",           label: "Body",            fontFamily: "var(--font-sans)",            fontWeight: "400", fontSize: "0.95rem" },
+  { id: "quote",          label: "A quote…",        fontFamily: "var(--font-serif)",           fontWeight: "400", fontSize: "1rem",    fontStyle: "italic" },
+  { id: "label",          label: "LABEL",           fontFamily: "var(--font-sans)",            fontWeight: "600", fontSize: "0.72rem", letterSpacing: "0.14em", textTransform: "uppercase" },
+  { id: "typewriter",     label: "Typewriter",      fontFamily: "var(--font-special-elite)",   fontWeight: "400", fontSize: "0.95rem" },
+  { id: "bebas",          label: "BEBAS NEUE",      fontFamily: "var(--font-bebas)",           fontWeight: "400", fontSize: "1.15rem", letterSpacing: "0.04em", textTransform: "uppercase" },
+  { id: "caveat",         label: "Caveat",          fontFamily: "var(--font-caveat)",          fontWeight: "400", fontSize: "1.1rem" },
+  { id: "mono",           label: "Monospace",       fontFamily: "monospace",                   fontWeight: "400", fontSize: "0.85rem" },
+  { id: "alex-brush",     label: "Alex Brush",      fontFamily: "var(--font-alex-brush)",      fontWeight: "400", fontSize: "1.3rem" },
+  { id: "bad-script",     label: "Bad Script",      fontFamily: "var(--font-bad-script)",      fontWeight: "400", fontSize: "1.1rem" },
+  { id: "dancing-script", label: "Dancing Script",  fontFamily: "var(--font-dancing-script)",  fontWeight: "400", fontSize: "1.1rem" },
+  { id: "great-vibes",    label: "Great Vibes",     fontFamily: "var(--font-great-vibes)",     fontWeight: "400", fontSize: "1.3rem" },
+  { id: "homemade-apple", label: "Homemade Apple",  fontFamily: "var(--font-homemade-apple)",  fontWeight: "400", fontSize: "1.1rem" },
+  { id: "amatic",         label: "Amatic SC",       fontFamily: "var(--font-amatic)",          fontWeight: "400", fontSize: "1.2rem" },
+  { id: "julius",         label: "Julius Sans One", fontFamily: "var(--font-julius)",          fontWeight: "400", fontSize: "1rem",    letterSpacing: "0.06em" },
+  { id: "limelight",      label: "Limelight",       fontFamily: "var(--font-limelight)",       fontWeight: "400", fontSize: "1.15rem" },
+];
+
+// Maps font IDs that need an inline fontFamily override (i.e. not handled by Tailwind classes)
+const FONT_FAMILY_MAP: Record<string, string> = {
+  caveat:           "var(--font-caveat)",
+  bebas:            "var(--font-bebas)",
+  typewriter:       "var(--font-special-elite)",
+  "alex-brush":     "var(--font-alex-brush)",
+  "bad-script":     "var(--font-bad-script)",
+  "dancing-script": "var(--font-dancing-script)",
+  "great-vibes":    "var(--font-great-vibes)",
+  "homemade-apple": "var(--font-homemade-apple)",
+  amatic:           "var(--font-amatic)",
+  julius:           "var(--font-julius)",
+  limelight:        "var(--font-limelight)",
+};
+
+// Extra CSS properties needed beyond fontFamily for specific styles
+const FONT_EXTRA_STYLES: Record<string, React.CSSProperties> = {
+  bebas:    { letterSpacing: "0.04em", textTransform: "uppercase" },
+  julius:   { letterSpacing: "0.06em" },
+  limelight:{ letterSpacing: "0.05em" },
+};
 import { tackCanvas, tackDetail, tackMini } from "@/lib/image-transform";
 import { BoardTypeIcon } from "@/components/board/MosaicBoard";
 
@@ -1038,6 +1092,9 @@ const handleTextRotateEnd = async () => {
     const fontSizeMap: Record<string, number> = {
       heading: 36, bebas: 52, quote: 22, label: 11,
       caveat: 28, typewriter: 18, mono: 14, body: 16,
+      "alex-brush": 32, "bad-script": 24, "dancing-script": 26,
+      "great-vibes": 34, "homemade-apple": 24, amatic: 28,
+      julius: 18, limelight: 26,
     };
 
     const newText = {
@@ -1592,9 +1649,8 @@ return (
                     fontSize: text.font_size,
                     color: text.color,
                     whiteSpace: text.nowrap ? 'nowrap' : 'pre-line',
-                    ...(text.font_style === 'caveat' ? { fontFamily: 'var(--font-caveat)' } : {}),
-                    ...(text.font_style === 'bebas' ? { fontFamily: 'var(--font-bebas)', letterSpacing: '0.04em', textTransform: 'uppercase' } : {}),
-                    ...(text.font_style === 'typewriter' ? { fontFamily: 'var(--font-special-elite)' } : {}),
+                    ...(FONT_FAMILY_MAP[text.font_style] ? { fontFamily: FONT_FAMILY_MAP[text.font_style] } : {}),
+                    ...(FONT_EXTRA_STYLES[text.font_style] ?? {}),
                   }}
                 >
                   {text.content}
@@ -3383,29 +3439,7 @@ function TextDetailModal({
 
           <div>
             <label className="block text-xs text-ink-soft mb-2">Style</label>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { id: "heading",    label: "Heading",     style: { fontFamily: "var(--font-serif)",          fontWeight: "700" } },
-                { id: "body",       label: "Body",        style: { fontFamily: "var(--font-sans)",           fontWeight: "400" } },
-                { id: "quote",      label: "A quote…",    style: { fontFamily: "var(--font-serif)",          fontStyle: "italic" } },
-                { id: "label",      label: "LABEL",       style: { fontFamily: "var(--font-sans)",           fontWeight: "600", letterSpacing: "0.1em", fontSize: "10px", textTransform: "uppercase" as const } },
-                { id: "caveat",     label: "Handwriting", style: { fontFamily: "var(--font-caveat)",         fontWeight: "400" } },
-                { id: "bebas",      label: "Bebas Neue",  style: { fontFamily: "var(--font-bebas)",          fontWeight: "400", letterSpacing: "0.04em", textTransform: "uppercase" as const } },
-                { id: "typewriter", label: "Typewriter",  style: { fontFamily: "var(--font-special-elite)", fontWeight: "400" } },
-                { id: "mono",       label: "Mono",        style: { fontFamily: "monospace",                  fontWeight: "400" } },
-              ].map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => setFontStyle(s.id)}
-                  className={`px-2 py-2 rounded-lg text-xs transition-all truncate ${
-                    fontStyle === s.id ? 'bg-ink text-white' : 'bg-ink/5 text-ink hover:bg-ink/10'
-                  }`}
-                  style={s.style}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
+            <FontDropdown value={fontStyle} onChange={setFontStyle} />
           </div>
 
           <div>
@@ -3553,44 +3587,81 @@ function AddTextModal({ onClose, onAdd }: { onClose: () => void; onAdd: (content
           </div>
           <div className="mb-6">
             <label className="text-sm text-ink-soft mb-2 block">Style</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {[
-                { id: "heading",    label: "Heading",     preview: "Heading",     fontFamily: "var(--font-serif)",         fontSize: "1.1rem",  fontWeight: "700" },
-                { id: "body",       label: "Body",        preview: "Body text",   fontFamily: "var(--font-sans)",          fontSize: "0.9rem",  fontWeight: "400" },
-                { id: "quote",      label: "Quote",       preview: "A quote…",    fontFamily: "var(--font-serif)",         fontSize: "1rem",    fontWeight: "400", fontStyle: "italic" },
-                { id: "label",      label: "Label",       preview: "LABEL",       fontFamily: "var(--font-sans)",          fontSize: "0.7rem",  fontWeight: "600", letterSpacing: "0.1em", textTransform: "uppercase" as const },
-                { id: "caveat",     label: "Handwriting", preview: "Handwriting", fontFamily: "var(--font-caveat)",        fontSize: "1.1rem",  fontWeight: "400" },
-                { id: "bebas",      label: "Bebas Neue",  preview: "BEBAS",       fontFamily: "var(--font-bebas)",         fontSize: "1.2rem",  fontWeight: "400" },
-                { id: "typewriter", label: "Typewriter",  preview: "Typewriter",  fontFamily: "var(--font-special-elite)", fontSize: "0.9rem",  fontWeight: "400" },
-                { id: "mono",       label: "Mono",        preview: "monospace",   fontFamily: "monospace",                 fontSize: "0.85rem", fontWeight: "400" },
-              ].map((style) => (
-                <button
-                  key={style.id}
-                  type="button"
-                  onClick={() => setFontStyle(style.id)}
-                  className={`flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl transition-all border ${fontStyle === style.id ? 'bg-ink text-white border-ink' : 'bg-ink/5 text-ink border-transparent hover:bg-ink/10'}`}
-                >
-                  <span
-                    style={{
-                      fontFamily: style.fontFamily,
-                      fontSize: style.fontSize,
-                      fontWeight: style.fontWeight,
-                      fontStyle: style.fontStyle,
-                      letterSpacing: style.letterSpacing,
-                      textTransform: style.textTransform,
-                      lineHeight: 1.2,
-                    }}
-                  >
-                    {style.preview}
-                  </span>
-                  <span className="text-[10px] opacity-60 font-sans font-normal normal-case tracking-normal">{style.label}</span>
-                </button>
-              ))}
-            </div>
+            <FontDropdown value={fontStyle} onChange={setFontStyle} />
           </div>
           <button type="submit" className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors">Add text</button>
         </form>
       </div>
+    </div>
+  );
+}
+
+function FontDropdown({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = FONT_OPTIONS.find(f => f.id === value) ?? FONT_OPTIONS[0];
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-ink/5 hover:bg-ink/8 rounded-xl transition-colors"
+      >
+        <span
+          style={{
+            fontFamily: selected.fontFamily,
+            fontSize: selected.fontSize,
+            fontWeight: selected.fontWeight,
+            fontStyle: selected.fontStyle,
+            letterSpacing: selected.letterSpacing,
+            textTransform: selected.textTransform,
+          }}
+        >
+          {selected.label}
+        </span>
+        <svg
+          className={`w-4 h-4 stroke-ink/40 stroke-2 fill-none flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+          viewBox="0 0 24 24"
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-ink/10 rounded-xl shadow-xl overflow-hidden">
+          <div className="max-h-56 overflow-y-auto overscroll-contain">
+            {FONT_OPTIONS.map(f => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => { onChange(f.id); setOpen(false); }}
+                className={`w-full px-4 py-2.5 text-left transition-colors ${
+                  value === f.id ? "bg-papaya/10 text-papaya" : "text-ink hover:bg-ink/5"
+                }`}
+                style={{
+                  fontFamily: f.fontFamily,
+                  fontSize: f.fontSize,
+                  fontWeight: f.fontWeight,
+                  fontStyle: f.fontStyle,
+                  letterSpacing: f.letterSpacing,
+                  textTransform: f.textTransform,
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
