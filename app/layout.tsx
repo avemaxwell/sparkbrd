@@ -9,8 +9,7 @@ import {
   Indie_Flower, Righteous, Monoton, Fjalla_One, Yeseva_One, Playfair_Display,
 } from "next/font/google";
 import HelpBubble from "@/components/layout/HelpBubble";
-import SignupNudge from "@/components/layout/SignupNudge";
-import SummerStyleQuiz from "@/components/SummerStyleQuiz";
+import StatusBanner from "@/components/layout/StatusBanner";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
@@ -91,7 +90,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${dmSans.variable} ${instrumentSerif.variable} ${caveat.variable} ${bebasNeue.variable} ${specialElite.variable} ${alexBrush.variable} ${badScript.variable} ${greatVibes.variable} ${juliusSansOne.variable} ${amaticSC.variable} ${dancingScript.variable} ${homemadeApple.variable} ${limelight.variable} ${updock.variable} ${cabinSketch.variable} ${splash.variable} ${sedgwickAve.variable} ${unkempt.variable} ${loveYa.variable} ${engelbert.variable} ${kablammo.variable} ${pacifico.variable} ${satisfy.variable} ${lobster.variable} ${bangers.variable} ${permanentMarker.variable} ${architectsDaughter.variable} ${indieFlower.variable} ${righteous.variable} ${monoton.variable} ${fjallaOne.variable} ${yesevaOne.variable} ${playfairDisplay.variable}`}>
-      <body>{children}<HelpBubble /><SignupNudge /><SummerStyleQuiz /><GoogleAnalytics gaId="G-WFKZ3Y5F34" /><Analytics /></body>
+      <body>{children}<HelpBubble /><StatusBanner /><GoogleAnalytics gaId="G-WFKZ3Y5F34" /><Analytics /></body>
     </html>
   );
 }
