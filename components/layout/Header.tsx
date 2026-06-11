@@ -220,12 +220,6 @@ export default function Header() {
           ) : (
             <div className="flex items-center gap-2">
               <Link
-                href="/signup"
-                className="hidden sm:block text-sm text-ink/50 hover:text-ink transition-colors"
-              >
-                Create an account
-              </Link>
-              <Link
                 href="/login"
                 className="px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:bg-ink/90 transition-colors"
               >
