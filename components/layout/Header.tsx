@@ -4,6 +4,7 @@ import { useUser } from "@/hooks/useUser";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import StatusBanner from "./StatusBanner";
 
 export default function Header() {
   const { profile, loading, signOut } = useUser();
@@ -54,6 +55,9 @@ export default function Header() {
         hidden ? '-translate-y-full' : 'translate-y-0'
       }`}
     >
+      <div className="-mx-6 -mt-4">
+        <StatusBanner />
+      </div>
       <div className="max-w-6xl mx-auto flex items-center gap-4">
         {/* Logo */}
         <Link href="/" className="font-serif text-2xl sm:text-3xl md:text-4xl tracking-tight leading-none flex-shrink-0">
