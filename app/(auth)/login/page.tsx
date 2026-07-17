@@ -41,7 +41,7 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <Link href="/" className="inline-block">
             <img
-              src="https://vqaaxqvyepouqcrxduiw.supabase.co/storage/v1/object/public/assets/logo.png"
+              src="/logo.png"
               alt="Sparkurio"
               className="h-12 w-auto mx-auto"
             />

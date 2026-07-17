@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { usePlan } from "@/hooks/usePlan";
+import { useUser } from "@/hooks/useUser";
 
 interface Team {
   id: string;
@@ -15,7 +15,8 @@ interface Team {
 }
 
 export default function TeamsSidebar() {
-  const { isTeamPlan } = usePlan();
+  const { profile } = useUser();
+  const isLoggedIn = !!profile;
   const pathname = usePathname();
   const [teams, setTeams] = useState<Team[]>([]);
   const [collapsed, setCollapsed] = useState(false);
@@ -35,14 +36,14 @@ export default function TeamsSidebar() {
   };
 
   useEffect(() => {
-    if (!isTeamPlan) return;
+    if (!isLoggedIn) return;
     fetch("/api/teams")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => { if (data?.teams) setTeams(data.teams); })
       .catch(() => {});
-  }, [isTeamPlan]);
+  }, [isLoggedIn]);
 
-  if (!isTeamPlan) return null;
+  if (!isLoggedIn) return null;
 
   return (
     <aside

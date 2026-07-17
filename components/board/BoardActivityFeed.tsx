@@ -42,8 +42,8 @@ function relativeTime(iso: string): string {
 function activityText(item: ActivityItem): string {
   const name = item.actor_name ?? 'Someone';
   switch (item.type) {
-    case 'tack_added':     return `${name} tacked an image`;
-    case 'board_created':  return `${name} created this board`;
+    case 'tack_added':     return `${name} added a resource`;
+    case 'board_created':  return `${name} created this collection`;
     case 'comment_posted': return `${name} commented`;
     case 'reaction_added': return `${name} reacted`;
     case 'member_joined':  return `${name} joined the team`;
@@ -248,7 +248,7 @@ export default function BoardActivityFeed({ boardId }: { boardId: string }) {
         {!loading && !hasAnything && (
           <div className="text-center py-10 px-4">
             <p className="text-xs text-ink/40">No activity yet.</p>
-            <p className="text-[11px] text-ink/30 mt-1">Activity and discussion for this board will appear here.</p>
+            <p className="text-[11px] text-ink/30 mt-1">Activity and discussion for this collection will appear here.</p>
           </div>
         )}
 

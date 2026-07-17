@@ -130,7 +130,7 @@ export default function TeamPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#FDFCFB] pb-20 lg:pb-0">
+      <main className="min-h-screen bg-cork-warm pb-20 lg:pb-0">
         <Header />
         <div className="pt-24 flex items-center justify-center">
           <div className="w-8 h-8 border-2 border-ink/20 border-t-papaya rounded-full animate-spin" />
@@ -142,7 +142,7 @@ export default function TeamPage() {
 
   if (error || !data) {
     return (
-      <main className="min-h-screen bg-[#FDFCFB] pb-20 lg:pb-0">
+      <main className="min-h-screen bg-cork-warm pb-20 lg:pb-0">
         <Header />
         <div className="pt-24 px-6 text-center">
           <p className="text-ink-soft">{error ?? 'Something went wrong'}</p>
@@ -154,7 +154,7 @@ export default function TeamPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#FDFCFB] pb-20 lg:pb-0">
+    <main className="min-h-screen bg-cork-warm pb-20 lg:pb-0">
       <Header />
       <div className="pt-24 md:pt-28 pb-16">
         <div className="max-w-screen-2xl mx-auto flex gap-0 lg:gap-6 px-6">
@@ -181,7 +181,7 @@ export default function TeamPage() {
               <div>
                 <h1 className="font-serif text-3xl md:text-4xl text-ink/90 leading-none">{data.team.name}</h1>
                 <p className="text-ink/40 text-sm mt-1.5">
-                  {allMembers.length} member{allMembers.length !== 1 ? 's' : ''} · {data.boards.length} board{data.boards.length !== 1 ? 's' : ''}
+                  {allMembers.length} member{allMembers.length !== 1 ? 's' : ''} · {data.boards.length} collection{data.boards.length !== 1 ? 's' : ''}
                 </p>
               </div>
             </div>
@@ -239,7 +239,7 @@ export default function TeamPage() {
           <div>
             <div className="flex items-end justify-between mb-6">
               <div>
-                <h2 className="font-serif text-2xl md:text-3xl text-ink/90 leading-none">Team Boards</h2>
+                <h2 className="font-serif text-2xl md:text-3xl text-ink/90 leading-none">Team Collections</h2>
                 <p className="text-ink/40 text-sm mt-1.5">Shared with everyone on the team</p>
               </div>
               {canManage && (
@@ -247,7 +247,7 @@ export default function TeamPage() {
                   onClick={() => router.push(`/board/new?team=${data.team.id}`)}
                   className="flex items-center gap-2 text-sm font-medium text-papaya hover:text-papaya/70 transition-colors"
                 >
-                  <span>New board</span>
+                  <span>New collection</span>
                   <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24">
                     <path d="M12 5v14M5 12h14"/>
                   </svg>
@@ -262,13 +262,13 @@ export default function TeamPage() {
                     <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
                   </svg>
                 </div>
-                <p className="text-ink/40 text-sm">No team boards yet</p>
+                <p className="text-ink/40 text-sm">No team collections yet</p>
                 {canManage && (
                   <button
                     onClick={() => router.push(`/board/new?team=${data.team.id}`)}
                     className="mt-1 px-4 py-2 bg-papaya text-white text-sm rounded-full hover:bg-papaya/90 transition-colors"
                   >
-                    Create first board
+                    Create first collection
                   </button>
                 )}
               </div>

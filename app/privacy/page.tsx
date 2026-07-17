@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen bg-[#FDFCFB]">
+    <main className="min-h-screen bg-cork-warm">
       {/* Minimal header */}
       <div className="border-b border-ink/8 px-6 py-4 flex items-center justify-between">
         <Link href="/" className="font-serif text-xl text-ink/80 hover:text-ink transition-colors">
@@ -38,8 +38,8 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-5 space-y-1.5">
               <li>Account information: name, email address, and password when you register</li>
               <li>Profile information: display name, bio, and profile photo you choose to upload</li>
-              <li>Content: images, notes, board names, comments, and reactions you post</li>
-              <li>Communications: messages you send us or post through team or board features</li>
+              <li>Content: images, notes, collection names, comments, and reactions you post</li>
+              <li>Communications: messages you send us or post through team or collection features</li>
             </ul>
 
             <h3 className="font-medium text-ink/70 mt-5 mb-2">Information collected automatically</h3>
@@ -63,7 +63,7 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-5 mt-2 space-y-1.5">
               <li>Operate, maintain, and improve the Service</li>
               <li>Create and manage your account</li>
-              <li>Enable collaboration features including boards, teams, comments, and activity feeds</li>
+              <li>Enable collaboration features including collections, teams, comments, and activity feeds</li>
               <li>Send transactional emails such as invitations, notifications, and password resets</li>
               <li>Detect, investigate, and prevent fraud, abuse, and violations of our Terms of Service</li>
               <li>Analyze usage patterns to understand how the Service is used and make improvements</li>
@@ -78,7 +78,7 @@ export default function PrivacyPage() {
             <h2 className="font-serif text-xl text-ink/80 mb-3">3. How We Share Your Information</h2>
             <p>We may share your information in the following circumstances:</p>
             <ul className="list-disc pl-5 mt-2 space-y-1.5">
-              <li><strong className="text-ink/70">With other users:</strong> Content you post on public boards or in team spaces is visible to other users as intended by those features. Your display name and profile photo are associated with your contributions.</li>
+              <li><strong className="text-ink/70">With other users:</strong> Content you post on public collections or in team spaces is visible to other users as intended by those features. Your display name and profile photo are associated with your contributions.</li>
               <li><strong className="text-ink/70">Service providers:</strong> We share information with third-party vendors who perform services on our behalf, such as cloud hosting, authentication, email delivery, and image processing. These vendors are contractually obligated to protect your information and use it only for the services they provide to us.</li>
               <li><strong className="text-ink/70">Legal compliance:</strong> We may disclose information if required by law, subpoena, or other legal process, or if we believe in good faith that disclosure is necessary to protect our rights, your safety, or the safety of others.</li>
               <li><strong className="text-ink/70">Business transfers:</strong> If Sparkurio is acquired, merged, or otherwise transferred, your information may be transferred as part of that transaction. We will notify you before your information is transferred and becomes subject to a different privacy policy.</li>

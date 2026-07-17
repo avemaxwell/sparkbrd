@@ -9,8 +9,8 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 // and avatars. Colors are assigned deterministically from the user's ID so the
 // same person always gets the same color in every session.
 const PRESENCE_COLORS = [
-  "#E24E42", // red
-  "#008F95", // teal
+  "#4C4DFF", // electric blue
+  "#FF00C8", // spark pink
   "#7C3AED", // violet
   "#D97706", // amber
   "#059669", // emerald

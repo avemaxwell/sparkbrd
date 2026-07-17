@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import {
-  DM_Sans, Instrument_Serif, Caveat, Bebas_Neue, Special_Elite,
+  Inter, Space_Grotesk, Caveat, Bebas_Neue, Special_Elite,
   Alex_Brush, Bad_Script, Great_Vibes, Julius_Sans_One, Amatic_SC,
   Dancing_Script, Homemade_Apple, Limelight,
   Updock, Cabin_Sketch, Splash, Sedgwick_Ave_Display, Unkempt,
@@ -9,19 +9,19 @@ import {
   Indie_Flower, Righteous, Monoton, Fjalla_One, Yeseva_One, Playfair_Display,
 } from "next/font/google";
 import HelpBubble from "@/components/layout/HelpBubble";
+import RoleOnboardingGate from "@/components/onboarding/RoleOnboardingGate";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
-const dmSans = DM_Sans({
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
 });
 
-const instrumentSerif = Instrument_Serif({
-  weight: "400",
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
-  variable: "--font-serif",
+  variable: "--font-heading",
 });
 
 const caveat = Caveat({ subsets: ["latin"], variable: "--font-caveat" });
@@ -57,11 +57,11 @@ const yesevaOne = Yeseva_One({ weight: "400", subsets: ["latin"], variable: "--f
 const playfairDisplay = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair" });
 
 export const metadata: Metadata = {
-  title: "Sparkurio — Creativity, sparked by humans.",
-  description: "Sparkurio is a visual inspiration platform where real people curate beautiful boards, discover new ideas, and bring their creativity to life.",
+  title: "Sparkurio — Confidence for tomorrow’s classroom.",
+  description: "Sparkurio is where educators discover, organize, and share classroom-tested teaching resources.",
   openGraph: {
-    title: "Sparkurio — Creativity, sparked by humans.",
-    description: "Sparkurio is a visual inspiration platform where real people curate beautiful boards, discover new ideas, and bring their creativity to life.",
+    title: "Sparkurio — Confidence for tomorrow’s classroom.",
+    description: "Sparkurio is where educators discover, organize, and share classroom-tested teaching resources.",
     url: "https://sparkurio.com",
     siteName: "Sparkurio",
     images: [
@@ -69,15 +69,15 @@ export const metadata: Metadata = {
         url: "https://sparkurio.com/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Sparkurio — Creativity, sparked by humans.",
+        alt: "Sparkurio — Confidence for tomorrow’s classroom.",
       },
     ],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Sparkurio — Creativity, sparked by humans.",
-    description: "Sparkurio is a visual inspiration platform where real people curate beautiful boards, discover new ideas, and bring their creativity to life.",
+    title: "Sparkurio — Confidence for tomorrow’s classroom.",
+    description: "Sparkurio is where educators discover, organize, and share classroom-tested teaching resources.",
     images: ["https://sparkurio.com/og-image.png"],
   },
 };
@@ -88,8 +88,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${instrumentSerif.variable} ${caveat.variable} ${bebasNeue.variable} ${specialElite.variable} ${alexBrush.variable} ${badScript.variable} ${greatVibes.variable} ${juliusSansOne.variable} ${amaticSC.variable} ${dancingScript.variable} ${homemadeApple.variable} ${limelight.variable} ${updock.variable} ${cabinSketch.variable} ${splash.variable} ${sedgwickAve.variable} ${unkempt.variable} ${loveYa.variable} ${engelbert.variable} ${kablammo.variable} ${pacifico.variable} ${satisfy.variable} ${lobster.variable} ${bangers.variable} ${permanentMarker.variable} ${architectsDaughter.variable} ${indieFlower.variable} ${righteous.variable} ${monoton.variable} ${fjallaOne.variable} ${yesevaOne.variable} ${playfairDisplay.variable}`}>
-      <body>{children}<HelpBubble /><GoogleAnalytics gaId="G-WFKZ3Y5F34" /><Analytics /></body>
+    <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable} ${caveat.variable} ${bebasNeue.variable} ${specialElite.variable} ${alexBrush.variable} ${badScript.variable} ${greatVibes.variable} ${juliusSansOne.variable} ${amaticSC.variable} ${dancingScript.variable} ${homemadeApple.variable} ${limelight.variable} ${updock.variable} ${cabinSketch.variable} ${splash.variable} ${sedgwickAve.variable} ${unkempt.variable} ${loveYa.variable} ${engelbert.variable} ${kablammo.variable} ${pacifico.variable} ${satisfy.variable} ${lobster.variable} ${bangers.variable} ${permanentMarker.variable} ${architectsDaughter.variable} ${indieFlower.variable} ${righteous.variable} ${monoton.variable} ${fjallaOne.variable} ${yesevaOne.variable} ${playfairDisplay.variable}`}>
+      <body>{children}<HelpBubble /><RoleOnboardingGate /><GoogleAnalytics gaId="G-WFKZ3Y5F34" /><Analytics /></body>
     </html>
   );
 }

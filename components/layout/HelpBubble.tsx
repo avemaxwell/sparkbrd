@@ -29,6 +29,11 @@ export default function HelpBubble() {
 
   // Hide on board pages — the canvas has its own fixed controls in the same spot
   if (pathname?.startsWith("/board/")) return null;
+  // Hide site-wide while the "coming soon" teaser is gating the app (see
+  // proxy.ts). A pathname check wouldn't work here — the gate is a rewrite,
+  // so the browser's visible URL (and usePathname()) never actually becomes
+  // /coming-soon.
+  if (process.env.NEXT_PUBLIC_COMING_SOON === "true") return null;
 
   const handleSend = async () => {
     if (!message.trim() || sending) return;

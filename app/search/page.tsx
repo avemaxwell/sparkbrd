@@ -1,20 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Header from "@/components/layout/Header";
 import BottomNav from "@/components/layout/BottomNav";
 import Link from "next/link";
-import RetackButton from "@/components/tacks/RetackButton";
-import { useUser } from "@/hooks/useUser";
+import ResourceCard from "@/components/ResourceCard";
+import { getAllResources } from "@/lib/subjects";
+import { getShapeCorner } from "@/components/decor/ShapeCorner";
 
-interface SearchTack {
-  id: string;
-  content_url: string;
-  title: string | null;
-  source: string | null;
-  board_id: string;
-}
+const ALL_RESOURCES = getAllResources();
+const ShapeCorner = getShapeCorner("search-page");
 
 interface SearchBoard {
   id: string;
@@ -29,31 +25,22 @@ function SearchContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
-  const { profile } = useUser();
 
   const [query, setQuery] = useState(searchParams.get('q') || '');
-  const [tacks, setTacks] = useState<SearchTack[]>([]);
   const [boards, setBoards] = useState<SearchBoard[]>([]);
   const [expandedTerms, setExpandedTerms] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
-  const [columnCount, setColumnCount] = useState(3);
-  const [reportTackId, setReportTackId] = useState<string | null>(null);
-  const [reporting, setReporting] = useState(false);
-  const [reportMsg, setReportMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    const update = () => {
-      const w = window.innerWidth;
-      if (w < 500) setColumnCount(2);
-      else if (w < 768) setColumnCount(3);
-      else if (w < 1024) setColumnCount(4);
-      else setColumnCount(5);
-    };
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, []);
+  const resources = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q || !searched) return [];
+    return ALL_RESOURCES.filter((r) =>
+      r.title.toLowerCase().includes(q) ||
+      r.description.toLowerCase().includes(q) ||
+      r.type.toLowerCase().includes(q)
+    );
+  }, [query, searched]);
 
   useEffect(() => {
     const q = searchParams.get('q');
@@ -73,11 +60,9 @@ function SearchContent() {
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=60`);
       const data = await res.json();
-      setTacks(data.tacks || []);
       setBoards(data.boards || []);
       setExpandedTerms(data.terms || []);
     } catch {
-      setTacks([]);
       setBoards([]);
     } finally {
       setLoading(false);
@@ -91,23 +76,21 @@ function SearchContent() {
     runSearch(query.trim());
   };
 
-  const columns: SearchTack[][] = Array.from({ length: columnCount }, () => []);
-  tacks.forEach((t, i) => columns[i % columnCount].push(t));
-
-  const hasResults = tacks.length > 0 || boards.length > 0;
+  const hasResults = resources.length > 0 || boards.length > 0;
 
   return (
-    <main className="min-h-screen bg-[#FDFCFB] pb-20 lg:pb-0">
+    <main className="min-h-screen bg-cork-warm pb-20 lg:pb-0">
       <Header />
 
-      <div className="pt-24 md:pt-28 px-4 md:px-6 max-w-2xl mx-auto mb-8">
+      <div className="relative pt-24 md:pt-28 px-4 md:px-6 max-w-2xl mx-auto mb-8">
+        <ShapeCorner className="absolute top-24 -right-56 hidden xl:block" />
         <form onSubmit={handleSubmit} className="relative">
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search images, boards… nail polish, brutalist architecture"
+            placeholder="Search lessons, projects, templates, activities…"
             className="w-full bg-white border border-ink/10 rounded-full px-5 py-3.5 pr-14 text-sm shadow-sm outline-none focus:ring-2 focus:ring-papaya/30 focus:border-papaya/30 transition-all"
           />
           <button
@@ -145,65 +128,28 @@ function SearchContent() {
       {!loading && searched && !hasResults && (
         <div className="text-center py-20 px-6">
           <p className="text-ink/40 text-sm">No results for &ldquo;{query}&rdquo;</p>
-          <p className="text-ink/25 text-xs mt-1">Try different keywords or make boards public to grow the index.</p>
+          <p className="text-ink/25 text-xs mt-1">Try different keywords.</p>
         </div>
       )}
 
       {!loading && !searched && (
         <div className="text-center py-20 px-6">
-          <p className="text-ink/30 text-sm">Type something to find images and boards.</p>
+          <p className="text-ink/30 text-sm">Type something to find resources and collections.</p>
         </div>
       )}
 
       {!loading && hasResults && (
         <div className="px-2 md:px-3">
 
-          {/* Tacks section */}
-          {tacks.length > 0 && (
+          {/* Resources section */}
+          {resources.length > 0 && (
             <>
               <h2 className="px-2 mb-3 text-xs font-semibold text-ink/40 uppercase tracking-widest">
-                Tacks <span className="font-normal normal-case tracking-normal text-ink/30">({tacks.length})</span>
+                Resources <span className="font-normal normal-case tracking-normal text-ink/30">({resources.length})</span>
               </h2>
-              <div
-                className="grid gap-2 md:gap-3 mb-10"
-                style={{ gridTemplateColumns: `repeat(${columnCount}, 1fr)` }}
-              >
-                {columns.map((col, colIdx) => (
-                  <div key={colIdx} className="flex flex-col gap-2 md:gap-3">
-                    {col.map(tack => (
-                      <div key={tack.id} className="group relative overflow-hidden rounded-lg">
-                        <Link href={`/tack/${tack.id}`} className="block">
-                          <img
-                            src={tack.content_url}
-                            alt={tack.title || ''}
-                            className="w-full h-auto object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-                            loading="lazy"
-                            onError={e => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }}
-                          />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
-                          {tack.title && (
-                            <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                              <span className="text-[10px] text-white/90 bg-black/40 backdrop-blur-sm px-1.5 py-0.5 rounded-full line-clamp-1">
-                                {tack.title}
-                              </span>
-                            </div>
-                          )}
-                        </Link>
-                        {profile && (
-                          <button
-                            className="absolute top-1 right-1 w-6 h-6 bg-white/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-sm hover:bg-red-50 z-10"
-                            title="Report as AI-generated"
-                            onClick={(e) => { e.preventDefault(); setReportTackId(tack.id); setReportMsg(null); }}
-                          >
-                            <svg className="w-3 h-3 stroke-red-400 stroke-[1.5] fill-none" viewBox="0 0 24 24">
-                              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>
-                            </svg>
-                          </button>
-                        )}
-                        <RetackButton tackId={tack.id} />
-                      </div>
-                    ))}
-                  </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mb-10">
+                {resources.map((r, i) => (
+                  <ResourceCard key={`${r.title}-${i}`} resource={r} />
                 ))}
               </div>
             </>
@@ -213,7 +159,7 @@ function SearchContent() {
           {boards.length > 0 && (
             <>
               <h2 className="px-2 mb-3 text-xs font-semibold text-ink/40 uppercase tracking-widest">
-                Boards <span className="font-normal normal-case tracking-normal text-ink/30">({boards.length})</span>
+                Collections <span className="font-normal normal-case tracking-normal text-ink/30">({boards.length})</span>
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-10">
                 {boards.map((board, index) => {
@@ -277,40 +223,6 @@ function SearchContent() {
       )}
 
       <BottomNav />
-
-      {reportTackId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setReportTackId(null); setReportMsg(null); }} />
-          <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
-            <h3 className="font-serif text-xl mb-2">Report this image?</h3>
-            <p className="text-sm text-ink/60 mb-5">Flag this image if you believe it was generated by an AI tool. It will be reviewed by our team.</p>
-            {reportMsg && <p className="text-sm text-ink/70 mb-4 p-3 bg-ink/5 rounded-xl">{reportMsg}</p>}
-            {!reportMsg && (
-              <div className="flex gap-3">
-                <button
-                  onClick={async () => {
-                    setReporting(true);
-                    const res = await fetch(`/api/tacks/${reportTackId}/report-ai`, { method: 'POST' });
-                    const d = await res.json();
-                    setReporting(false);
-                    if (res.status === 429) setReportMsg("You've reached the daily flag limit.");
-                    else if (d.alreadyReported) setReportMsg("You've already flagged this image.");
-                    else if (d.hidden) setReportMsg("This image has been removed. Thanks!");
-                    else if (d.flagged) setReportMsg("Reported — our team will take a look. Thanks!");
-                    else setReportMsg(d.error ?? "Something went wrong. Please try again.");
-                  }}
-                  disabled={reporting}
-                  className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-full text-sm font-medium hover:bg-red-600 transition-colors disabled:opacity-50"
-                >
-                  {reporting ? 'Reporting…' : 'Yes, report it'}
-                </button>
-                <button onClick={() => { setReportTackId(null); setReportMsg(null); }} className="flex-1 px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors">Cancel</button>
-              </div>
-            )}
-            {reportMsg && <button onClick={() => { setReportTackId(null); setReportMsg(null); }} className="w-full px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors">Close</button>}
-          </div>
-        </div>
-      )}
     </main>
   );
 }

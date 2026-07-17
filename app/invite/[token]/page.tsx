@@ -67,12 +67,12 @@ export default function InvitePage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fef3e2] to-[#fce7f3] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-lime/40 to-lavender/30 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo / wordmark */}
         <div className="text-center mb-8">
-          <Link href="/" className="font-serif text-2xl text-ink">
-            Sparkurio
+          <Link href="/" className="inline-block">
+            <img src="/logo.png" alt="Sparkurio" className="h-8 w-auto mx-auto" />
           </Link>
         </div>
 
@@ -115,7 +115,7 @@ export default function InvitePage() {
                     className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                   />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#EB6E80] to-[#E9B000] flex items-center justify-center text-white font-semibold flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blush to-mustard flex items-center justify-center text-white font-semibold flex-shrink-0">
                     {(state.status === 'ready' && state.details.inviter?.name?.[0]?.toUpperCase()) ?? '?'}
                   </div>
                 )}
@@ -129,9 +129,9 @@ export default function InvitePage() {
 
               {/* Board name */}
               <div className="bg-ink/5 rounded-xl p-4 mb-6">
-                <p className="text-xs text-ink-soft uppercase tracking-widest mb-1">Board</p>
+                <p className="text-xs text-ink-soft uppercase tracking-widest mb-1">Collection</p>
                 <p className="font-serif text-xl text-ink">
-                  {state.status === 'ready' && (state.details.board?.name ?? 'Untitled board')}
+                  {state.status === 'ready' && (state.details.board?.name ?? 'Untitled collection')}
                 </p>
                 <p className="text-xs text-ink-soft mt-1.5 capitalize">
                   Access level:{' '}
@@ -187,7 +187,7 @@ export default function InvitePage() {
                 </svg>
               </div>
               <h2 className="font-serif text-xl text-ink mb-2">You&apos;re in!</h2>
-              <p className="text-sm text-ink-soft">Taking you to the board…</p>
+              <p className="text-sm text-ink-soft">Taking you to the collection…</p>
             </div>
           )}
         </div>

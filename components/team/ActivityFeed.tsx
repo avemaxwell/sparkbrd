@@ -42,8 +42,8 @@ function relativeTime(iso: string): string {
 function activityText(item: ActivityItem): string {
   const name = item.actor_name ?? 'Someone';
   switch (item.type) {
-    case 'tack_added':     return item.board_name ? `${name} tacked an image on ${item.board_name}` : `${name} tacked an image`;
-    case 'board_created':  return item.board_name ? `${name} created "${item.board_name}"` : `${name} created a board`;
+    case 'tack_added':     return item.board_name ? `${name} added a resource to ${item.board_name}` : `${name} added a resource`;
+    case 'board_created':  return item.board_name ? `${name} created "${item.board_name}"` : `${name} created a collection`;
     case 'comment_posted': return `${name} commented`;
     case 'reaction_added': return `${name} reacted`;
     case 'member_joined':  return `${name} joined the team`;

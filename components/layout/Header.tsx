@@ -5,6 +5,16 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import StatusBanner from "./StatusBanner";
+import NotificationBell from "@/components/board/NotificationBell";
+import { planDisplayName } from "@/lib/plan-limits";
+
+const NAV_LINKS = [
+  { href: "/explore", label: "Discover" },
+  { href: "/boards", label: "Collections" },
+  { href: "/labs", label: "Labs" },
+  { href: "/community", label: "Community" },
+  { href: "/about", label: "About" },
+];
 
 export default function Header() {
   const { profile, loading, signOut } = useUser();
@@ -18,7 +28,6 @@ export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [lastScrollY, setLastScrollY] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const handleScroll = () => {
@@ -36,12 +45,6 @@ export default function Header() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [lastScrollY]);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const q = searchQuery.trim();
-    router.push(q ? `/search?q=${encodeURIComponent(q)}` : '/explore');
-  };
-
   const initials = profile?.name
     ? profile.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
     : "?";
@@ -49,55 +52,40 @@ export default function Header() {
   return (
     <>
     <header
-      className={`fixed top-0 left-0 right-0 z-50 px-6 py-4 transition-all duration-300 ${
-        scrolled ? 'bg-[#FDFCFB]/90 backdrop-blur-md shadow-sm' : ''
+      className={`fixed top-0 left-0 right-0 z-50 px-6 py-3 transition-all duration-300 ${
+        scrolled ? 'bg-[#F6F6F6]/90 backdrop-blur-md shadow-sm' : ''
       } ${
         hidden ? '-translate-y-full' : 'translate-y-0'
       }`}
     >
-      <div className="-mx-6 -mt-4">
+      <div className="-mx-6 -mt-3">
         <StatusBanner />
       </div>
-      <div className="max-w-6xl mx-auto flex items-center gap-4">
+      <div className="max-w-7xl mx-auto flex items-center gap-6">
         {/* Logo */}
-        <Link href="/" className="font-serif text-2xl sm:text-3xl md:text-4xl tracking-tight leading-none flex-shrink-0">
-          <span className="italic">Spark</span><span className="text-papaya">urio</span>
+        <Link href="/" className="flex-shrink-0">
+          <img src="/logo.png" alt="Sparkurio" className="h-7 sm:h-8 w-auto" />
         </Link>
 
-        {/* Search — desktop only, grows to fill center */}
-        <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md">
-          <div className="flex items-center gap-2 w-full px-4 py-2 bg-ink/[0.06] hover:bg-ink/[0.09] rounded-full focus-within:bg-white focus-within:ring-1 focus-within:ring-ink/10 transition-all cursor-text">
-            <svg className="w-4 h-4 stroke-ink/40 stroke-[1.5] fill-none flex-shrink-0" viewBox="0 0 24 24">
-              <circle cx="11" cy="11" r="8"/>
-              <path d="m21 21-4.35-4.35"/>
-            </svg>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search or explore…"
-              className="flex-1 bg-transparent outline-none text-sm text-ink placeholder:text-ink/30 min-w-0"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="w-4 h-4 rounded-full bg-ink/10 flex items-center justify-center hover:bg-ink/20 transition-colors flex-shrink-0"
-              >
-                <svg className="w-2.5 h-2.5 stroke-ink/50 stroke-[2] fill-none" viewBox="0 0 24 24">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
-            )}
-          </div>
-        </form>
+        {/* Nav links — desktop only */}
+        <nav className="hidden lg:flex items-center gap-5 flex-shrink-0">
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="text-sm font-medium text-ink/60 hover:text-ink transition-colors"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
 
         {/* Right side */}
         <div className="flex items-center gap-2 ml-auto">
-          {/* Mobile search icon */}
+          {/* Search */}
           <button
-            onClick={() => router.push('/explore')}
-            className="md:hidden w-10 h-10 rounded-full flex items-center justify-center hover:bg-ink/5 transition-colors"
+            onClick={() => router.push('/search')}
+            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-ink/5 transition-colors flex-shrink-0"
             aria-label="Search"
           >
             <svg className="w-5 h-5 stroke-ink/60 stroke-[1.5] fill-none" viewBox="0 0 24 24">
@@ -105,6 +93,19 @@ export default function Header() {
               <path d="m21 21-4.35-4.35"/>
             </svg>
           </button>
+
+          {profile && <NotificationBell />}
+
+          {/* Share a Resource — signed-out users are prompted to create a free account */}
+          <Link
+            href={profile ? "/resources/new" : "/signup?intent=share&redirect=/resources/new"}
+            className="hidden sm:inline-flex items-center gap-1.5 px-4 sm:px-5 py-2.5 bg-blush text-white text-sm font-semibold rounded-full hover:bg-blush/90 transition-colors flex-shrink-0"
+          >
+            <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+            <span className="hidden md:inline">Share a Resource</span>
+          </Link>
 
           {loading ? (
             <div className="w-10 h-10 rounded-full bg-ink/5 animate-pulse" />
@@ -139,7 +140,7 @@ export default function Header() {
                       <p className="font-medium text-ink">{profile.name}</p>
                       <p className="text-sm text-ink/50">{profile.email}</p>
                       <div className="mt-2 inline-block px-2 py-0.5 bg-ink/5 rounded-full">
-                        <p className="text-xs text-ink/60 capitalize">{profile.plan} plan</p>
+                        <p className="text-xs text-ink/60">{planDisplayName(profile.plan)} plan</p>
                       </div>
                     </div>
                     <div className="p-2">
@@ -154,7 +155,7 @@ export default function Header() {
                           <rect x="14" y="14" width="7" height="7" rx="1"/>
                           <rect x="3" y="14" width="7" height="7" rx="1"/>
                         </svg>
-                        Your boards
+                        Your collections
                       </Link>
                       <Link
                         href="/settings"
@@ -225,7 +226,7 @@ export default function Header() {
             <div className="flex items-center gap-2">
               <Link
                 href="/login"
-                className="px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:bg-ink/90 transition-colors"
+                className="px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:bg-ink/90 transition-colors flex-shrink-0"
               >
                 Sign in
               </Link>

@@ -1,14 +1,32 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useUser } from "@/hooks/useUser";
+import { planDisplayName } from "@/lib/plan-limits";
+import EducatorSection from "@/components/settings/EducatorSection";
 
 export default function SettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-cork-warm flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-ink/20 border-t-papaya rounded-full animate-spin" />
+      </div>
+    }>
+      <SettingsPageContent />
+    </Suspense>
+  );
+}
+
+function SettingsPageContent() {
   const { profile, loading, refreshProfile, signOut } = useUser();
-  const [activeTab, setActiveTab] = useState<"profile" | "account" | "preferences" | "privacy">("profile");
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState<"profile" | "account" | "educator" | "preferences" | "privacy">(
+    initialTab === "educator" ? "educator" : "profile"
+  );
   const router = useRouter();
 
   if (loading) {
@@ -35,6 +53,12 @@ export default function SettingsPage() {
       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
         <rect x="3" y="3" width="18" height="18" rx="2"/>
         <path d="M3 9h18"/>
+      </svg>
+    )},
+    { id: "educator", label: "Teaching Profile", icon: (
+      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M12 3 2 8l10 5 10-5-10-5Z"/>
+        <path d="M6 10.5V16c0 1.5 2.5 3 6 3s6-1.5 6-3v-5.5"/>
       </svg>
     )},
     { id: "preferences", label: "Preferences", icon: (
@@ -109,6 +133,7 @@ export default function SettingsPage() {
           <div className="flex-1">
             {activeTab === "profile" && <ProfileSection onUpdate={refreshProfile} />}
             {activeTab === "account" && <AccountSection profile={profile} />}
+            {activeTab === "educator" && <EducatorSection />}
             {activeTab === "preferences" && <PreferencesSection />}
             {activeTab === "privacy" && <PrivacySection profile={profile} />}
           </div>
@@ -294,260 +319,25 @@ function ProfileSection({ onUpdate }: { onUpdate: () => void }) {
 // ============================================================================
 
 function AccountSection({ profile }: { profile: any }) {
-  const [showDowngradeConfirm, setShowDowngradeConfirm] = useState(false);
-  const [downgrading, setDowngrading] = useState(false);
-  const [downgradeResult, setDowngradeResult] = useState<{ deleted_boards: { id: string; name: string }[] } | null>(null);
-  const { refreshProfile } = useUser();
-
-  const planDetails = {
-    free: {
-      name: "Free",
-      price: "$0",
-      color: "text-ink",
-      bgColor: "bg-ink/10",
-    },
-    pro: {
-      name: "Pro",
-      price: "$10/mo",
-      color: "text-papaya",
-      bgColor: "bg-papaya/10",
-    },
-    team: {
-      name: "Team",
-      price: "$15/mo",
-      color: "text-aqua",
-      bgColor: "bg-aqua/10",
-    },
-  };
-
-  const currentPlan = planDetails[profile.plan as keyof typeof planDetails] || planDetails.free;
-  const limits = profile.plan_limits || { max_boards: 5, max_tacks_per_board: 25 };
-  const boardsUsed = profile.board_count || 0;
-  const boardsPercent = limits.max_boards === -1 ? 0 : (boardsUsed / limits.max_boards) * 100;
-  const FREE_BOARD_LIMIT = 5;
-  const boardsToDelete = Math.max(0, boardsUsed - FREE_BOARD_LIMIT);
-
-  const handleDowngrade = async () => {
-    setDowngrading(true);
-    try {
-      const res = await fetch('/api/downgrade', { method: 'POST' });
-      const data = await res.json();
-      if (res.ok) {
-        setDowngradeResult(data);
-        setShowDowngradeConfirm(false);
-        refreshProfile();
-      } else {
-        alert(data.error ?? 'Downgrade failed. Please try again.');
-      }
-    } catch {
-      alert('Downgrade failed. Please try again.');
-    }
-    setDowngrading(false);
-  };
+  const currentPlanName = planDisplayName(profile.plan);
 
   return (
     <div className="space-y-6">
-      {/* Current Plan */}
       <div className="bg-white rounded-2xl shadow-sm p-6">
         <h2 className="font-serif text-2xl mb-6">Account</h2>
 
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-ink-soft mb-1">Current Plan</p>
-            <div className="flex items-center gap-2">
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${currentPlan.bgColor} ${currentPlan.color}`}>
-                {currentPlan.name}
-              </span>
-              <span className="text-ink-soft">{currentPlan.price}</span>
-            </div>
+            <span className="px-3 py-1 rounded-full text-sm font-medium bg-papaya/10 text-papaya">
+              {currentPlanName}
+            </span>
           </div>
-          <div className="flex items-center gap-2">
-            {profile.plan !== "free" && (
-              <button
-                onClick={() => setShowDowngradeConfirm(true)}
-                className="px-4 py-2 bg-ink/5 text-ink/60 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors"
-              >
-                Downgrade to Free
-              </button>
-            )}
-            <Link
-              href="/settings/billing"
-              className="px-4 py-2 bg-papaya text-white rounded-full text-sm font-medium hover:bg-papaya/90 transition-colors"
-            >
-              {profile.plan === "free" ? "Upgrade" : "Change plan"}
-            </Link>
-          </div>
-        </div>
-
-        {/* Usage Stats */}
-        <div className="space-y-4">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-ink">Boards</span>
-              <span className="text-sm text-ink-soft">
-                {boardsUsed} / {limits.max_boards === -1 ? "∞" : limits.max_boards}
-              </span>
-            </div>
-            <div className="h-2 bg-ink/10 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-papaya rounded-full transition-all"
-                style={{ width: `${Math.min(boardsPercent, 100)}%` }}
-              />
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-ink">Tacks per board</span>
-              <span className="text-sm text-ink-soft">
-                {limits.max_tacks_per_board === -1 ? "Unlimited" : `Up to ${limits.max_tacks_per_board}`}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Downgrade success notice */}
-      {downgradeResult && (
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
-          <p className="text-sm font-medium text-green-800 mb-1">You&apos;ve been moved to the Free plan.</p>
-          {downgradeResult.deleted_boards.length > 0 ? (
-            <>
-              <p className="text-xs text-green-700 mb-2">
-                The following boards were deleted to stay within the 5-board limit:
-              </p>
-              <ul className="text-xs text-green-700 space-y-0.5 list-disc list-inside">
-                {downgradeResult.deleted_boards.map(b => (
-                  <li key={b.id}>{b.name}</li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <p className="text-xs text-green-700">No boards were deleted — you were within the limit.</p>
-          )}
-        </div>
-      )}
-
-      {/* Downgrade confirmation dialog */}
-      {showDowngradeConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowDowngradeConfirm(false)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
-            <h3 className="font-serif text-xl mb-2">Downgrade to Free?</h3>
-            <p className="text-sm text-ink/60 mb-4">
-              You&apos;ll be moved to the Free plan immediately. To switch to Pro instead, use &ldquo;Change plan.&rdquo;
-            </p>
-            {boardsToDelete > 0 && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
-                <p className="text-sm text-amber-800 font-medium">
-                  {boardsToDelete} board{boardsToDelete !== 1 ? 's' : ''} will be deleted
-                </p>
-                <p className="text-xs text-amber-700 mt-1">
-                  You have {boardsUsed} boards. The Free plan allows 5. Your {boardsToDelete} least-recently-updated board{boardsToDelete !== 1 ? 's' : ''} will be permanently deleted.
-                </p>
-              </div>
-            )}
-            <div className="flex gap-3">
-              <button
-                onClick={handleDowngrade}
-                disabled={downgrading}
-                className="flex-1 px-4 py-2.5 bg-ink text-white rounded-full text-sm font-medium hover:bg-ink/80 transition-colors disabled:opacity-50"
-              >
-                {downgrading ? 'Downgrading…' : 'Yes, downgrade'}
-              </button>
-              <button
-                onClick={() => setShowDowngradeConfirm(false)}
-                className="flex-1 px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Plan Comparison */}
-      <div className="bg-white rounded-2xl shadow-sm p-6">
-        <h3 className="font-serif text-xl mb-4">Compare Plans</h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Free */}
-          <div className={`p-4 rounded-xl border-2 ${profile.plan === "free" ? "border-papaya" : "border-ink/10"}`}>
-            <p className="font-semibold mb-1">Free</p>
-            <p className="text-2xl font-bold mb-3">$0</p>
-            <ul className="text-sm space-y-2">
-              {[
-                { label: "5 boards", locked: false },
-                { label: "25 tacks per board", locked: false },
-                { label: "Basic backgrounds", locked: false },
-                { label: "50 boards", locked: true, badge: "Pro" },
-                { label: "200 tacks per board", locked: true, badge: "Pro" },
-                { label: "Custom colors", locked: true, badge: "Pro" },
-                { label: "No branding", locked: true, badge: "Pro" },
-                { label: "Export boards", locked: true, badge: "Pro" },
-                { label: "Real-time collaboration", locked: true, badge: "Team" },
-              ].map(({ label, locked, badge }) => (
-                <li key={label} className={`flex items-center gap-2 ${locked ? "opacity-40" : ""}`}>
-                  {locked ? (
-                    <svg className="w-4 h-4 stroke-ink/30 stroke-2 fill-none flex-shrink-0" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                  ) : (
-                    <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none flex-shrink-0" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                  )}
-                  <span className={locked ? "text-ink/40 line-through text-xs" : "text-ink-soft"}>{label}</span>
-                  {badge && <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-papaya/10 text-papaya/70">{badge}</span>}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Pro */}
-          <div className={`p-4 rounded-xl border-2 ${profile.plan === "pro" ? "border-papaya" : "border-ink/10"} relative`}>
-            <div className="absolute -top-2 -right-2 px-2 py-0.5 bg-papaya text-white text-xs font-medium rounded-full">Popular</div>
-            <p className="font-semibold mb-1">Pro</p>
-            <p className="text-2xl font-bold mb-3">$10<span className="text-sm font-normal text-ink-soft">/mo</span></p>
-            <ul className="text-sm space-y-2">
-              {[
-                { label: "50 boards", locked: false },
-                { label: "200 tacks per board", locked: false },
-                { label: "Custom colors", locked: false },
-                { label: "No branding", locked: false },
-                { label: "Export boards", locked: false },
-                { label: "Real-time collaboration", locked: true, badge: "Team" },
-              ].map(({ label, locked, badge }) => (
-                <li key={label} className={`flex items-center gap-2 ${locked ? "opacity-40" : ""}`}>
-                  {locked ? (
-                    <svg className="w-4 h-4 stroke-ink/30 stroke-2 fill-none flex-shrink-0" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                  ) : (
-                    <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none flex-shrink-0" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                  )}
-                  <span className={locked ? "text-ink/40 line-through text-xs" : "text-ink-soft"}>{label}</span>
-                  {badge && <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-papaya/10 text-papaya/70">{badge}</span>}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Team */}
-          <div className={`p-4 rounded-xl border-2 ${profile.plan === "team" ? "border-papaya" : "border-ink/10"}`}>
-            <p className="font-semibold mb-1">Team</p>
-            <p className="text-2xl font-bold mb-3">$15<span className="text-sm font-normal text-ink-soft">/mo</span></p>
-            <ul className="text-sm text-ink-soft space-y-2">
-              {["Everything in Pro", "Unlimited boards", "Unlimited tacks", "Real-time collaboration", "Team workspace"].map(label => (
-                <li key={label} className="flex items-center gap-2">
-                  <svg className="w-4 h-4 stroke-green-500 stroke-2 fill-none flex-shrink-0" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                  {label}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        <div className="mt-6 text-center">
           <Link
             href="/settings/billing"
-            className="inline-block px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors"
+            className="px-4 py-2 bg-papaya text-white rounded-full text-sm font-medium hover:bg-papaya/90 transition-colors"
           >
-            {profile.plan === "free" ? "Upgrade Now" : "Change Plan"}
+            {profile.plan === "free" ? "Upgrade" : "Manage billing"}
           </Link>
         </div>
       </div>
@@ -593,7 +383,7 @@ function PreferencesSection() {
 
       {/* Default Board Style */}
       <div className="mb-8">
-        <label className="block text-sm font-medium text-ink mb-3">Default Board Background</label>
+        <label className="block text-sm font-medium text-ink mb-3">Default Collection Background</label>
         <div className="grid grid-cols-4 gap-3">
           {[
             { id: "gradient", label: "Gradient" },
@@ -615,12 +405,12 @@ function PreferencesSection() {
                 style={{
                   background:
                     style.id === "gradient"
-                      ? "linear-gradient(135deg, #fef3e2 0%, #fce7f3 100%)"
+                      ? "linear-gradient(135deg, #F0FFC2 0%, #FFD6F2 100%)"
                       : style.id === "starburst"
-                      ? "repeating-conic-gradient(from 0deg, #fef3e2 0deg 15deg, #fce7f3 15deg 30deg)"
+                      ? "repeating-conic-gradient(from 0deg, #F0FFC2 0deg 15deg, #FFD6F2 15deg 30deg)"
                       : style.id === "swirl"
-                      ? "radial-gradient(ellipse at 20% 80%, #fef3e2 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, #fce7f3 0%, transparent 50%), linear-gradient(135deg, #fef3e2 0%, #fce7f3 100%)"
-                      : "#fef3e2",
+                      ? "radial-gradient(ellipse at 20% 80%, #F0FFC2 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, #FFD6F2 0%, transparent 50%), linear-gradient(135deg, #F0FFC2 0%, #FFD6F2 100%)"
+                      : "#F0FFC2",
                 }}
               />
               <p className={`text-xs font-medium ${defaultBgStyle === style.id ? "text-papaya" : "text-ink"}`}>
@@ -638,7 +428,7 @@ function PreferencesSection() {
         <label className="flex items-center justify-between py-3 border-b border-ink/5 cursor-pointer">
           <div>
             <p className="font-medium">Activity notifications</p>
-            <p className="text-sm text-ink-soft">Get notified when someone interacts with your boards</p>
+            <p className="text-sm text-ink-soft">Get notified when someone interacts with your collections</p>
           </div>
           <div
             onClick={() => setEmailNotifications(!emailNotifications)}
@@ -767,7 +557,7 @@ function PrivacySection({ profile }: { profile: any }) {
         <div className="mb-6">
           <h4 className="font-medium mb-2">Export your data</h4>
           <p className="text-sm text-ink-soft mb-4">
-            Download a copy of all your boards, tacks, and account information.
+            Download a copy of all your collections, resources, and account information.
           </p>
           <button
             className="px-5 py-2.5 bg-ink/5 text-ink rounded-full font-medium hover:bg-ink/10 transition-colors"
@@ -798,7 +588,7 @@ function PrivacySection({ profile }: { profile: any }) {
         ) : (
           <div className="p-4 bg-red-50 rounded-xl">
             <p className="text-sm text-red-800 mb-4">
-              This will permanently delete all your boards, tacks, and account data. 
+              This will permanently delete all your collections, resources, and account data. 
               Type <strong>DELETE</strong> to confirm.
             </p>
             <input

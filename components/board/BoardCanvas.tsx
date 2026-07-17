@@ -4,8 +4,11 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { canAddTack, getUpgradeMessage, hasFeature } from "../../lib/plan-limits";
+import { getUpgradeMessage, hasFeature } from "../../lib/plan-limits";
 import type { Plan } from "../../lib/plan-limits";
+import { isClassroomEducatorRole } from "@/lib/educator";
+import Breadcrumb from "@/components/board/Breadcrumb";
+import SubCollectionsStrip from "@/components/board/SubCollectionsStrip";
 import UpgradeModal from "@/components/UpgradeModal";
 import FileSizeModal from "@/components/FileSizeModal";
 import { useUser } from "@/hooks/useUser";
@@ -135,10 +138,10 @@ async function saveItem(
 }
 
 const pinColorPresets: Record<string, string> = {
-  papaya: "#E24E42",
-  mustard: "#E9B000",
-  blush: "#EB6E80",
-  aqua: "#008F95",
+  papaya: "#4C4DFF",
+  mustard: "#FF7A32",
+  blush: "#FF00C8",
+  aqua: "#B9AEFF",
 };
 
 export default function BoardCanvas() {
@@ -150,7 +153,7 @@ export default function BoardCanvas() {
   const currentUser = profile
     ? { id: profile.id, name: profile.name, avatarUrl: profile.avatar_url }
     : null;
-  const collaborationEnabled = hasFeature(profile?.plan as Plan | undefined, 'collaboration');
+  const collaborationEnabled = !!profile;
   const { collaborators, broadcastCursor, clearCursor } = useBoardPresence(boardId, currentUser, collaborationEnabled);
 
   const [board, setBoard] = useState<Board | null>(null);
@@ -309,7 +312,7 @@ const screenToCanvas = (screenX: number, screenY: number) => {
 
       if (boardError) {
         console.error("Board error:", boardError);
-        setError("Board not found");
+        setError("Collection not found");
         setLoading(false);
         return;
       }
@@ -1026,14 +1029,7 @@ const handleTextRotateEnd = async () => {
   // Add tack
   const addTack = async (url: string, note: string, pinColor: string, source?: string) => {
     if (!board) return;
-    
-    // Check tack limit
-    if (!canAddTack(profile?.plan as any, tacks.length)) {
-      setUpgradeMessage(getUpgradeMessage(profile?.plan as any, 'max_tacks_per_board'));
-      setShowUpgradeModal(true);
-      return;
-    }
-    
+
     const { data: session } = await supabase.auth.getSession();
     if (!session?.session?.user) return;
     
@@ -1217,9 +1213,9 @@ const handleTextRotateEnd = async () => {
   const getBackgroundStyle = () => {
     if (!board) return {};
     
-    const colors = board.background_color?.split(",") || ["#fef3e2", "#fce7f3"];
-    const c1 = colors[0] || "#fef3e2";
-    const c2 = colors[1] || "#fce7f3";
+    const colors = board.background_color?.split(",") || ["#F0FFC2", "#FFD6F2"];
+    const c1 = colors[0] || "#F0FFC2";
+    const c2 = colors[1] || "#FFD6F2";
 
     switch (board.vibe) {
       case "gradient":
@@ -1238,7 +1234,7 @@ const handleTextRotateEnd = async () => {
       case "solid":
         return { backgroundColor: c1 };
       case "warm":
-        return { background: `linear-gradient(135deg, #fef3e2 0%, #fce7f3 100%)` };
+        return { background: `linear-gradient(135deg, #F0FFC2 0%, #FFD6F2 100%)` };
       case "cool":
         return { background: `linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%)` };
       case "dark":
@@ -1254,7 +1250,7 @@ const handleTextRotateEnd = async () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-cork-warm flex items-center justify-center">
-        <div className="text-ink-soft">Loading board...</div>
+        <div className="text-ink-soft">Loading collection...</div>
       </div>
     );
   }
@@ -1267,7 +1263,7 @@ const handleTextRotateEnd = async () => {
     return (
       <div className="min-h-screen bg-cork-warm flex items-center justify-center">
         <div className="text-center">
-          <p className="text-ink-soft mb-4">{error || "Board not found"}</p>
+          <p className="text-ink-soft mb-4">{error || "Collection not found"}</p>
           <Link href="/" className="text-papaya">Go home</Link>
         </div>
       </div>
@@ -1284,19 +1280,7 @@ return (
   >
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-30 px-4 flex items-center justify-between" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: '0.75rem' }}>
-        <div className="flex items-center gap-3">
-          <Link 
-            href="/" 
-            className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md shadow-lg flex items-center justify-center hover:bg-white transition-colors"
-          >
-            <svg className="w-5 h-5 stroke-[#1A1A1A] stroke-[1.5] fill-none" viewBox="0 0 24 24">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
-          </Link>
-          <div className="bg-white/80 backdrop-blur-md rounded-full px-4 py-2 shadow-lg max-w-[150px] sm:max-w-xs">
-            <h1 className="font-serif text-lg leading-tight truncate">{board.name}</h1>
-          </div>
-        </div>
+        <Breadcrumb boardId={board.id} boardName={board.name} variant="canvas" />
         
         <div className="flex items-center gap-2">
           <PresenceAvatars collaborators={collaborators} />
@@ -1388,7 +1372,7 @@ return (
                       <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none flex-shrink-0" viewBox="0 0 24 24">
                         <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
                       </svg>
-                      Edit board
+                      Edit collection
                     </button>
                   )}
 
@@ -1459,8 +1443,14 @@ return (
         onWheel={handleWheelZoom}
         style={{ touchAction: 'none' }}
       >
+        <div className="absolute top-20 left-0 right-0 z-20 px-4">
+          <div className="max-w-2xl mx-auto">
+            <SubCollectionsStrip boardId={board.id} canEdit={canEdit} />
+          </div>
+        </div>
+
         {board.description && (
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 max-w-md text-center px-4 pointer-events-none">
+          <div className="absolute top-36 left-1/2 -translate-x-1/2 z-20 max-w-md text-center px-4 pointer-events-none">
             <p className={`font-serif text-lg italic ${
               board.vibe === 'dark' ? 'text-white/60' : 'text-ink/40'
             }`}>
@@ -1725,13 +1715,13 @@ return (
       {tacks.length === 0 && textBlocks.length === 0 && (
         <div className="fixed inset-0 z-20 flex items-center justify-center pointer-events-none">
           <div className="text-center bg-white/80 backdrop-blur-md rounded-2xl px-8 py-6 shadow-xl pointer-events-auto">
-            <p className="text-lg text-ink mb-4 font-serif">This board is empty</p>
+            <p className="text-lg text-ink mb-4 font-serif">This collection is empty</p>
             {canEdit ? (
               <button
                 onClick={() => setAddModalOpen(true)}
                 className="px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors"
               >
-                Tack your first image
+                Add your first resource
               </button>
             ) : (
               <p className="text-sm text-ink/40">Nothing here yet.</p>
@@ -1804,8 +1794,8 @@ return (
               </button>
             ) : (
               <button
-                onClick={() => { setUpgradeMessage(getUpgradeMessage(profile?.plan as Plan | undefined, 'studio_boards')); setShowUpgradeModal(true); }}
-                title="Section labels — Team feature"
+                onClick={() => { setUpgradeMessage(getUpgradeMessage('studio_boards')); setShowUpgradeModal(true); }}
+                title="Section labels — Plus feature"
                 className="bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-ink/40 hover:bg-white transition-colors flex items-center gap-2"
               >
                 <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24">
@@ -1958,7 +1948,7 @@ return (
             <div className="flex items-center justify-between px-5 py-4 border-b border-ink/5 flex-shrink-0">
               <div>
                 <h2 className="font-medium text-sm text-ink">Activity &amp; Discussion</h2>
-                <p className="text-[11px] text-ink/40 mt-0.5">Live updates · board chat</p>
+                <p className="text-[11px] text-ink/40 mt-0.5">Live updates · collection chat</p>
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
@@ -1979,7 +1969,7 @@ return (
       {showUpgradeModal && (
         <UpgradeModal
           message={upgradeMessage}
-          feature="max_tacks_per_board"
+          feature="studio_boards"
           onClose={() => setShowUpgradeModal(false)}
         />
       )}
@@ -2073,6 +2063,14 @@ function SettingsSidebar({
   const router = useRouter();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [childCount, setChildCount] = useState(0);
+
+  useEffect(() => {
+    (async () => {
+      const { count } = await supabase.from("boards").select("id", { count: "exact", head: true }).eq("parent_id", board.id);
+      setChildCount(count ?? 0);
+    })();
+  }, [board.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -2083,13 +2081,13 @@ function SettingsSidebar({
   const { profile: settingsProfile } = useUser();
   const canCustomizeColors = hasFeature(settingsProfile?.plan as Plan | undefined, 'custom_colors');
   
-  const initialColors = board.background_color?.split(",") || ["#fef3e2", "#fce7f3"];
+  const initialColors = board.background_color?.split(",") || ["#F0FFC2", "#FFD6F2"];
   
   const [name, setName] = useState(board.name);
   const [description, setDescription] = useState(board.description || "");
   const [bgStyle, setBgStyle] = useState(board.vibe || "gradient");
-  const [color1, setColor1] = useState(initialColors[0] || "#fef3e2");
-  const [color2, setColor2] = useState(initialColors[1] || "#fce7f3");
+  const [color1, setColor1] = useState(initialColors[0] || "#F0FFC2");
+  const [color2, setColor2] = useState(initialColors[1] || "#FFD6F2");
   const [isPublic, setIsPublic] = useState(board.is_public ?? false);
   const [status, setStatus] = useState<'draft' | 'in_review' | 'approved'>(board.status ?? 'draft');
   const [saving, setSaving] = useState(false);
@@ -2148,7 +2146,7 @@ function SettingsSidebar({
   };
 
   const colorPresets = [
-    { c1: "#fef3e2", c2: "#fce7f3", name: "Sunset" },
+    { c1: "#F0FFC2", c2: "#FFD6F2", name: "Sunset" },
     { c1: "#d1fae5", c2: "#a5f3fc", name: "Ocean" },
     { c1: "#fecaca", c2: "#fef08a", name: "Citrus" },
     { c1: "#1a1a2e", c2: "#0f3460", name: "Midnight" },
@@ -2172,7 +2170,7 @@ function SettingsSidebar({
         <div className="p-6 border-b border-ink/5">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-serif text-2xl text-ink">Edit board</h2>
+              <h2 className="font-serif text-2xl text-ink">Edit collection</h2>
               <p className="text-sm text-ink-soft mt-0.5">Make it yours</p>
             </div>
             <button onClick={onClose} className="w-10 h-10 rounded-full bg-ink/5 hover:bg-ink/10 flex items-center justify-center transition-colors">
@@ -2195,7 +2193,7 @@ function SettingsSidebar({
 
           <div className="p-6 border-b border-ink/5">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-medium text-ink-soft uppercase tracking-wide">Board Name</p>
+              <p className="text-xs font-medium text-ink-soft uppercase tracking-wide">Collection Name</p>
               <button onClick={suggestName} className="text-xs text-papaya hover:text-papaya/70 transition-colors">Surprise me</button>
             </div>
             <input
@@ -2203,7 +2201,7 @@ function SettingsSidebar({
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full px-4 py-3 bg-ink/5 rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 font-medium text-ink transition-all"
-              placeholder="Give your board a name..."
+              placeholder="Give your collection a name..."
             />
           </div>
 
@@ -2212,7 +2210,7 @@ function SettingsSidebar({
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="What story does this board tell?"
+              placeholder="What story does this collection tell?"
               rows={3}
               className="w-full px-4 py-3 bg-ink/5 rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 resize-none text-sm text-ink transition-all"
             />
@@ -2256,7 +2254,7 @@ function SettingsSidebar({
               <span className={`relative z-10 flex-1 text-center text-xs font-semibold transition-colors ${isPublic ? 'text-white' : 'text-ink/40'}`}>Public</span>
             </button>
             <p className="text-[11px] text-ink/40 mt-2">
-              {isPublic ? 'Anyone can find and view this board.' : 'Only you can see this board.'}
+              {isPublic ? 'Anyone can find and view this collection.' : 'Only you can see this collection.'}
             </p>
           </div>
 
@@ -2341,8 +2339,8 @@ function SettingsSidebar({
               <div className="rounded-xl bg-ink/3 border border-ink/8 px-4 py-5 flex items-center gap-3">
                 <svg className="w-5 h-5 stroke-ink/30 stroke-[1.5] fill-none flex-shrink-0" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-ink/50">Custom colors are a Pro feature</p>
-                  <a href="/settings/billing" className="text-xs text-papaya hover:underline">Upgrade to Pro →</a>
+                  <p className="text-sm text-ink/50">Custom colors are a Plus feature</p>
+                  <a href="/settings/billing" className="text-xs text-papaya hover:underline">Upgrade to Plus →</a>
                 </div>
               </div>
             )}
@@ -2360,12 +2358,16 @@ function SettingsSidebar({
                 <polyline points="3 6 5 6 21 6"/>
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
               </svg>
-              Delete board
+              Delete collection
             </button>
           ) : (
             <div className="rounded-xl bg-red-50 border border-red-100 p-4">
-              <p className="text-sm font-semibold text-red-700 mb-1">Delete this board?</p>
-              <p className="text-xs text-red-500/70 mb-4">All tacks will be permanently removed. This can&apos;t be undone.</p>
+              <p className="text-sm font-semibold text-red-700 mb-1">Delete this collection?</p>
+              <p className="text-xs text-red-500/70 mb-4">
+                {childCount > 0
+                  ? `This collection has ${childCount} sub-collection${childCount === 1 ? '' : 's'} — they'll move to your top-level Collections, not be deleted. Its own resources will be permanently removed. This can't be undone.`
+                  : "All resources will be permanently removed. This can't be undone."}
+              </p>
               <div className="flex gap-2">
                 <button
                   onClick={handleDelete}
@@ -2441,7 +2443,12 @@ function TackDetailModal({
   const { profile: tackProfile } = useUser();
   const canCustomPin = hasFeature(tackProfile?.plan as Plan | undefined, 'custom_colors');
   const canFrame = hasFeature(tackProfile?.plan as Plan | undefined, 'tack_frames');
-  const canDownload = hasFeature(tackProfile?.plan as Plan | undefined, 'export_boards');
+  const canDownload = hasFeature(tackProfile?.plan as Plan | undefined, 'unlimited_downloads', tackProfile?.is_verified_educator);
+  // Unverified self-identified educators get pointed at "Confirm your school"
+  // (free) instead of straight to billing — the point-of-friction prompt.
+  const downloadUpsellIsEducator = isClassroomEducatorRole(tackProfile?.role) && !tackProfile?.is_verified_educator;
+  const downloadUpsellHref = downloadUpsellIsEducator ? "/settings?tab=educator" : "/settings/billing";
+  const downloadUpsellLabel = downloadUpsellIsEducator ? "Download — Confirm school" : "Download — Pro";
 
   // Retack state (read-only view)
   type RetackState = 'idle' | 'picking' | 'saving' | 'done' | 'error';
@@ -2549,7 +2556,7 @@ function TackDetailModal({
         
         <div className="w-full md:w-96 p-6 flex flex-col overflow-y-auto">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm text-ink-soft">{canEdit ? (saving ? "Saving..." : "Tack details") : "View tack"}</span>
+            <span className="text-sm text-ink-soft">{canEdit ? (saving ? "Saving..." : "Resource details") : "View resource"}</span>
             <button onClick={onClose} className="w-8 h-8 rounded-full hover:bg-ink/5 flex items-center justify-center">
               <svg className="w-5 h-5 stroke-[#1A1A1A] stroke-[1.5] fill-none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
             </button>
@@ -2559,7 +2566,7 @@ function TackDetailModal({
             <>
               <div className="mb-4">
                 <label className="block text-xs text-ink-soft mb-1">Title</label>
-                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Give this tack a name..." className="w-full px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/30" />
+                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Give this resource a name..." className="w-full px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/30" />
               </div>
 
               <div className="mb-4">
@@ -2586,7 +2593,7 @@ function TackDetailModal({
               </div>
 
               <div className="mb-6">
-                <label className="block text-xs text-ink-soft mb-2">{isSticker ? 'Sticker color' : 'Tack color'}</label>
+                <label className="block text-xs text-ink-soft mb-2">{isSticker ? 'Sticker color' : 'Resource color'}</label>
                 <div className="flex gap-2 flex-wrap py-1">
                   {Object.entries(pinColorPresets).map(([name, color]) => (
                     <button key={name} onClick={() => handlePinColorChange(name)} className={`w-8 h-8 rounded-full ${pinColor === name ? 'outline outline-2 outline-offset-2 outline-ink' : ''} hover:scale-110 transition-transform`} style={{ backgroundColor: color }} />
@@ -2596,16 +2603,16 @@ function TackDetailModal({
                       {pinColorPresets[pinColor] && <svg className="w-4 h-4 stroke-ink/50 stroke-2 fill-none" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>}
                     </button>
                   ) : (
-                    <a href="/settings/billing" title="Custom colors — Pro feature" className="w-8 h-8 rounded-full border-2 border-dashed border-ink/15 flex items-center justify-center relative group">
+                    <a href="/settings/billing" title="Custom colors — Plus feature" className="w-8 h-8 rounded-full border-2 border-dashed border-ink/15 flex items-center justify-center relative group">
                       <svg className="w-3.5 h-3.5 stroke-ink/25 stroke-[1.5] fill-none" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                      <span className="absolute -top-8 left-1/2 -translate-x-1/2 text-[10px] bg-ink text-white px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Pro feature</span>
+                      <span className="absolute -top-8 left-1/2 -translate-x-1/2 text-[10px] bg-ink text-white px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Plus feature</span>
                     </a>
                   )}
                 </div>
                 {showColorPicker && canCustomPin && (
                   <div className="mt-3 flex items-center gap-2">
-                    <input type="color" value={customColor || "#E24E42"} onChange={(e) => { setCustomColor(e.target.value); setPinColor(e.target.value); }} className="w-10 h-10 rounded-lg cursor-pointer border-0 p-0" />
-                    <input type="text" value={customColor} onChange={(e) => { setCustomColor(e.target.value); if (e.target.value.match(/^#[0-9A-Fa-f]{6}$/)) setPinColor(e.target.value); }} placeholder="#E24E42" className="flex-1 px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/30" />
+                    <input type="color" value={customColor || "#4C4DFF"} onChange={(e) => { setCustomColor(e.target.value); setPinColor(e.target.value); }} className="w-10 h-10 rounded-lg cursor-pointer border-0 p-0" />
+                    <input type="text" value={customColor} onChange={(e) => { setCustomColor(e.target.value); if (e.target.value.match(/^#[0-9A-Fa-f]{6}$/)) setPinColor(e.target.value); }} placeholder="#4C4DFF" className="flex-1 px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/30" />
                   </div>
                 )}
               </div>
@@ -2637,7 +2644,7 @@ function TackDetailModal({
                       </div>
                       {borderWidth > 0 && (
                         <div className="flex items-center gap-2 flex-wrap">
-                          {['#FFFFFF', '#FAF9F6', '#F0EDE8', '#1A1A1A', '#E24E42'].map(c => (
+                          {['#FFFFFF', '#FAF9F6', '#F0EDE8', '#1A1A1A', '#4C4DFF'].map(c => (
                             <button
                               key={c}
                               onClick={() => setBorderColor(c)}
@@ -2654,9 +2661,9 @@ function TackDetailModal({
                             />
                             <div
                               className="w-7 h-7 rounded-lg border-2 border-dashed border-ink/25 flex items-center justify-center"
-                              style={{ backgroundColor: ['#FFFFFF','#FAF9F6','#F0EDE8','#1A1A1A','#E24E42'].includes(borderColor) ? 'transparent' : borderColor }}
+                              style={{ backgroundColor: ['#FFFFFF','#FAF9F6','#F0EDE8','#1A1A1A','#4C4DFF'].includes(borderColor) ? 'transparent' : borderColor }}
                             >
-                              {['#FFFFFF','#FAF9F6','#F0EDE8','#1A1A1A','#E24E42'].includes(borderColor) && (
+                              {['#FFFFFF','#FAF9F6','#F0EDE8','#1A1A1A','#4C4DFF'].includes(borderColor) && (
                                 <svg className="w-3 h-3 stroke-ink/30 stroke-[1.5] fill-none" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
                               )}
                             </div>
@@ -2667,7 +2674,7 @@ function TackDetailModal({
                   ) : (
                     <a href="/settings/billing" className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl bg-papaya/5 border border-papaya/15 hover:bg-papaya/10 transition-colors group">
                       <svg className="w-4 h-4 stroke-papaya stroke-[1.5] fill-none flex-shrink-0" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                      <span className="text-xs text-papaya font-medium">Upgrade to Pro to add frames</span>
+                      <span className="text-xs text-papaya font-medium">Upgrade to Plus to add frames</span>
                     </a>
                   )}
                 </div>
@@ -2697,7 +2704,7 @@ function TackDetailModal({
                       Download
                     </button>
                   ) : (
-                    <a href="/settings/billing" className="flex-1 px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-papaya/10 transition-colors flex items-center justify-center gap-2 group">
+                    <a href={downloadUpsellHref} className="flex-1 px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-papaya/10 transition-colors flex items-center justify-center gap-2 group">
                       <svg className="w-4 h-4 stroke-ink/40 stroke-[1.5] fill-none group-hover:stroke-papaya transition-colors" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                       <span className="text-ink/50 group-hover:text-papaya transition-colors">Download</span>
                     </a>
@@ -2716,7 +2723,7 @@ function TackDetailModal({
                 ) : retackState === 'picking' ? (
                   <div className="border border-ink/10 rounded-2xl overflow-hidden">
                     <div className="flex items-center justify-between px-4 py-2 border-b border-ink/5">
-                      <p className="text-xs font-semibold text-ink/40 uppercase tracking-widest">Save to board</p>
+                      <p className="text-xs font-semibold text-ink/40 uppercase tracking-widest">Save to collection</p>
                       <button onClick={() => setRetackState('idle')} className="text-ink/30 hover:text-ink">
                         <svg className="w-3.5 h-3.5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
                       </button>
@@ -2726,7 +2733,7 @@ function TackDetailModal({
                         <div className="w-4 h-4 border-2 border-ink/10 border-t-papaya rounded-full animate-spin" />
                       </div>
                     ) : retackBoards.length === 0 ? (
-                      <p className="px-4 py-3 text-xs text-ink/40">No boards yet. Create one first.</p>
+                      <p className="px-4 py-3 text-xs text-ink/40">No collections yet. Create one first.</p>
                     ) : (
                       <ul className="max-h-40 overflow-y-auto">
                         {retackBoards.map(b => (
@@ -2750,7 +2757,7 @@ function TackDetailModal({
                     ) : (
                       <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
                     )}
-                    Save to my board
+                    Save to my collection
                   </button>
                 )}
 
@@ -2760,9 +2767,9 @@ function TackDetailModal({
                     Download
                   </button>
                 ) : (
-                  <a href="/settings/billing" className="w-full px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-papaya/10 transition-colors flex items-center justify-center gap-2 group">
+                  <a href={downloadUpsellHref} className="w-full px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-papaya/10 transition-colors flex items-center justify-center gap-2 group">
                     <svg className="w-4 h-4 stroke-ink/40 stroke-[1.5] fill-none group-hover:stroke-papaya transition-colors" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    <span className="text-ink/50 group-hover:text-papaya transition-colors">Download — Pro</span>
+                    <span className="text-ink/50 group-hover:text-papaya transition-colors">{downloadUpsellLabel}</span>
                   </a>
                 )}
               </div>
@@ -2850,7 +2857,7 @@ function PinColorPicker({
 }) {
   return (
     <div className="mb-6">
-      <label className="text-sm text-ink-soft mb-2 block">Tack color</label>
+      <label className="text-sm text-ink-soft mb-2 block">Resource color</label>
       <div className="flex gap-2 flex-wrap py-1">
         {Object.entries(pinColorPresets).map(([name, color]) => (
           <button key={name} type="button" onClick={() => { setPinColor(name); setShowCustomPinColor(false); }} className={`w-8 h-8 rounded-full ${pinColor === name && !showCustomPinColor ? 'outline outline-2 outline-offset-2 outline-ink' : ''} hover:scale-110 transition-transform`} style={{ backgroundColor: color }} />
@@ -2861,8 +2868,8 @@ function PinColorPicker({
       </div>
       {showCustomPinColor && (
         <div className="mt-3 flex items-center gap-2">
-          <input type="color" value={customPinColor || "#E24E42"} onChange={(e) => setCustomPinColor(e.target.value)} className="w-10 h-10 rounded-lg cursor-pointer border-0 p-0" />
-          <input type="text" value={customPinColor} onChange={(e) => setCustomPinColor(e.target.value)} placeholder="#E24E42" className="flex-1 px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/30" />
+          <input type="color" value={customPinColor || "#4C4DFF"} onChange={(e) => setCustomPinColor(e.target.value)} className="w-10 h-10 rounded-lg cursor-pointer border-0 p-0" />
+          <input type="text" value={customPinColor} onChange={(e) => setCustomPinColor(e.target.value)} placeholder="#4C4DFF" className="flex-1 px-3 py-2 bg-ink/5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-papaya/30" />
         </div>
       )}
     </div>
@@ -3142,7 +3149,7 @@ function AddTackModal({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-serif text-2xl">Tack something new</h2>
+          <h2 className="font-serif text-2xl">Share something new</h2>
           <button onClick={onClose} className="w-8 h-8 rounded-full hover:bg-ink/5 flex items-center justify-center">
             <svg className="w-5 h-5 stroke-[#1A1A1A] stroke-[1.5] fill-none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
@@ -3201,7 +3208,7 @@ function AddTackModal({
         {/* Color swatches */}
         <div className="flex items-center gap-2 mb-4">
           <span className="text-xs text-ink/40 mr-1">Color</span>
-          {['#1A1A1A', '#E24E42', '#E9B000', '#EB6E80', '#008F95', '#7B5EA7', '#2D6A4F', '#ffffff'].map(c => (
+          {['#1A1A1A', '#4C4DFF', '#FF7A32', '#FF00C8', '#B9AEFF', '#7B5EA7', '#2D6A4F', '#ffffff'].map(c => (
             <button
               key={c}
               onClick={() => setStickerColor(c)}
@@ -3281,7 +3288,7 @@ function AddTackModal({
                 <p className="text-xs text-ink/40 text-center mb-2">Choose an image above to continue</p>
               )}
               <button type="submit" disabled={!url || uploading || checking} className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                {checking ? 'Checking…' : uploading ? 'Uploading…' : 'Tack it'}
+                {checking ? 'Checking…' : uploading ? 'Uploading…' : 'Save it'}
               </button>
             </form>
           )}
@@ -3298,7 +3305,7 @@ function AddTackModal({
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Describe what catches your eye — colors, mood, subject, style. The more specific, the more findable." rows={3} className="w-full bg-ink/5 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-papaya/30 resize-none" />
               </div>
               <PinColorPicker pinColor={pinColor} setPinColor={setPinColor} customPinColor={customPinColor} setCustomPinColor={setCustomPinColor} showCustomPinColor={showCustomPinColor} setShowCustomPinColor={setShowCustomPinColor} />
-              <button type="submit" disabled={!url || checking} className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{checking ? 'Checking...' : 'Tack it'}</button>
+              <button type="submit" disabled={!url || checking} className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{checking ? 'Checking...' : 'Save it'}</button>
             </form>
           )}
 
@@ -3313,7 +3320,7 @@ function AddTackModal({
               </div>
               {scrapedImages.length > 0 && (
                 <>
-                  <p className="text-sm text-ink-soft mb-3">Found {scrapedImages.length} images from <strong>{scrapedSource}</strong>. Select images to tack:</p>
+                  <p className="text-sm text-ink-soft mb-3">Found {scrapedImages.length} images from <strong>{scrapedSource}</strong>. Select images to save:</p>
                   <div className="grid grid-cols-3 gap-2 mb-4 max-h-64 overflow-y-auto">
                     {scrapedImages.map((imgUrl, index) => (
                       <button key={index} type="button" onClick={() => toggleImageSelection(imgUrl)} disabled={checking} className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${selectedImages.has(imgUrl) ? 'border-papaya ring-2 ring-papaya/30' : 'border-transparent hover:border-ink/20'} disabled:opacity-50`}>
@@ -3327,7 +3334,7 @@ function AddTackModal({
                     <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Describe what catches your eye — colors, mood, subject, style." rows={2} className="w-full bg-ink/5 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-papaya/30 resize-none" />
                   </div>
                   <PinColorPicker pinColor={pinColor} setPinColor={setPinColor} customPinColor={customPinColor} setCustomPinColor={setCustomPinColor} showCustomPinColor={showCustomPinColor} setShowCustomPinColor={setShowCustomPinColor} />
-                  <button type="button" onClick={handleAddSelectedImages} disabled={selectedImages.size === 0 || checking} className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Tack {selectedImages.size} image{selectedImages.size !== 1 ? 's' : ''}</button>
+                  <button type="button" onClick={handleAddSelectedImages} disabled={selectedImages.size === 0 || checking} className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Save {selectedImages.size} image{selectedImages.size !== 1 ? 's' : ''}</button>
                 </>
               )}
               {scrapedImages.length === 0 && !scraping && <p className="text-sm text-ink-soft text-center py-8">Enter a URL and click &quot;Find Images&quot; to discover images on that page.</p>}

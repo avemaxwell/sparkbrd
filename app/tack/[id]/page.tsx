@@ -92,7 +92,7 @@ export default function TackPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#FDFCFB] pb-20 lg:pb-0">
+      <main className="min-h-screen bg-[#F6F6F6] pb-20 lg:pb-0">
         <Header />
         <div className="flex justify-center items-center pt-40">
           <div className="w-6 h-6 border-2 border-ink/10 border-t-papaya rounded-full animate-spin" />
@@ -104,10 +104,10 @@ export default function TackPage() {
 
   if (notFound || !tack) {
     return (
-      <main className="min-h-screen bg-[#FDFCFB] pb-20 lg:pb-0">
+      <main className="min-h-screen bg-[#F6F6F6] pb-20 lg:pb-0">
         <Header />
         <div className="pt-32 text-center px-6">
-          <p className="text-ink/40 text-sm">This tack doesn&apos;t exist or has been removed.</p>
+          <p className="text-ink/40 text-sm">This resource doesn&apos;t exist or has been removed.</p>
           <Link href="/" className="inline-block mt-4 text-sm text-papaya hover:underline">Go home</Link>
         </div>
         <BottomNav />
@@ -116,7 +116,7 @@ export default function TackPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#FDFCFB] pb-20 lg:pb-0">
+    <main className="min-h-screen bg-[#F6F6F6] pb-20 lg:pb-0">
       <Header />
 
       <div className="pt-24 md:pt-28 max-w-5xl mx-auto px-4 md:px-6">
@@ -176,7 +176,7 @@ export default function TackPage() {
                   <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
                   <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
                 </svg>
-                The board this tack was on is no longer available.
+                The collection this resource was on is no longer available.
               </div>
             )}
 

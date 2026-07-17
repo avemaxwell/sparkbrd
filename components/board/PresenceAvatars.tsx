@@ -53,7 +53,7 @@ export default function PresenceAvatars({ collaborators }: Props) {
         {overflow > 0 && (
           <div
             className="w-8 h-8 rounded-full ring-2 ring-white/80 bg-white/80 backdrop-blur-md flex items-center justify-center text-[10px] font-semibold text-ink flex-shrink-0 shadow-lg"
-            title={`${overflow} more ${overflow === 1 ? "person" : "people"} on this board`}
+            title={`${overflow} more ${overflow === 1 ? "person" : "people"} on this collection`}
           >
             +{overflow}
           </div>

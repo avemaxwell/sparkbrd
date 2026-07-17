@@ -85,7 +85,7 @@ export async function POST(
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // Verify caller is board owner with Team plan.
+    // Verify caller is the board owner.
     const { data: board } = await supabase
       .from('boards')
       .select('id, name, owner_id')
@@ -100,13 +100,6 @@ export async function POST(
       .select('plan, name')
       .eq('id', user.id)
       .single();
-
-    if (ownerProfile?.plan !== 'team') {
-      return NextResponse.json(
-        { error: 'Real-time collaboration requires the Team plan' },
-        { status: 403 }
-      );
-    }
 
     const body = await req.json();
     const { email, role = 'editor' } = body as { email: string; role?: string };
@@ -144,13 +137,8 @@ export async function POST(
       }
     }
 
-    // Editor invites require the invitee to have at least a Pro plan.
-    // If they have an account and are on free, we still send the invite but
-    // with an upgrade prompt in the email.
-    const needsUpgrade =
-      role === 'editor' &&
-      !!existingUser &&
-      (existingUser.plan === 'free' || !existingUser.plan);
+    // Collaboration is available to everyone now, so invites never need an upgrade prompt.
+    const needsUpgrade = false;
 
     // Upsert invitation — if one exists for this email+board, replace it
     // (reset token and expiry so the owner can re-invite).

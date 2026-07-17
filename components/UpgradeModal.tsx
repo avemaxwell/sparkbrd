@@ -45,7 +45,7 @@ export default function UpgradeModal({
 
         <div className="bg-ink/5 rounded-xl p-4 mb-4">
           <p className="text-sm text-ink-soft">
-            <strong className="text-ink">Unlock more with Pro.</strong> Get unlimited boards, custom colors, export features, and more.
+            <strong className="text-ink">Unlock more with Sparkurio Plus.</strong> Get unlimited private collections, custom pin colors, unlimited downloads, and more.
           </p>
         </div>
 

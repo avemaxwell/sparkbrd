@@ -1,21 +1,30 @@
 @import "tailwindcss";
 
 @theme {
-  --color-cork-warm: #FAFAFA;
-  
-  --color-ink: #1A1A1A;
+  /* Neutrals */
+  --color-cork-warm: #F6F6F6;
+  --color-border-gray: #E8E8E8;
+
+  --color-ink: #111111;
   --color-ink-soft: #6B6B6B;
-  
-  --color-papaya: #E24E42;
-  --color-mustard: #E9B000;
-  --color-blush: #EB6E80;
-  --color-aqua: #008F95;
-  
-  --font-serif: var(--font-serif);
+
+  /* Brand palette — see brand guidelines */
+  --color-lime: #E7FF72;      /* Spark Lime — hero/callout backgrounds */
+  --color-papaya: #4C4DFF;    /* Electric Blue — primary actions, links, active states */
+  --color-blush: #FF00C8;     /* Spark Pink — Classroom Proven, Labs, Featured, Trending, New */
+  --color-aqua: #B9AEFF;      /* Soft Lavender — cards, hover states, backgrounds, illustrations */
+  --color-mustard: #FF7A32;   /* Orange — downloads, share, create, CTAs */
+  --color-lavender: #B9AEFF;  /* Lavender — cards, illustrations, background blocks */
+
+  --font-serif: var(--font-heading);
   --font-sans: var(--font-sans);
   --font-caveat: var(--font-caveat);
   --font-bebas: var(--font-bebas);
   --font-special-elite: var(--font-special-elite);
+
+  --radius-2xl: 16px;
+  --radius-3xl: 24px;
+  --radius-4xl: 32px;
 }
 
 body {

@@ -135,7 +135,7 @@ export default function RetackButton({ tackId }: Props) {
       onClick={e => e.stopPropagation()}
     >
       <p className="px-4 pt-3 pb-2 text-xs font-semibold text-ink/40 uppercase tracking-widest">
-        Save to board
+        Save to collection
       </p>
       {!boardsLoaded ? (
         <div className="flex justify-center py-4">
@@ -143,9 +143,9 @@ export default function RetackButton({ tackId }: Props) {
         </div>
       ) : boards.length === 0 ? (
         <div className="px-4 pb-4">
-          <p className="text-xs text-ink/40 mb-2">No boards yet.</p>
+          <p className="text-xs text-ink/40 mb-2">No collections yet.</p>
           <Link href="/board/new" className="block text-center text-xs font-medium text-papaya hover:text-papaya/80 transition-colors">
-            Create a board →
+            Create a collection →
           </Link>
         </div>
       ) : (
@@ -178,7 +178,7 @@ export default function RetackButton({ tackId }: Props) {
             ? 'bg-red-400 opacity-100'
             : 'bg-white/90 backdrop-blur-sm hover:bg-white'
         }`}
-        title="Save to board"
+        title="Save to collection"
       >
         {state === 'saving' ? (
           <div className="w-3.5 h-3.5 border-2 border-ink/30 border-t-ink rounded-full animate-spin" />

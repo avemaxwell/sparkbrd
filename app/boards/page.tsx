@@ -4,7 +4,7 @@ import BoardsSection from "@/components/home/BoardsSection";
 
 export default function BoardsPage() {
   return (
-    <main className="min-h-screen bg-[#FDFCFB] pb-20 lg:pb-0">
+    <main className="min-h-screen bg-[#F6F6F6] pb-20 lg:pb-0">
       <Header />
       <div className="pt-24 md:pt-28">
         <BoardsSection showAll />

@@ -13,6 +13,8 @@ interface PublicProfile {
   avatar_url: string | null;
   bio: string | null;
   created_at: string;
+  is_verified_educator: boolean;
+  verified_institution_name: string | null;
 }
 
 interface PublicBoard {
@@ -71,7 +73,7 @@ export default function UserProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FDFCFB] flex items-center justify-center">
+      <div className="min-h-screen bg-cork-warm flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-ink/20 border-t-papaya rounded-full animate-spin" />
       </div>
     );
@@ -79,7 +81,7 @@ export default function UserProfilePage() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-[#FDFCFB] flex flex-col items-center justify-center gap-4">
+      <div className="min-h-screen bg-cork-warm flex flex-col items-center justify-center gap-4">
         <p className="text-ink/50">User not found.</p>
         <Link href="/" className="text-sm text-papaya hover:text-papaya/70">Go home</Link>
       </div>
@@ -91,7 +93,7 @@ export default function UserProfilePage() {
     : "?";
 
   return (
-    <div className="min-h-screen bg-[#FDFCFB] pb-24 lg:pb-12">
+    <div className="min-h-screen bg-cork-warm pb-24 lg:pb-12">
       <Header />
 
       <div className="max-w-3xl mx-auto px-4 pt-28">
@@ -111,13 +113,18 @@ export default function UserProfilePage() {
           {/* Info */}
           <div className="flex-1 text-center sm:text-left">
             <h1 className="font-serif text-3xl text-ink/90 mb-1">{profile.name ?? "Anonymous"}</h1>
+            {profile.is_verified_educator && profile.verified_institution_name && (
+              <span className="inline-block mb-3 px-2.5 py-1 bg-lime/60 text-ink text-xs font-medium rounded-full">
+                🏫 {profile.verified_institution_name}
+              </span>
+            )}
             {profile.bio && <p className="text-ink/50 text-sm mb-4 max-w-md">{profile.bio}</p>}
 
             {/* Counts */}
             <div className="flex items-center justify-center sm:justify-start gap-6 text-sm mb-5">
               <div className="text-center">
                 <p className="font-semibold text-ink">{boards.length}</p>
-                <p className="text-ink/40 text-xs">Public boards</p>
+                <p className="text-ink/40 text-xs">Public collections</p>
               </div>
               <div className="text-center">
                 <p className="font-semibold text-ink">{followerCount}</p>
@@ -155,9 +162,9 @@ export default function UserProfilePage() {
         </div>
 
         {/* Public boards */}
-        <h2 className="font-serif text-xl text-ink/80 mb-5">Public boards</h2>
+        <h2 className="font-serif text-xl text-ink/80 mb-5">Public collections</h2>
         {boards.length === 0 ? (
-          <p className="text-ink/40 text-sm">No public boards yet.</p>
+          <p className="text-ink/40 text-sm">No public collections yet.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {boards.map((board, i) => {

@@ -1,337 +1,155 @@
 "use client";
 
-import { useUser } from "@/hooks/useUser";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useUser } from "@/hooks/useUser";
+import { Blob, IconBlob, SparkBurst, PatternCorner, WaveDivider } from "./decor";
+import { IconPalette, IconLaptop, IconVase, IconAtom, IconGlobe, IconPencil } from "@/components/icons";
 
-const LOGO = "https://vqaaxqvyepouqcrxduiw.supabase.co/storage/v1/object/public/assets/logo.png";
-
-const BASE = "https://vqaaxqvyepouqcrxduiw.supabase.co/storage/v1/object/public/tacks/2711858a-2413-47ca-98aa-d2fe964a2b4e/";
-
-// Mobile strip — shown below the logged-in greeting as a decorative horizontal scroll
-const STRIP_CARDS = [
-  { src: BASE + "1775145510453-compagnons-SEGkN8Gu-_M-unsplash.jpg",            rotate: -4, aspect: "3/4"  },
-  { src: BASE + "1775225653404-roberto-nickson-q5Q_T0y7qrk-unsplash.jpg",        rotate:  3, aspect: "4/3"  },
-  { src: BASE + "1775145642313-buddy-an-VptjauiOVQE-unsplash.jpg",               rotate: -5, aspect: "2/3"  },
-  { src: BASE + "1775225864912-fiona-murray-degraaff-0oaonllhaRA-unsplash.jpg",  rotate:  4, aspect: "1/1"  },
-  { src: BASE + "1775145672331-petra-nevezi-YcoIBuCRGWY-unsplash.jpg",           rotate: -3, aspect: "3/4"  },
-  { src: BASE + "1775145718678-kevin-charit-w33xcR8DltA-unsplash.jpg",           rotate:  5, aspect: "2/3"  },
+const POPULAR_SEARCHES = [
+  "Middle School Art",
+  "AI Literacy",
+  "Canva",
+  "Graphic Design",
+  "Ceramics",
+  "Digital Citizenship",
+  "STEM",
+  "Higher Education",
 ];
 
-// Mobile hero cards — 4 cards in a scattered fan below the CTA
-const MOBILE_HERO_CARDS = [
-  { src: BASE + "1775225864912-fiona-murray-degraaff-0oaonllhaRA-unsplash.jpg",     rotate: -8, aspect: "4/3", delay: "0ms"   },
-  { src: BASE + "1775145510453-compagnons-SEGkN8Gu-_M-unsplash.jpg",               rotate:  5, aspect: "3/4", delay: "60ms"  },
-  { src: BASE + "1775225487965-steph-wilson-9kK34JrqJgs-unsplash.jpg",              rotate: -4, aspect: "2/3", delay: "120ms" },
-  { src: BASE + "1775928652334-meg-wagener-vuXTB1lR3AY-unsplash.jpg",               rotate:  7, aspect: "3/4", delay: "180ms" },
-];
-
-// Cards kept in the left ~36% so they never bleed into the text column
-const CARDS = [
-  // Top cluster
-  { src: BASE + "1775145510453-compagnons-SEGkN8Gu-_M-unsplash.jpg",            rotate: -7, top: 5,  left: 1,  width: 188, z: 2, aspect: "3/4", float: "8s"  },
-  { src: BASE + "1775225653404-roberto-nickson-q5Q_T0y7qrk-unsplash.jpg",        rotate:  4, top: 8,  left: 13, width: 175, z: 4, aspect: "4/3", float: "11s" },
-  { src: BASE + "1775145642313-buddy-an-VptjauiOVQE-unsplash.jpg",               rotate: -4, top: 4,  left: 25, width: 182, z: 3, aspect: "2/3", float: "9s"  },
-  // Middle cluster
-  { src: BASE + "1775225864912-fiona-murray-degraaff-0oaonllhaRA-unsplash.jpg",  rotate:  6, top: 36, left: 0,  width: 180, z: 5, aspect: "1/1", float: "13s" },
-  { src: BASE + "1775145672331-petra-nevezi-YcoIBuCRGWY-unsplash.jpg",           rotate: -5, top: 33, left: 12, width: 196, z: 4, aspect: "3/4", float: "10s" },
-  { src: BASE + "1775145718678-kevin-charit-w33xcR8DltA-unsplash.jpg",           rotate:  3, top: 36, left: 26, width: 178, z: 3, aspect: "2/3", float: "7s"  },
-  { src: BASE + "1775225090555-budka-damdinsuren-jRXxNpA6d_k-unsplash.jpg",      rotate: -6, top: 16, left: 33, width: 170, z: 2, aspect: "3/4", float: "12s" },
-  // Bottom cluster
-  { src: BASE + "1775145496197-katsiaryna-endruszkiewicz-BteCp6aq4GI-unsplash.jpg", rotate: -2, top: 60, left: 2,  width: 184, z: 3, aspect: "4/3", float: "9s"  },
-  { src: BASE + "1775225487965-steph-wilson-9kK34JrqJgs-unsplash.jpg",           rotate:  5, top: 57, left: 14, width: 180, z: 5, aspect: "2/3", float: "14s" },
-  { src: BASE + "1775928652334-meg-wagener-vuXTB1lR3AY-unsplash.jpg",            rotate: -3, top: 61, left: 28, width: 186, z: 4, aspect: "3/4", float: "10s" },
-];
-
-// Decorative activity toasts — tell the collaborative story
-const ACTIVITY = [
-  { name: "Kate B.",   initials: "KB", msg: "added you to the Design Studio team",             color: "from-aqua to-blush"    },
-  { name: "Maya R.",   initials: "MR", msg: "⭐ reacted to your board Summer Moodboard",       color: "from-blush to-papaya"  },
-  { name: "Jordan K.", initials: "JK", msg: "started following you",                            color: "from-mustard to-aqua"  },
-  { name: "Alex C.",   initials: "AC", msg: "💬 commented on your board Rome Trip",            color: "from-papaya to-mustard"},
-  { name: "Harper M.", initials: "HM", msg: "re-tacked your image to Weekend Edit",            color: "from-mustard to-blush" },
+// Floating illustrated resource cards — stand-ins for real preview images.
+// Positioned as percentages *within the illustration stage only* (not the
+// whole hero) so they can never collide with the header or the text column.
+const FLOATING_CARDS = [
+  { title: "Watercolor Basics",     subject: "Visual Art", icon: IconPalette, color: "bg-blush",    top: 2,  left: 6,  rotate: -6, width: 168, float: "9s"  },
+  { title: "AI Literacy Unit",      subject: "Technology", icon: IconLaptop,  color: "bg-papaya",   top: 6,  left: 54, rotate: 5,  width: 172, float: "11s" },
+  { title: "Ceramics 101",          subject: "Visual Art", icon: IconVase,    color: "bg-mustard",  top: 38, left: 0,  rotate: 5,  width: 158, float: "8s"  },
+  { title: "STEM Challenge",        subject: "Science",    icon: IconAtom,    color: "bg-aqua",     top: 42, left: 50, rotate: -4, width: 168, float: "12s" },
+  { title: "Digital Citizenship",   subject: "Tech",       icon: IconGlobe,   color: "bg-lime",     top: 74, left: 10, rotate: -3, width: 162, float: "10s" },
+  { title: "Graphic Design Basics", subject: "Design",     icon: IconPencil,  color: "bg-blush",    top: 76, left: 56, rotate: 6,  width: 168, float: "13s" },
 ];
 
 export default function HeroSection() {
-  const { profile, loading } = useUser();
+  const router = useRouter();
+  const { profile } = useUser();
   const [mounted, setMounted] = useState(false);
-  const [activityIdx, setActivityIdx] = useState(0);
-  const [toastVisible, setToastVisible] = useState(false);
-  const [newCard, setNewCard] = useState<number | null>(null);
+  const [query, setQuery] = useState("");
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 18) return "Good afternoon";
-    return "Good evening";
+  useEffect(() => setMounted(true), []);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = query.trim();
+    router.push(q ? `/search?q=${encodeURIComponent(q)}` : "/search");
   };
 
-  useEffect(() => {
-    setMounted(true);
-
-    const firstShow = setTimeout(() => {
-      setToastVisible(true);
-      setNewCard(2);
-    }, 2500);
-
-    const cycle = setInterval(() => {
-      setToastVisible(false);
-      setTimeout(() => {
-        setActivityIdx(i => (i + 1) % ACTIVITY.length);
-        setNewCard(n => n === null ? 0 : (n + 3) % CARDS.length);
-        setToastVisible(true);
-      }, 500);
-    }, 6000);
-
-    return () => { clearTimeout(firstShow); clearInterval(cycle); };
-  }, []);
-
-  const firstName = profile?.name?.split(" ")[0];
-
-  // ── Logged-in: greeting + decorative photo strip on mobile ──
-  if (!loading && profile) {
-    return (
-      <section className="relative pt-24 md:pt-32 pb-4 overflow-hidden">
-        <div className="max-w-7xl mx-auto px-6">
-          <div
-            className={`transition-all duration-700 ${
-              mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-            }`}
-          >
-            <h1 className="font-serif text-4xl md:text-5xl text-ink/90 leading-tight">
-              {getGreeting()}
-              {firstName && (
-                <>, <span className="italic text-papaya/80">{firstName}</span></>
-              )}
-            </h1>
-            <p className="text-ink/40 mt-2 text-base">Spark what inspires you.</p>
-          </div>
-        </div>
-
-        {/* Decorative photo strip — mobile only */}
-        <div className="md:hidden mt-6 overflow-x-auto scrollbar-none pl-6">
-          <div className="flex gap-3 pb-4 pr-6" style={{ width: 'max-content' }}>
-            {STRIP_CARDS.map((card, i) => (
-              <div
-                key={i}
-                className={`flex-shrink-0 transition-all duration-500 ${
-                  mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-                }`}
-                style={{ transitionDelay: `${i * 60}ms` }}
-              >
-                <div style={{ transform: `rotate(${card.rotate}deg)` }}>
-                  <div className="bg-white shadow-lg rounded-sm overflow-hidden" style={{ padding: '5px', width: '110px' }}>
-                    <img
-                      src={card.src}
-                      alt=""
-                      className="w-full object-cover block rounded-[1px]"
-                      style={{ aspectRatio: card.aspect }}
-                      loading="lazy"
-                    />
-                  </div>
-                  <div
-                    className="absolute -top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full shadow-sm ring-[1.5px] ring-white"
-                    style={{ backgroundColor: "#E24E42" }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  // ── Logged-out: full editorial hero ───────────────────────
   return (
-    <section className="relative min-h-screen overflow-hidden" style={{ isolation: 'isolate', zIndex: 0 }}>
+    <section className="relative overflow-hidden bg-lime">
+      {/* Decorative background shapes */}
+      <Blob className="absolute bottom-10 -left-16 w-64 h-64 bg-lavender/40 pointer-events-none" />
+      <PatternCorner className="absolute top-24 right-4 hidden lg:block" />
+      <SparkBurst className="absolute top-40 left-[46%] w-8 h-8 hidden lg:block pointer-events-none" rotate={-15} />
+      <SparkBurst className="absolute bottom-24 right-[8%] w-10 h-10 hidden lg:block pointer-events-none" rotate={20} />
 
-      {/* Subtle warm gradient wash */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: `
-            radial-gradient(ellipse at 25% 20%, rgba(235,110,128,0.09) 0%, transparent 50%),
-            radial-gradient(ellipse at 80% 80%, rgba(226,78,66,0.05) 0%, transparent 50%),
-            radial-gradient(ellipse at 10% 85%, rgba(233,176,0,0.06) 0%, transparent 42%)
-          `,
-        }}
-      />
-
-      {/* Card collage — desktop: absolute left half / mobile: hidden (fan below CTA instead) */}
-      <div className="absolute inset-0 pointer-events-none hidden md:block">
-        {CARDS.map((card, i) => (
-          <div
-            key={i}
-            className={`absolute transition-all duration-700 ${
-              mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
-            }`}
-            style={{
-              top: `${card.top}%`,
-              left: `${card.left}%`,
-              width: `${card.width}px`,
-              zIndex: card.z,
-              transitionDelay: `${i * 75}ms`,
-            }}
-          >
-            <div style={{ transform: `rotate(${card.rotate}deg)` }}>
-              <div style={{ animation: mounted ? `hero-float ${card.float} ease-in-out infinite` : "none" }}>
-                <div
-                  className={`bg-white shadow-xl overflow-hidden rounded-sm transition-all duration-500 ${
-                    newCard === i ? "ring-2 ring-papaya ring-offset-2 shadow-2xl scale-[1.03]" : ""
-                  }`}
-                  style={{ padding: "5px" }}
-                >
-                  <img
-                    src={card.src}
-                    alt=""
-                    className="w-full object-cover block rounded-[1px]"
-                    style={{ aspectRatio: card.aspect }}
-                    loading="eager"
-                  />
-                </div>
-                <div
-                  className="absolute -top-2 left-1/2 -translate-x-1/2 w-[13px] h-[13px] rounded-full shadow-md ring-[1.5px] ring-white"
-                  style={{ backgroundColor: "#E24E42" }}
-                />
-                {newCard === i && (
-                  <div
-                    className="absolute -top-2 left-1/2 -translate-x-1/2 w-[13px] h-[13px] rounded-full animate-ping"
-                    style={{ backgroundColor: "rgba(226,78,66,0.4)" }}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Right: headline + CTA */}
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-12 flex justify-end">
-        <div
-          className={`w-full md:w-[52%] lg:w-[48%] pt-28 pb-8 md:pt-32 md:pb-16 transition-all duration-700 delay-100 ${
-            mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
-          }`}
-        >
-          {/* Logo */}
-          <div className="mb-10">
-            <img src={LOGO} alt="Sparkurio" className="h-14 w-auto" />
-          </div>
-
-          {/* Headline */}
-          <h1 className="font-serif text-6xl md:text-7xl lg:text-8xl leading-[1.08] text-ink">
-            Every<br />
-            great<br />
-            idea<br />
-            begins<br />
-            with a<br />
-            <em className="italic" style={{ color: "#E24E42" }}>spark.</em>
+      <div className="relative max-w-7xl mx-auto px-6 pt-32 pb-16 md:pt-40 md:pb-20 grid lg:grid-cols-2 lg:gap-12 items-center">
+        {/* Text column — normal document flow, never overlapped */}
+        <div className={`relative z-10 text-center lg:text-left transition-all duration-700 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
+          <h1 className="font-serif font-bold text-4xl sm:text-5xl md:text-6xl leading-[1.1] text-ink">
+            Confidence for tomorrow&rsquo;s classroom,{" "}
+            <span className="text-papaya">built by today&rsquo;s educators.</span>
           </h1>
-
-          {/* Body */}
-          <p
-            className={`mt-8 text-lg text-ink/50 max-w-sm leading-relaxed font-light transition-all duration-700 delay-200 ${
-              mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-            }`}
-          >
-            Save, organize, and share the images and ideas that light you up.
+          <p className="mt-6 text-lg text-ink/60 max-w-md mx-auto lg:mx-0 leading-relaxed">
+            Discover classroom-tested lessons, projects, templates, and teaching ideas shared by real educators and improved by the community.
           </p>
 
-          {/* CTA */}
-          {!loading && (
-            <div
-              className={`mt-10 flex items-center gap-4 transition-all duration-700 delay-300 ${
-                mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-              }`}
-            >
-              <a
-                href="/login"
-                className="inline-flex items-center gap-2 px-8 py-4 bg-ink text-white text-sm font-medium tracking-wide rounded-full hover:bg-papaya transition-colors duration-300"
-              >
-                Begin collecting
-                <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24">
-                  <path d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
-              </a>
-              <a href="/login" className="text-sm text-ink/40 hover:text-ink/70 transition-colors">
-                Sign in
-              </a>
+          {/* Search */}
+          <form onSubmit={handleSearch} className="mt-8 max-w-xl mx-auto lg:mx-0">
+            <div className="flex items-center gap-2 bg-white rounded-full shadow-xl px-3 py-2 border border-black/5">
+              <svg className="w-5 h-5 stroke-ink/40 stroke-[1.5] fill-none ml-2 flex-shrink-0" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search lessons, projects, templates, activities…"
+                className="flex-1 bg-transparent outline-none text-sm md:text-base text-ink placeholder:text-ink/35 py-2 min-w-0"
+              />
+              <button type="submit" className="px-5 md:px-6 py-2.5 bg-papaya text-white text-sm font-semibold rounded-full hover:bg-papaya/90 transition-colors flex-shrink-0">
+                Search
+              </button>
             </div>
-          )}
+          </form>
 
-          {/* Mobile card fan — 4 tacked photos below the CTA, desktop hidden */}
-          <div className="md:hidden mt-12 relative h-64">
-            {MOBILE_HERO_CARDS.map((card, i) => {
-              // Positions: two on top, two below, slightly overlapping
-              const positions = [
-                { left: '2%',  top: '0%'  },
-                { left: '28%', top: '8%'  },
-                { left: '54%', top: '2%'  },
-                { left: '72%', top: '12%' },
-              ];
-              const pos = positions[i];
-              return (
-                <div
-                  key={i}
-                  className={`absolute transition-all duration-700 ${
-                    mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-                  }`}
-                  style={{
-                    left: pos.left,
-                    top: pos.top,
-                    width: '120px',
-                    zIndex: i + 1,
-                    transitionDelay: card.delay,
-                  }}
-                >
-                  <div style={{ transform: `rotate(${card.rotate}deg)` }}>
-                    <div style={{ animation: mounted ? `hero-float ${7 + i * 2}s ease-in-out infinite` : "none" }}>
-                      <div className="bg-white shadow-xl rounded-sm overflow-hidden" style={{ padding: '5px' }}>
-                        <img
-                          src={card.src}
-                          alt=""
-                          className="w-full object-cover block rounded-[1px]"
-                          style={{ aspectRatio: card.aspect }}
-                          loading="lazy"
-                        />
-                      </div>
-                      <div
-                        className="absolute -top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full shadow-md ring-[1.5px] ring-white"
-                        style={{ backgroundColor: "#E24E42" }}
-                      />
-                    </div>
+          {/* Popular searches */}
+          <div className="mt-5 flex flex-wrap items-center gap-2 justify-center lg:justify-start">
+            <span className="text-xs font-medium text-ink/40 mr-1">Popular:</span>
+            {POPULAR_SEARCHES.map((term) => (
+              <a
+                key={term}
+                href={`/search?q=${encodeURIComponent(term)}`}
+                className="text-xs font-medium text-ink/60 bg-white/70 hover:bg-white hover:text-ink px-3 py-1.5 rounded-full border border-black/5 transition-colors"
+              >
+                {term}
+              </a>
+            ))}
+          </div>
+
+          {/* CTAs */}
+          <div className="mt-8 flex items-center gap-4 justify-center lg:justify-start">
+            <a
+              href="/explore"
+              className="inline-flex items-center gap-2 px-7 py-3.5 bg-ink text-white text-sm font-semibold rounded-full hover:bg-ink/85 transition-colors"
+            >
+              Discover Resources
+            </a>
+            <a
+              href={profile ? "/resources/new" : "/signup?intent=share&redirect=/resources/new"}
+              className="inline-flex items-center gap-2 px-7 py-3.5 bg-white text-ink text-sm font-semibold rounded-full border border-black/10 hover:border-black/20 transition-colors"
+            >
+              Share a Resource
+            </a>
+          </div>
+
+          {/* Mobile floating cards — condensed row, own contained scroller */}
+          <div className="lg:hidden mt-10 overflow-x-auto scrollbar-none -mx-6 px-6">
+            <div className="flex gap-3 pb-2" style={{ width: "max-content" }}>
+              {FLOATING_CARDS.map((card, i) => (
+                <div key={i} className={`${card.color} rounded-2xl shadow-md p-4 border border-black/5 flex-shrink-0 w-36`}>
+                  <IconBlob icon={<card.icon className="w-full h-full" />} size={36} blobClassName="bg-white/90" />
+                  <p className="font-serif font-semibold text-xs text-ink leading-snug mt-2">{card.title}</p>
+                  <p className="text-[10px] text-ink/50 mt-0.5">{card.subject}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Illustration stage — its own contained box, desktop only.
+            Percentages below are relative to THIS box, so cards can never
+            escape into the header or the text column. */}
+        <div className="relative hidden lg:block h-[440px]">
+          {FLOATING_CARDS.map((card, i) => (
+            <div
+              key={i}
+              className={`absolute transition-all duration-700 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
+              style={{ top: `${card.top}%`, left: `${card.left}%`, width: card.width, transitionDelay: `${i * 80}ms` }}
+            >
+              <div style={{ transform: `rotate(${card.rotate}deg)` }}>
+                <div style={{ animation: mounted ? `hero-float ${card.float} ease-in-out infinite` : "none" }}>
+                  <div className={`${card.color} rounded-2xl shadow-lg p-4 border border-black/5`}>
+                    <IconBlob icon={<card.icon className="w-full h-full" />} size={44} blobClassName="bg-white/90" />
+                    <p className="font-serif font-semibold text-sm text-ink leading-snug mt-2">{card.title}</p>
+                    <p className="text-[11px] text-ink/50 mt-0.5">{card.subject}</p>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Activity toasts — top right, decorative collaborative story */}
-      {mounted && (
-        <div
-          className={`fixed top-20 right-5 z-40 transition-all duration-500 ${
-            toastVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"
-          }`}
-        >
-          <div className="flex items-center gap-3 bg-white/95 backdrop-blur-md rounded-2xl px-4 py-3 shadow-xl border border-ink/5 max-w-[300px]">
-            <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${ACTIVITY[activityIdx].color} flex-shrink-0 flex items-center justify-center`}>
-              <span className="text-white text-[10px] font-bold">{ACTIVITY[activityIdx].initials}</span>
-            </div>
-            <div className="min-w-0">
-              <p className="text-[12px] text-ink/60 leading-snug">
-                <span className="font-semibold text-ink/90">{ACTIVITY[activityIdx].name}</span>{" "}
-                {ACTIVITY[activityIdx].msg}
-              </p>
-              <p className="text-[10px] text-ink/30 mt-0.5">just now</p>
-            </div>
-            <div className="flex-shrink-0 w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: "#E24E42" }} />
-          </div>
-        </div>
-      )}
-
-      {/* Bottom fade into boards/discovery sections */}
-      <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-[#FDFCFB] to-transparent z-20" />
+      <WaveDivider fill="#F6F6F6" className="relative z-10" />
 
       <style jsx>{`
         @keyframes hero-float {

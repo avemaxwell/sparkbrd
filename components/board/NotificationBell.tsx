@@ -31,10 +31,10 @@ function relativeTime(iso: string): string {
 function notifText(n: NotificationItem): string {
   const name = n.actor.name ?? 'Someone';
   switch (n.type) {
-    case 'comment_on_my_tack': return `${name} commented on your tack`;
+    case 'comment_on_my_tack': return `${name} commented on your resource`;
     case 'reply_to_my_comment': return `${name} replied to your comment`;
-    case 'reaction_on_my_tack': return `${name} reacted to your tack`;
-    case 'tack_added_to_board': return `${name} added a tack to your board`;
+    case 'reaction_on_my_tack': return `${name} reacted to your resource`;
+    case 'tack_added_to_board': return `${name} added a resource to your collection`;
     case 'mention_in_comment': return `${name} mentioned you in a comment`;
   }
 }
@@ -154,7 +154,7 @@ export default function NotificationBell({
           className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md shadow-lg flex items-center justify-center hover:bg-white transition-colors relative"
           aria-label="Notifications"
         >
-          <svg className="w-5 h-5 stroke-[#1A1A1A] stroke-[1.5] fill-none" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 stroke-ink stroke-[1.5] fill-none" viewBox="0 0 24 24">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
           </svg>

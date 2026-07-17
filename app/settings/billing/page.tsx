@@ -1,41 +1,116 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useUser } from "@/hooks/useUser";
 import { createClient } from "@/lib/supabase/client";
+import { STRIPE_PRICES } from "@/lib/stripe-plans";
+import { planDisplayName } from "@/lib/plan-limits";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import ComingSoonModal from "@/components/ComingSoonModal";
 
-function Check({ locked }: { locked?: boolean }) {
-  return locked ? (
-    <svg className="w-5 h-5 stroke-ink/20 stroke-2 fill-none flex-shrink-0 mt-0.5" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="9"/>
-      <path d="M15 9l-6 6M9 9l6 6"/>
-    </svg>
-  ) : (
+function Check() {
+  return (
     <svg className="w-5 h-5 stroke-green-600 stroke-2 fill-none flex-shrink-0 mt-0.5" viewBox="0 0 24 24">
       <polyline points="20 6 9 17 4 12"/>
     </svg>
   );
 }
 
-function Badge({ label }: { label: string }) {
-  return (
-    <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-papaya/10 text-papaya/80 whitespace-nowrap">
-      {label}
-    </span>
-  );
+type BillingPeriod = "monthly" | "annual";
+
+function getPlans(billingPeriod: BillingPeriod) {
+  return [
+    {
+      id: "free",
+      name: "Free",
+      price: "$0",
+      period: "",
+      priceId: null as string | null,
+      contactOnly: false,
+      features: [
+        "Unlimited browsing & search",
+        "Unlimited resource previews",
+        "Save resources & unlimited public collections",
+        "Follow educators",
+        "Participate in Sparkurio Labs",
+        "Limited monthly downloads",
+      ],
+    },
+    {
+      id: "plus",
+      name: "Sparkurio Plus",
+      price: billingPeriod === "annual" ? "$107" : "$11.99",
+      period: billingPeriod === "annual" ? "/yr" : "/mo",
+      priceId: billingPeriod === "annual" ? STRIPE_PRICES.plusAnnual : STRIPE_PRICES.plusMonthly,
+      contactOnly: false,
+      popular: true,
+      features: [
+        "Unlimited downloads",
+        "Unlimited private collections",
+        "Smart organization — tags, favorites, archive",
+        "Offline access",
+        "Advanced & saved searches",
+        "Early access to new features",
+      ],
+    },
+    {
+      id: "creator_pro",
+      name: "Creator Pro",
+      price: "$24.99",
+      period: "/mo",
+      priceId: STRIPE_PRICES.creatorProMonthly,
+      contactOnly: false,
+      features: [
+        "Everything in Plus",
+        "Sales dashboard & revenue tracking",
+        "Bulk uploads & scheduled publishing",
+        "Portfolio customization",
+        "Lower marketplace commission (7%)",
+      ],
+    },
+    {
+      id: "homeschool_plus",
+      name: "Homeschool+",
+      price: billingPeriod === "annual" ? "$149" : "$14.99",
+      period: billingPeriod === "annual" ? "/yr" : "/mo",
+      priceId: billingPeriod === "annual" ? STRIPE_PRICES.homeschoolAnnual : STRIPE_PRICES.homeschoolMonthly,
+      contactOnly: false,
+      comingSoon: true,
+      features: [
+        "Everything in Plus",
+        "Pacing & scheduling tools",
+        "Family-friendly planning views",
+        "Homeschool-specific recommendations",
+      ],
+    },
+    {
+      id: "district",
+      name: "District",
+      price: "Custom",
+      period: "",
+      priceId: null as string | null,
+      contactOnly: true,
+      features: [
+        "SSO & district administration",
+        "Private district & department libraries",
+        "PLC workspaces & curriculum alignment",
+        "Analytics & implementation support",
+      ],
+    },
+  ];
 }
 
 export default function BillingPage() {
   const { profile, loading } = useUser();
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("monthly");
   const [upgrading, setUpgrading] = useState(false);
-  const [pendingPriceId, setPendingPriceId] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [comingSoonPlan, setComingSoonPlan] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClient();
 
-  const boardsUsed = profile?.board_count ?? 0;
+  const PLANS = useMemo(() => getPlans(billingPeriod), [billingPeriod]);
 
   const proceedToCheckout = async (priceId: string) => {
     setUpgrading(true);
@@ -56,19 +131,21 @@ export default function BillingPage() {
     setUpgrading(false);
   };
 
-  // Downgrades need a confirmation warning; upgrades go straight to checkout
-  const handlePlanClick = (priceId: string, isDowngrade: boolean) => {
-    if (isDowngrade) {
-      setPendingPriceId(priceId);
-      setShowConfirm(true);
-    } else {
-      proceedToCheckout(priceId);
+  const proceedToDowngrade = async () => {
+    setUpgrading(true);
+    try {
+      const response = await fetch('/api/downgrade', { method: 'POST' });
+      if (response.ok) { router.push('/settings?downgraded=true'); router.refresh(); }
+      else alert('Failed to downgrade. Please try again.');
+    } catch {
+      alert('Failed to downgrade. Please try again.');
     }
+    setUpgrading(false);
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FDFCFB] flex items-center justify-center">
+      <div className="min-h-screen bg-cork-warm flex items-center justify-center">
         <p className="text-ink-soft">Loading...</p>
       </div>
     );
@@ -82,7 +159,7 @@ export default function BillingPage() {
   const currentPlan = profile.plan || 'free';
 
   return (
-    <div className="min-h-screen bg-[#FDFCFB]">
+    <div className="min-h-screen bg-cork-warm">
       <header className="border-b border-ink/5">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/settings" className="text-ink/60 hover:text-ink transition-colors flex items-center gap-2">
@@ -95,174 +172,106 @@ export default function BillingPage() {
       </header>
 
       <div className="max-w-6xl mx-auto px-6 py-12">
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <h1 className="font-serif text-4xl mb-3">Compare Plans</h1>
-          <p className="text-ink/60">Choose the plan that works for you</p>
+          <p className="text-ink/60">Sparkurio charges for workflow and convenience — never for access to knowledge.</p>
         </div>
 
         {currentPlan !== 'free' && (
           <div className="max-w-md mx-auto mb-8 p-4 bg-green-50 border border-green-200 rounded-xl text-center">
             <p className="text-sm text-green-800">
-              You&apos;re on the <strong className="capitalize">{currentPlan}</strong> plan
+              You&apos;re on the <strong>{planDisplayName(currentPlan as any)}</strong> plan
             </p>
           </div>
         )}
 
-        <div className="grid md:grid-cols-4 gap-6 mb-12">
+        {/* Monthly / annual toggle — affects Plus pricing */}
+        <div className="flex items-center justify-center gap-2 mb-10">
+          <button
+            onClick={() => setBillingPeriod("monthly")}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${billingPeriod === "monthly" ? "bg-ink text-white" : "text-ink/50 hover:text-ink"}`}
+          >
+            Monthly
+          </button>
+          <button
+            onClick={() => setBillingPeriod("annual")}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${billingPeriod === "annual" ? "bg-ink text-white" : "text-ink/50 hover:text-ink"}`}
+          >
+            Annual <span className="text-green-600">· save ~26%</span>
+          </button>
+        </div>
 
-          {/* ── Free ── */}
-          <div className={`relative border-2 rounded-2xl p-8 ${currentPlan === 'free' ? 'border-papaya bg-papaya/5' : 'border-ink/10 bg-white'}`}>
-            <div className="mb-6">
-              <h2 className="text-2xl font-semibold mb-2">Free</h2>
-              <div className="flex items-baseline gap-1">
-                <span className="text-5xl font-bold">$0</span>
+        <div className="grid md:grid-cols-3 lg:grid-cols-5 gap-6 mb-12">
+          {PLANS.map((p) => {
+            const isCurrent = currentPlan === p.id;
+            const missingPriceId = !p.contactOnly && p.id !== 'free' && !p.priceId;
+
+            return (
+              <div key={p.id} className={`relative border-2 rounded-2xl p-8 ${isCurrent ? 'border-papaya bg-papaya/5' : 'border-ink/10 bg-white'}`}>
+                {p.popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="px-4 py-1 bg-papaya text-white text-xs font-semibold rounded-full">Popular</span>
+                  </div>
+                )}
+
+                <div className="mb-6">
+                  <h2 className="text-2xl font-semibold mb-2">{p.name}</h2>
+                  <div className="flex items-baseline gap-1">
+                    <span className={p.price === 'Custom' ? 'text-3xl font-bold text-ink/70' : 'text-5xl font-bold'}>{p.price}</span>
+                    {p.period && <span className="text-ink/60">{p.period}</span>}
+                  </div>
+                </div>
+
+                <ul className="space-y-3 mb-8">
+                  {p.features.map((f) => (
+                    <li key={f} className="flex items-start gap-3">
+                      <Check /><span className="text-ink/70">{f}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                {p.comingSoon ? (
+                  <button
+                    onClick={() => setComingSoonPlan(p.name)}
+                    className="w-full px-6 py-3 border-2 border-ink/20 text-ink/60 rounded-full font-medium hover:border-ink/40 transition-colors"
+                  >
+                    Coming soon
+                  </button>
+                ) : isCurrent ? (
+                  <div className="px-4 py-3 bg-ink/5 rounded-full text-center text-sm text-ink/60 font-medium">
+                    Current plan
+                  </div>
+                ) : p.contactOnly ? (
+                  <a
+                    href="mailto:admin@sparkurio.com?subject=District inquiry"
+                    className="block w-full px-6 py-3 border-2 border-ink/20 text-ink rounded-full font-medium hover:border-ink/40 transition-colors text-center"
+                  >
+                    Contact us
+                  </a>
+                ) : p.id === 'free' ? (
+                  <button
+                    onClick={() => setShowConfirm(true)}
+                    disabled={upgrading}
+                    className="w-full px-6 py-3 border-2 border-ink/20 text-ink rounded-full font-medium hover:border-ink/40 transition-colors disabled:opacity-50"
+                  >
+                    Downgrade to Free
+                  </button>
+                ) : missingPriceId ? (
+                  <div className="px-4 py-3 bg-red-50 text-red-500 rounded-full text-center text-xs font-medium">
+                    Checkout not configured
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => proceedToCheckout(p.priceId!)}
+                    disabled={upgrading}
+                    className="w-full px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors disabled:opacity-50"
+                  >
+                    {upgrading ? 'Processing...' : `Upgrade to ${p.name}`}
+                  </button>
+                )}
               </div>
-            </div>
-
-            <ul className="space-y-3 mb-8">
-              <li className="flex items-start gap-3">
-                <Check /><span className="text-ink/70">5 boards</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Check /><span className="text-ink/70">25 tacks per board</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Check /><span className="text-ink/70">Basic backgrounds</span>
-              </li>
-
-              {/* Locked Pro features */}
-              <li className="flex items-center gap-3 opacity-50">
-                <Check locked /><span className="text-ink/50 line-through text-sm">50 boards</span><Badge label="Pro" />
-              </li>
-              <li className="flex items-center gap-3 opacity-50">
-                <Check locked /><span className="text-ink/50 line-through text-sm">200 tacks per board</span><Badge label="Pro" />
-              </li>
-              <li className="flex items-center gap-3 opacity-50">
-                <Check locked /><span className="text-ink/50 line-through text-sm">Custom colors</span><Badge label="Pro" />
-              </li>
-              <li className="flex items-center gap-3 opacity-50">
-                <Check locked /><span className="text-ink/50 line-through text-sm">No branding</span><Badge label="Pro" />
-              </li>
-              <li className="flex items-center gap-3 opacity-50">
-                <Check locked /><span className="text-ink/50 line-through text-sm">Export boards</span><Badge label="Pro" />
-              </li>
-              <li className="flex items-center gap-3 opacity-50">
-                <Check locked /><span className="text-ink/50 line-through text-sm">Real-time collaboration</span><Badge label="Team" />
-              </li>
-            </ul>
-
-            {currentPlan === 'free' ? (
-              <div className="px-4 py-3 bg-ink/5 rounded-full text-center text-sm text-ink/60 font-medium">
-                Current plan
-              </div>
-            ) : (
-              <div className="px-4 py-3 bg-ink/5 rounded-full text-center text-sm text-ink/40 font-medium">
-                Free
-              </div>
-            )}
-          </div>
-
-          {/* ── Pro ── */}
-          <div className={`relative border-2 rounded-2xl p-8 ${currentPlan === 'pro' ? 'border-papaya bg-papaya/5' : 'border-ink/10 bg-white'}`}>
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-              <span className="px-4 py-1 bg-papaya text-white text-xs font-semibold rounded-full">Popular</span>
-            </div>
-
-            <div className="mb-6">
-              <h2 className="text-2xl font-semibold mb-2">Pro</h2>
-              <div className="flex items-baseline gap-1">
-                <span className="text-5xl font-bold">$10</span>
-                <span className="text-ink/60">/mo</span>
-              </div>
-            </div>
-
-            <ul className="space-y-3 mb-8">
-              <li className="flex items-start gap-3"><Check /><span className="text-ink/70">50 boards</span></li>
-              <li className="flex items-start gap-3"><Check /><span className="text-ink/70">200 tacks per board</span></li>
-              <li className="flex items-start gap-3"><Check /><span className="text-ink/70">Custom colors</span></li>
-              <li className="flex items-start gap-3"><Check /><span className="text-ink/70">No branding</span></li>
-              <li className="flex items-start gap-3"><Check /><span className="text-ink/70">Export boards</span></li>
-              <li className="flex items-center gap-3 opacity-50">
-                <Check locked /><span className="text-ink/50 line-through text-sm">Real-time collaboration</span><Badge label="Team" />
-              </li>
-            </ul>
-
-            {currentPlan === 'pro' ? (
-              <div className="px-4 py-3 bg-ink/5 rounded-full text-center text-sm text-ink/60 font-medium">
-                Current plan
-              </div>
-            ) : (
-              <button
-                onClick={() => handlePlanClick('price_1THWhJ2WmfLDfFrx11odjF0b', currentPlan === 'team' || currentPlan === 'enterprise')}
-                disabled={upgrading}
-                className="w-full px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors disabled:opacity-50"
-              >
-                {upgrading ? 'Processing...' : currentPlan === 'team' || currentPlan === 'enterprise' ? 'Downgrade to Pro' : 'Upgrade to Pro'}
-              </button>
-            )}
-          </div>
-
-          {/* ── Team ── */}
-          <div className={`relative border-2 rounded-2xl p-8 ${currentPlan === 'team' ? 'border-papaya bg-papaya/5' : 'border-ink/10 bg-white'}`}>
-            <div className="mb-6">
-              <h2 className="text-2xl font-semibold mb-2">Team</h2>
-              <div className="flex items-baseline gap-1">
-                <span className="text-5xl font-bold">$18</span>
-                <span className="text-ink/60">/mo</span>
-              </div>
-            </div>
-
-            <ul className="space-y-3 mb-8">
-              <li className="flex items-start gap-3"><Check /><span className="text-ink/70">Everything in Pro</span></li>
-              <li className="flex items-start gap-3"><Check /><span className="text-ink/70">Unlimited boards</span></li>
-              <li className="flex items-start gap-3"><Check /><span className="text-ink/70">Unlimited tacks</span></li>
-              <li className="flex items-start gap-3"><Check /><span className="text-ink/70">Real-time collaboration</span></li>
-              <li className="flex items-start gap-3"><Check /><span className="text-ink/70">Team workspace</span></li>
-            </ul>
-
-            {currentPlan === 'team' ? (
-              <div className="px-4 py-3 bg-ink/5 rounded-full text-center text-sm text-ink/60 font-medium">
-                Current plan
-              </div>
-            ) : (
-              <button
-                onClick={() => handlePlanClick('price_1THWhM2WmfLDfFrxIaNUyoV3', currentPlan === 'enterprise')}
-                disabled={upgrading}
-                className="w-full px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors disabled:opacity-50"
-              >
-                {upgrading ? 'Processing...' : currentPlan === 'enterprise' ? 'Downgrade to Team' : 'Upgrade to Team'}
-              </button>
-            )}
-          </div>
-
-          {/* ── Enterprise ── */}
-          <div className={`relative border-2 rounded-2xl p-8 ${currentPlan === 'enterprise' ? 'border-papaya bg-papaya/5' : 'border-ink/10 bg-white'}`}>
-            <div className="mb-6">
-              <h2 className="text-2xl font-semibold mb-2">Enterprise</h2>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-bold text-ink/70">Custom</span>
-              </div>
-            </div>
-
-            <ul className="space-y-3 mb-8">
-              <li className="flex items-start gap-3"><Check /><span className="text-ink/70">Everything in Team</span></li>
-              <li className="flex items-start gap-3"><Check /><span className="text-ink/70">Custom pricing</span></li>
-              <li className="flex items-start gap-3"><Check /><span className="text-ink/70">Dedicated support</span></li>
-            </ul>
-
-            {currentPlan === 'enterprise' ? (
-              <div className="px-4 py-3 bg-ink/5 rounded-full text-center text-sm text-ink/60 font-medium">
-                Current plan
-              </div>
-            ) : (
-              <a
-                href="mailto:admin@sparkurio.com?subject=Enterprise inquiry"
-                className="block w-full px-6 py-3 border-2 border-ink/20 text-ink rounded-full font-medium hover:border-ink/40 transition-colors text-center"
-              >
-                Contact us
-              </a>
-            )}
-          </div>
+            );
+          })}
         </div>
 
         {/* FAQ */}
@@ -274,8 +283,8 @@ export default function BillingPage() {
               <p className="text-sm text-ink/60 mt-2">Yes, you can cancel your subscription at any time. You&apos;ll continue to have access until the end of your billing period.</p>
             </details>
             <details className="bg-white rounded-xl p-4 border border-ink/5">
-              <summary className="font-medium cursor-pointer">What happens to my boards if I downgrade?</summary>
-              <p className="text-sm text-ink/60 mt-2">Your boards and content remain safe. Boards beyond the free limit will be deleted oldest-first automatically.</p>
+              <summary className="font-medium cursor-pointer">What happens to my private collections if I downgrade?</summary>
+              <p className="text-sm text-ink/60 mt-2">Nothing is deleted. Your existing collections stay exactly as they are — you just won&apos;t be able to create new private ones until you upgrade again.</p>
             </details>
             <details className="bg-white rounded-xl p-4 border border-ink/5">
               <summary className="font-medium cursor-pointer">Do you offer refunds?</summary>
@@ -290,30 +299,20 @@ export default function BillingPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowConfirm(false)} />
           <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
-            <h3 className="font-serif text-xl mb-2">Downgrade to Pro?</h3>
+            <h3 className="font-serif text-xl mb-2">Downgrade to Free?</h3>
             <p className="text-sm text-ink/60 mb-4">
-              You&apos;ll be switched to the Pro plan. Your team workspace will be removed.
+              You&apos;ll lose unlimited downloads and the ability to create new private collections. Nothing you&apos;ve already made is deleted.
             </p>
-            {boardsUsed > 50 && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
-                <p className="text-sm text-amber-800 font-medium">
-                  {boardsUsed - 50} board{boardsUsed - 50 !== 1 ? 's' : ''} will be deleted
-                </p>
-                <p className="text-xs text-amber-700 mt-1">
-                  You have {boardsUsed} boards. The Pro plan allows 50. Your oldest boards will be permanently deleted first.
-                </p>
-              </div>
-            )}
             <div className="flex gap-3">
               <button
-                onClick={() => { setShowConfirm(false); if (pendingPriceId) proceedToCheckout(pendingPriceId); }}
+                onClick={() => { setShowConfirm(false); proceedToDowngrade(); }}
                 disabled={upgrading}
                 className="flex-1 px-4 py-2.5 bg-ink text-white rounded-full text-sm font-medium hover:bg-ink/80 transition-colors disabled:opacity-50"
               >
                 {upgrading ? 'Processing…' : 'Yes, downgrade'}
               </button>
               <button
-                onClick={() => { setShowConfirm(false); setPendingPriceId(null); }}
+                onClick={() => setShowConfirm(false)}
                 className="flex-1 px-4 py-2.5 bg-ink/5 rounded-full text-sm font-medium hover:bg-ink/10 transition-colors"
               >
                 Cancel
@@ -322,6 +321,8 @@ export default function BillingPage() {
           </div>
         </div>
       )}
+
+      {comingSoonPlan && <ComingSoonModal planName={comingSoonPlan} onClose={() => setComingSoonPlan(null)} />}
     </div>
   );
 }

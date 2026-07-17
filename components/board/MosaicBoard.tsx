@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/hooks/useUser";
 import { tackThumb, tackDetail } from "@/lib/image-transform";
 import { hasFeature } from "@/lib/plan-limits";
 import type { Plan } from "@/lib/plan-limits";
 import type { Board, Tack } from "@/types/board";
+import Breadcrumb from "@/components/board/Breadcrumb";
+import SubCollectionsStrip from "@/components/board/SubCollectionsStrip";
 
 // ── Board-type icons (shared with cards / settings) ─────────────────────────
 export function BoardTypeIcon({ type, className = "w-4 h-4" }: { type: string; className?: string }) {
@@ -136,7 +137,7 @@ export default function MosaicBoard() {
 
   if (!board) return (
     <div className="min-h-screen flex items-center justify-center">
-      <p className="text-ink/40">Board not found.</p>
+      <p className="text-ink/40">Collection not found.</p>
     </div>
   );
 
@@ -144,23 +145,16 @@ export default function MosaicBoard() {
     <div className="min-h-screen bg-white">
       {/* ── Header ─────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-ink/5 px-4 py-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link href="/" className="w-9 h-9 rounded-full bg-ink/5 hover:bg-ink/10 flex items-center justify-center flex-shrink-0 transition-colors">
-            <svg className="w-4 h-4 stroke-ink stroke-[1.5] fill-none" viewBox="0 0 24 24">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
-          </Link>
-          <div className="flex items-center gap-2 min-w-0">
-            <BoardTypeIcon type="mosaic" className="w-4 h-4 stroke-ink/40 flex-shrink-0" />
-            <h1 className="font-serif text-lg truncate leading-tight">{board.name}</h1>
-          </div>
+        <div className="flex items-center gap-2 min-w-0">
+          <Breadcrumb boardId={boardId} boardName={board.name} variant="mosaic" />
+          <BoardTypeIcon type="mosaic" className="w-4 h-4 stroke-ink/40 flex-shrink-0" />
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {memberRole === 'owner' && (
             <button
               onClick={() => setSettingsOpen(true)}
               className="w-9 h-9 rounded-full bg-ink/5 hover:bg-ink/10 flex items-center justify-center transition-colors"
-              title="Board settings"
+              title="Collection settings"
             >
               <svg className="w-4 h-4 stroke-ink/60 stroke-[1.5] fill-none" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="3"/>
@@ -184,6 +178,7 @@ export default function MosaicBoard() {
 
       {/* ── Grid ───────────────────────────────────────────────────── */}
       <div className="p-3 md:p-4">
+        <SubCollectionsStrip boardId={boardId} canEdit={canEdit} />
         {tacks.length === 0 && !loading ? (
           <div className="flex flex-col items-center justify-center py-32 text-center px-6">
             <div className="w-16 h-16 rounded-2xl bg-ink/5 flex items-center justify-center mb-4">
@@ -324,7 +319,7 @@ function MosaicSettings({ board, onClose, onUpdate }: {
 
           {/* Name */}
           <div>
-            <label className="block text-xs font-medium text-ink/50 mb-1.5">Board name</label>
+            <label className="block text-xs font-medium text-ink/50 mb-1.5">Collection name</label>
             <input
               type="text"
               value={name}
@@ -348,7 +343,7 @@ function MosaicSettings({ board, onClose, onUpdate }: {
               <span className={`relative z-10 flex-1 text-center text-xs font-semibold transition-colors ${isPublic ? 'text-white' : 'text-ink/40'}`}>Public</span>
             </button>
             <p className="text-[11px] text-ink/40 mt-1.5">
-              {isPublic ? 'Anyone can find and view this board.' : 'Only you can see this board.'}
+              {isPublic ? 'Anyone can find and view this collection.' : 'Only you can see this collection.'}
             </p>
           </div>
 

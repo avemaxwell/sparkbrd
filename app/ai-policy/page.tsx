@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const LOGO = "https://vqaaxqvyepouqcrxduiw.supabase.co/storage/v1/object/public/assets/logo.png";
+const LOGO = "/logo.png";
 
 export const metadata = {
   title: "AI Policy — Sparkurio",
@@ -9,7 +9,7 @@ export const metadata = {
 
 export default function AIPolicyPage() {
   return (
-    <div className="min-h-screen bg-[#FDFCFB]">
+    <div className="min-h-screen bg-cork-warm">
       <header className="border-b border-ink/5">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/">
@@ -32,7 +32,7 @@ export default function AIPolicyPage() {
           <section>
             <h2 className="font-serif text-2xl text-ink mb-3">What Sparkurio is for</h2>
             <p>
-              Sparkurio is a space for human creativity and inspiration. Every board is a window into
+              Sparkurio is a space for human creativity and inspiration. Every collection is a window into
               someone&apos;s genuine taste: the things that actually moved them, photographs they took,
               artwork they love, ideas that stuck. That authenticity is the whole point. When you browse
               here, you should be able to trust that what you&apos;re seeing came from a real person&apos;s
@@ -49,7 +49,7 @@ export default function AIPolicyPage() {
             </p>
             <p className="mt-4">
               There&apos;s also a practical reason: AI-generated images dilute the signal. Part of what makes a
-              curated board valuable is knowing a human chose every single thing on it. The moment boards
+              curated collection valuable is knowing a human chose every single thing on it. The moment collections
               can be filled with synthetic content, the curation means less.
             </p>
             <p className="mt-4">
@@ -115,7 +115,7 @@ export default function AIPolicyPage() {
             </p>
             <p className="mt-4">
               We also rely on the community. If you see an image that looks AI-generated, you can report it
-              from the tack menu. Reported content is reviewed by a human before any action is taken.
+              from the resource menu. Reported content is reviewed by a human before any action is taken.
             </p>
           </section>
 

@@ -8,9 +8,9 @@ import BottomNav from "@/components/layout/BottomNav";
 import { useUser } from "@/hooks/useUser";
 
 const AVATAR_COLORS = [
-  '#E24E42', '#E9B000', '#4CAF50', '#2196F3',
+  '#4C4DFF', '#FF7A32', '#4CAF50', '#2196F3',
   '#9C27B0', '#FF5722', '#00BCD4', '#795548',
-  '#607D8B', '#E91E63', '#3F51B5', '#009688',
+  '#607D8B', '#FF00C8', '#3F51B5', '#009688',
 ];
 
 interface TeamMember {
@@ -240,7 +240,7 @@ export default function TeamSettingsPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#FDFCFB] pb-20 lg:pb-0">
+      <main className="min-h-screen bg-[#F6F6F6] pb-20 lg:pb-0">
         <Header />
         <div className="pt-24 flex items-center justify-center">
           <div className="w-8 h-8 border-2 border-ink/20 border-t-papaya rounded-full animate-spin" />
@@ -252,7 +252,7 @@ export default function TeamSettingsPage() {
 
   if (error || !data) {
     return (
-      <main className="min-h-screen bg-[#FDFCFB] pb-20 lg:pb-0">
+      <main className="min-h-screen bg-[#F6F6F6] pb-20 lg:pb-0">
         <Header />
         <div className="pt-24 px-6 text-center">
           <p className="text-ink-soft">{error ?? 'Something went wrong'}</p>
@@ -264,7 +264,7 @@ export default function TeamSettingsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#FDFCFB] pb-20 lg:pb-0">
+    <main className="min-h-screen bg-[#F6F6F6] pb-20 lg:pb-0">
       <Header />
       <div className="pt-24 md:pt-28 px-6 pb-16">
         <div className="max-w-2xl mx-auto space-y-10">
@@ -487,7 +487,7 @@ export default function TeamSettingsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-ink">Leave team</p>
-                    <p className="text-xs text-ink/50">You will lose access to all team boards.</p>
+                    <p className="text-xs text-ink/50">You will lose access to all team collections.</p>
                   </div>
                   {showLeaveConfirm ? (
                     <div className="flex gap-2">
@@ -513,7 +513,7 @@ export default function TeamSettingsPage() {
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <p className="text-sm font-medium text-ink">Delete team</p>
-                      <p className="text-xs text-ink/50">Permanently delete this team. Boards will be detached but not deleted.</p>
+                      <p className="text-xs text-ink/50">Permanently delete this team. Collections will be detached but not deleted.</p>
                     </div>
                     <button onClick={() => setShowDeleteConfirm(!showDeleteConfirm)} className="text-sm text-red-500 hover:text-red-600 px-3 py-1.5 border border-red-200 rounded-lg transition-colors">
                       Delete team

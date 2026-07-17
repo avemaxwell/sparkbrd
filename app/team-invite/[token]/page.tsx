@@ -72,7 +72,7 @@ export default function TeamInvitePage() {
   const invitation = state.status === 'ready' ? state.details.invitation : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fef3e2] to-[#fce7f3] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-lime/40 to-lavender/30 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/">
@@ -114,7 +114,7 @@ export default function TeamInvitePage() {
               <div className="flex items-center gap-3 mb-6">
                 <div
                   className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-semibold text-lg flex-shrink-0"
-                  style={{ backgroundColor: invitation.team?.avatar_color ?? '#E24E42' }}
+                  style={{ backgroundColor: invitation.team?.avatar_color ?? '#4C4DFF' }}
                 >
                   {invitation.team?.name?.[0]?.toUpperCase() ?? 'T'}
                 </div>
@@ -133,8 +133,8 @@ export default function TeamInvitePage() {
                 <p className="font-medium text-ink capitalize">{invitation.role}</p>
                 <p className="text-xs text-ink-soft mt-1.5">
                   {invitation.role === 'admin'
-                    ? 'You can manage members, invite others, and access all team boards.'
-                    : 'You can view and collaborate on all team boards.'}
+                    ? 'You can manage members, invite others, and access all team collections.'
+                    : 'You can view and collaborate on all team collections.'}
                 </p>
               </div>
 

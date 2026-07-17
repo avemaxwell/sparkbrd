@@ -10,12 +10,14 @@ interface Profile {
   name: string | null;
   avatar_url: string | null;
   plan: string;
-  plan_limits: {
-    max_boards: number;
-    max_tacks_per_board: number;
-  };
   board_count: number;
   created_at: string;
+  role: string | null;
+  is_verified_educator: boolean;
+  verified_school_domain: string | null;
+  verified_institution_name: string | null;
+  verified_at: string | null;
+  display_school_publicly: boolean;
 }
 
 // Cache outside component - persists across renders but resets on hot reload

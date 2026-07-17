@@ -6,9 +6,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Board } from "@/types/board";
 import { BoardTypeIcon } from "@/components/board/MosaicBoard";
-import { usePlan } from "@/hooks/usePlan";
-import { canCreateBoard, getUpgradeMessage } from "@/lib/plan-limits";
-import UpgradeModal from "@/components/UpgradeModal";
+import { useUser } from "@/hooks/useUser";
+import { hasFeature } from "@/lib/plan-limits";
 import { tackCollage } from "@/lib/image-transform";
 
 type SharedBoard = Board & { _role: 'editor' | 'viewer'; _ownerName: string | null };
@@ -38,20 +37,51 @@ const BOARD_GRADIENTS = [
 ];
 const COLLAGE_ANGLES = [-5, 3, -2];
 
+// A collection that contains sub-collections gets a folder treatment instead
+// of the fanned photo-stack — the stack visually implies "flat resources
+// live here," which is misleading once a collection is really a container.
+function FolderCard({ board, childCount, index }: { board: Board; childCount: number; index: number }) {
+  const gradient = BOARD_GRADIENTS[index % BOARD_GRADIENTS.length];
+  return (
+    <Link
+      href={`/board/${board.id}`}
+      className={`group relative aspect-[3/4] rounded-2xl overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 bg-gradient-to-br ${gradient} p-4 flex flex-col`}
+      style={{ transitionDelay: `${index * 30}ms` }}
+    >
+      <div className="w-9 h-9 rounded-lg bg-white/70 group-hover:bg-white/90 flex items-center justify-center transition-colors flex-shrink-0">
+        <svg className="w-4.5 h-4.5 stroke-ink/70 stroke-[1.5] fill-none" viewBox="0 0 24 24">
+          <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>
+        </svg>
+      </div>
+      <div className="mt-auto">
+        {board.kind && (
+          <span className="inline-block text-[10px] font-semibold text-ink/50 uppercase tracking-wide mb-1">{board.kind}</span>
+        )}
+        <h3 className="font-serif text-base text-ink/80 line-clamp-2 leading-snug">{board.name}</h3>
+        <p className="text-xs text-ink/40 mt-0.5">{childCount} collection{childCount === 1 ? '' : 's'}</p>
+      </div>
+    </Link>
+  );
+}
+
 function BoardCard({
   board,
   index,
   boardImages,
   badge,
+  childCount = 0,
 }: {
   board: Board;
   index: number;
   boardImages: Record<string, string[]>;
   badge?: React.ReactNode;
+  childCount?: number;
 }) {
   const images = boardImages[board.id] || [];
   const hasImages = images.length > 0;
   const gradient = BOARD_GRADIENTS[index % BOARD_GRADIENTS.length];
+
+  if (childCount > 0) return <FolderCard board={board} childCount={childCount} index={index} />;
 
   return (
     <Link
@@ -103,14 +133,36 @@ function BoardCardMobile({
   board,
   index,
   boardImages,
+  childCount = 0,
 }: {
   board: Board;
   index: number;
   boardImages: Record<string, string[]>;
+  childCount?: number;
 }) {
   const images = boardImages[board.id] || [];
   const hasImages = images.length > 0;
   const gradient = BOARD_GRADIENTS[index % BOARD_GRADIENTS.length];
+
+  if (childCount > 0) {
+    return (
+      <Link
+        href={`/board/${board.id}`}
+        className={`relative flex-shrink-0 w-36 aspect-[3/4] rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 bg-gradient-to-br ${gradient} p-4 flex flex-col`}
+      >
+        <div className="w-8 h-8 rounded-lg bg-white/70 flex items-center justify-center flex-shrink-0">
+          <svg className="w-4 h-4 stroke-ink/70 stroke-[1.5] fill-none" viewBox="0 0 24 24">
+            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>
+          </svg>
+        </div>
+        <div className="mt-auto">
+          {board.kind && <span className="inline-block text-[10px] font-semibold text-ink/50 uppercase tracking-wide mb-1">{board.kind}</span>}
+          <h3 className="font-serif text-sm text-ink/80 line-clamp-2 leading-snug">{board.name}</h3>
+          <p className="text-[11px] text-ink/40 mt-0.5">{childCount} collection{childCount === 1 ? '' : 's'}</p>
+        </div>
+      </Link>
+    );
+  }
 
   return (
     <Link
@@ -155,8 +207,9 @@ export default function BoardsSection({ showAll = false }: { showAll?: boolean }
   const [ownedBoards, setOwnedBoards] = useState<Board[]>([]);
   const [sharedBoards, setSharedBoards] = useState<SharedBoard[]>([]);
   const [boardImages, setBoardImages] = useState<Record<string, string[]>>({});
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const { plan, isFreePlan, isTeamPlan } = usePlan();
+  const [childCounts, setChildCounts] = useState<Record<string, number>>({});
+  const { profile } = useUser();
+  const canShowStatus = hasFeature(profile?.plan as any, 'board_status');
 
   useEffect(() => {
     const fetchBoards = async () => {
@@ -164,11 +217,13 @@ export default function BoardsSection({ showAll = false }: { showAll?: boolean }
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return;
 
-      // Owned boards
+      // Owned boards — top-level only; nested collections surface inside
+      // their parent's sub-collections strip, not in this flat grid.
       const { data: owned } = await supabase
         .from("boards")
         .select("*")
         .eq("owner_id", session.user.id)
+        .is("parent_id", null)
         .order("created_at", { ascending: false });
 
       const fetchedOwned: Board[] = owned || [];
@@ -180,11 +235,13 @@ export default function BoardsSection({ showAll = false }: { showAll?: boolean }
         .select("role, boards(*)")
         .eq("user_id", session.user.id);
 
-      const sharedRaw: SharedBoard[] = (memberships || []).map((m: any) => ({
-        ...m.boards,
-        _role: m.role as 'editor' | 'viewer',
-        _ownerName: null as string | null,
-      }));
+      const sharedRaw: SharedBoard[] = (memberships || [])
+        .map((m: any) => ({
+          ...m.boards,
+          _role: m.role as 'editor' | 'viewer',
+          _ownerName: null as string | null,
+        }))
+        .filter((b: SharedBoard) => !b.parent_id);
 
       // Fetch owner profile names for shared boards
       if (sharedRaw.length > 0) {
@@ -199,7 +256,7 @@ export default function BoardsSection({ showAll = false }: { showAll?: boolean }
 
       setSharedBoards(sharedRaw);
 
-      // Fetch preview images for all boards
+      // Fetch preview images and child-collection counts for all boards
       const allBoards = [...fetchedOwned, ...sharedRaw];
       if (allBoards.length > 0) {
         const boardIds = allBoards.map((b) => b.id);
@@ -218,6 +275,19 @@ export default function BoardsSection({ showAll = false }: { showAll?: boolean }
           }
           setBoardImages(imageMap);
         }
+
+        const { data: childRows } = await supabase
+          .from("boards")
+          .select("parent_id")
+          .in("parent_id", boardIds);
+
+        if (childRows) {
+          const counts: Record<string, number> = {};
+          for (const row of childRows) {
+            counts[row.parent_id as string] = (counts[row.parent_id as string] ?? 0) + 1;
+          }
+          setChildCounts(counts);
+        }
       }
     };
 
@@ -225,11 +295,6 @@ export default function BoardsSection({ showAll = false }: { showAll?: boolean }
   }, []);
 
   const handleNewBoard = () => {
-    const effectivePlan = isFreePlan ? "free" : (plan as any);
-    if (!canCreateBoard(effectivePlan, ownedBoards.length)) {
-      setShowUpgradeModal(true);
-      return;
-    }
     router.push("/board/new");
   };
 
@@ -242,7 +307,7 @@ export default function BoardsSection({ showAll = false }: { showAll?: boolean }
 
           {/* ── Your Boards ── */}
           <div className="flex items-center justify-between mb-5">
-            <h2 className="font-serif text-2xl md:text-3xl text-ink/90 leading-none">Your Boards</h2>
+            <h2 className="font-serif text-2xl md:text-3xl text-ink/90 leading-none">Your Collections</h2>
             <div className="flex items-center gap-4">
               {!showAll && ownedBoards.length > DESKTOP_BOARD_LIMIT && (
                 <Link
@@ -256,7 +321,7 @@ export default function BoardsSection({ showAll = false }: { showAll?: boolean }
                 onClick={handleNewBoard}
                 className="flex items-center gap-1.5 text-sm font-medium text-papaya hover:text-papaya/70 transition-colors"
               >
-                <span>New board</span>
+                <span>New collection</span>
                 <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24">
                   <path d="M12 5v14M5 12h14"/>
                 </svg>
@@ -274,7 +339,7 @@ export default function BoardsSection({ showAll = false }: { showAll?: boolean }
                   <path d="M12 5v14M5 12h14"/>
                 </svg>
               </div>
-              <p className="text-ink/40 group-hover:text-papaya/70 transition-colors text-sm">Create your first board</p>
+              <p className="text-ink/40 group-hover:text-papaya/70 transition-colors text-sm">Create your first collection</p>
             </button>
           ) : (
             <>
@@ -283,7 +348,7 @@ export default function BoardsSection({ showAll = false }: { showAll?: boolean }
                 <div className="md:hidden overflow-x-auto -mx-6 px-6 mb-5">
                   <div className="flex gap-3 pb-3">
                     {ownedBoards.map((board, index) => (
-                      <BoardCardMobile key={board.id} board={board} index={index} boardImages={boardImages} />
+                      <BoardCardMobile key={board.id} board={board} index={index} boardImages={boardImages} childCount={childCounts[board.id] ?? 0} />
                     ))}
                     <button
                       onClick={handleNewBoard}
@@ -306,8 +371,9 @@ export default function BoardsSection({ showAll = false }: { showAll?: boolean }
                       board={board}
                       index={index}
                       boardImages={boardImages}
+                      childCount={childCounts[board.id] ?? 0}
                       badge={
-                        isTeamPlan ? (
+                        canShowStatus ? (
                           <div className="mt-1">
                             <StatusBadge status={board.status} />
                           </div>
@@ -338,7 +404,7 @@ export default function BoardsSection({ showAll = false }: { showAll?: boolean }
                     <div className="flex gap-3 pb-3">
                       {sharedBoards.map((board, index) => (
                         <div key={board.id} className="relative flex-shrink-0">
-                          <BoardCardMobile board={board} index={index} boardImages={boardImages} />
+                          <BoardCardMobile board={board} index={index} boardImages={boardImages} childCount={childCounts[board.id] ?? 0} />
                           <span className="absolute top-2 left-2 text-[10px] font-medium bg-white/90 text-ink/60 px-1.5 py-0.5 rounded-full z-20 capitalize">
                             {board._role}
                           </span>
@@ -355,6 +421,7 @@ export default function BoardsSection({ showAll = false }: { showAll?: boolean }
                         board={board}
                         index={index}
                         boardImages={boardImages}
+                        childCount={childCounts[board.id] ?? 0}
                         badge={
                           <div className="mt-1 flex items-center gap-1.5">
                             {board._ownerName && (
@@ -374,14 +441,6 @@ export default function BoardsSection({ showAll = false }: { showAll?: boolean }
           )}
         </div>
       </section>
-
-      {showUpgradeModal && (
-        <UpgradeModal
-          message={getUpgradeMessage(plan as any, "max_boards")}
-          feature="max_boards"
-          onClose={() => setShowUpgradeModal(false)}
-        />
-      )}
     </>
   );
 }

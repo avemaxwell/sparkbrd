@@ -1,59 +1,150 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { resetUserCache } from "@/hooks/useUser";
+import { STRIPE_PRICES } from "@/lib/stripe-plans";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import ComingSoonModal from "@/components/ComingSoonModal";
 
-const LOGO = "https://vqaaxqvyepouqcrxduiw.supabase.co/storage/v1/object/public/assets/logo.png";
+const LOGO = "/logo.png";
 
-const PLANS = [
-  {
-    id: "free",
-    name: "Free",
-    price: "$0",
-    period: "",
-    priceId: null,
-    features: ["5 boards", "25 tacks per board", "Basic backgrounds"],
+const INTENT_COPY: Record<string, { tagline: string; heading: string; benefits: string[] }> = {
+  share: {
+    tagline: "Create a free account to share what works.",
+    heading: "Create your free account",
+    benefits: [
+      "Share your own classroom-tested resources",
+      "Save resources and build collections",
+      "Follow educators whose work you trust",
+      "Join a community of real teachers",
+    ],
   },
-  {
-    id: "pro",
-    name: "Pro",
-    price: "$10",
-    period: "/mo",
-    priceId: "price_1THWhJ2WmfLDfFrx11odjF0b",
-    highlight: true,
-    features: ["50 boards", "200 tacks per board", "Custom colors", "No branding", "Export boards"],
+  community: {
+    tagline: "Create a free account to join the conversation.",
+    heading: "Create your free account",
+    benefits: [
+      "Start threads and reply to other educators",
+      "Save resources and build collections",
+      "Follow educators whose work you trust",
+      "Get notified when someone replies to you",
+    ],
   },
-  {
-    id: "team",
-    name: "Team",
-    price: "$18",
-    period: "/mo",
-    priceId: "price_1THWhM2WmfLDfFrxIaNUyoV3",
-    features: ["Everything in Pro", "Unlimited boards & tacks", "Real-time collaboration", "Team workspace"],
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    price: "Custom",
-    period: "",
-    priceId: null,
-    features: ["Everything in Team", "Custom pricing", "Dedicated support"],
-  },
-];
+};
+
+type BillingPeriod = "monthly" | "annual";
+
+function getPlans(billingPeriod: BillingPeriod) {
+  return [
+    {
+      id: "free",
+      name: "Free",
+      price: "$0",
+      period: "",
+      priceId: null as string | null,
+      contactOnly: false,
+      features: [
+        "Unlimited browsing & search",
+        "Unlimited resource previews",
+        "Save resources & unlimited public collections",
+        "Follow educators",
+        "Participate in Sparkurio Labs",
+        "Limited monthly downloads",
+      ],
+    },
+    {
+      id: "plus",
+      name: "Sparkurio Plus",
+      price: billingPeriod === "annual" ? "$107" : "$11.99",
+      period: billingPeriod === "annual" ? "/yr" : "/mo",
+      priceId: billingPeriod === "annual" ? STRIPE_PRICES.plusAnnual : STRIPE_PRICES.plusMonthly,
+      contactOnly: false,
+      highlight: true,
+      features: [
+        "Unlimited downloads",
+        "Unlimited private collections",
+        "Smart organization — tags, favorites, archive",
+        "Offline access",
+        "Advanced & saved searches",
+        "Early access to new features",
+      ],
+    },
+    {
+      id: "creator_pro",
+      name: "Creator Pro",
+      price: "$24.99",
+      period: "/mo",
+      priceId: STRIPE_PRICES.creatorProMonthly,
+      contactOnly: false,
+      features: [
+        "Everything in Plus",
+        "Sales dashboard & revenue tracking",
+        "Bulk uploads & scheduled publishing",
+        "Portfolio customization",
+        "Lower marketplace commission (7%)",
+      ],
+    },
+    {
+      id: "homeschool_plus",
+      name: "Homeschool+",
+      price: billingPeriod === "annual" ? "$149" : "$14.99",
+      period: billingPeriod === "annual" ? "/yr" : "/mo",
+      priceId: billingPeriod === "annual" ? STRIPE_PRICES.homeschoolAnnual : STRIPE_PRICES.homeschoolMonthly,
+      contactOnly: false,
+      comingSoon: true,
+      features: [
+        "Everything in Plus",
+        "Pacing & scheduling tools",
+        "Family-friendly planning views",
+        "Homeschool-specific recommendations",
+      ],
+    },
+    {
+      id: "district",
+      name: "District",
+      price: "Custom",
+      period: "",
+      priceId: null as string | null,
+      contactOnly: true,
+      features: [
+        "SSO & district administration",
+        "Private district & department libraries",
+        "PLC workspaces & curriculum alignment",
+        "Analytics & implementation support",
+      ],
+    },
+  ];
+}
 
 export default function SignupPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-cork-warm flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-ink/20 border-t-papaya rounded-full animate-spin" />
+      </div>
+    }>
+      <SignupPageContent />
+    </Suspense>
+  );
+}
+
+function SignupPageContent() {
   const [selectedPlan, setSelectedPlan] = useState("free");
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("monthly");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [comingSoonPlan, setComingSoonPlan] = useState<string | null>(null);
   const supabase = createClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const intent = INTENT_COPY[searchParams.get("intent") ?? ""];
+
+  const PLANS = useMemo(() => getPlans(billingPeriod), [billingPeriod]);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,7 +170,9 @@ export default function SignupPage() {
     if (data.session) {
       resetUserCache();
       const plan = PLANS.find(p => p.id === selectedPlan);
-      if (plan?.priceId) {
+      if (plan?.contactOnly) {
+        window.location.href = "mailto:admin@sparkurio.com?subject=District inquiry&body=Hi, I just signed up and I'm interested in Sparkurio for my district.";
+      } else if (plan?.priceId) {
         // Redirect to Stripe checkout for paid plans
         try {
           const res = await fetch("/api/create-checkout", {
@@ -92,9 +185,6 @@ export default function SignupPage() {
         } catch {
           // Fall through to home if checkout fails
         }
-      } else if (selectedPlan === "enterprise") {
-        // Open mailto so they can reach out, then go home
-        window.location.href = "mailto:admin@sparkurio.com?subject=Enterprise inquiry&body=Hi, I just signed up and I'm interested in an Enterprise plan.";
       }
       const redirectTo = new URLSearchParams(window.location.search).get("redirect") || "/";
       router.push(redirectTo);
@@ -106,7 +196,8 @@ export default function SignupPage() {
   };
 
   const plan = PLANS.find(p => p.id === selectedPlan)!;
-  const isPaid = !!plan.priceId;
+  const isPaid = !plan.contactOnly && !!plan.priceId;
+  const missingPriceId = !plan.contactOnly && plan.id !== "free" && !plan.priceId;
 
   if (submitted) {
     return (
@@ -136,31 +227,81 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen bg-cork-warm py-12 px-4">
-      <div className="w-full max-w-2xl mx-auto">
+      <div className="w-full max-w-3xl mx-auto">
 
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-block">
             <img src={LOGO} alt="Sparkurio" className="h-12 w-auto mx-auto" />
           </Link>
-          <p className="text-ink/40 mt-2 text-sm">Spark what inspires you.</p>
+          <p className="text-ink/40 mt-2 text-sm">
+            {intent ? intent.tagline : "Spark what inspires you."}
+          </p>
         </div>
+
+        {/* Intent-driven benefits callout */}
+        {intent && (
+          <div className="mb-8 bg-white rounded-2xl p-6 border border-black/5 shadow-sm">
+            <p className="font-serif font-semibold text-ink mb-3">Why create an account?</p>
+            <ul className="grid sm:grid-cols-2 gap-x-6 gap-y-2.5">
+              {intent.benefits.map((b) => (
+                <li key={b} className="flex items-start gap-2 text-sm text-ink/60">
+                  <svg className="w-4 h-4 stroke-papaya stroke-2 fill-none flex-shrink-0 mt-0.5" viewBox="0 0 24 24">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  {b}
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-ink/40 mt-4">
+              It&rsquo;s free — no credit card required. You can always upgrade later for unlimited downloads and more.
+            </p>
+          </div>
+        )}
 
         {/* Plan selector */}
         <div className="mb-6">
-          <p className="text-center text-xs text-ink/40 uppercase tracking-widest mb-4">Choose your plan</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <p className="text-center text-xs text-ink/40 uppercase tracking-widest">Choose your plan</p>
+          </div>
+
+          {/* Monthly / annual toggle — only meaningfully affects Plus */}
+          <div className="flex items-center justify-center gap-2 mb-5">
+            <button
+              type="button"
+              onClick={() => setBillingPeriod("monthly")}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${billingPeriod === "monthly" ? "bg-ink text-white" : "text-ink/50 hover:text-ink"}`}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              onClick={() => setBillingPeriod("annual")}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${billingPeriod === "annual" ? "bg-ink text-white" : "text-ink/50 hover:text-ink"}`}
+            >
+              Annual <span className="text-lime">· save ~26%</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
             {PLANS.map((p) => (
               <button
                 key={p.id}
                 type="button"
-                onClick={() => setSelectedPlan(p.id)}
+                onClick={() => p.comingSoon ? setComingSoonPlan(p.name) : setSelectedPlan(p.id)}
                 className={`relative rounded-2xl p-4 border-2 text-left transition-all ${
-                  selectedPlan === p.id
+                  p.comingSoon
+                    ? "border-ink/8 bg-white/40 opacity-70 hover:border-ink/20"
+                    : selectedPlan === p.id
                     ? "border-papaya bg-white shadow-md shadow-papaya/10"
                     : "border-ink/8 bg-white/60 hover:border-ink/20"
                 }`}
               >
+                {p.comingSoon && (
+                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 bg-ink/70 text-white text-[10px] font-semibold rounded-full">
+                    Coming soon
+                  </span>
+                )}
                 {p.highlight && (
                   <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 bg-papaya text-white text-[10px] font-semibold rounded-full">
                     Popular
@@ -194,8 +335,10 @@ export default function SignupPage() {
         </div>
 
         {/* Signup form */}
-        <form onSubmit={handleSignup} className="bg-white rounded-2xl p-8 shadow-xl">
-          <h1 className="font-serif text-2xl text-ink mb-6">Create your account</h1>
+        <form onSubmit={handleSignup} className="max-w-md mx-auto bg-white rounded-2xl p-8 shadow-xl">
+          <h1 className="font-serif text-2xl text-ink mb-6">
+            {intent ? intent.heading : "Create your account"}
+          </h1>
 
           {error && (
             <div className="mb-4 p-3 bg-papaya/10 text-papaya text-sm rounded-xl">
@@ -242,19 +385,25 @@ export default function SignupPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || missingPriceId}
             className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors disabled:opacity-50"
           >
             {loading
               ? "Creating account..."
-              : selectedPlan === "enterprise"
+              : plan.contactOnly
               ? "Create account — we'll be in touch"
               : isPaid
               ? `Continue to ${plan.name} — ${plan.price}${plan.period}`
               : "Start for free"}
           </button>
 
-          {isPaid && (
+          {missingPriceId && (
+            <p className="text-center text-xs text-red-500 mt-3">
+              Checkout for {plan.name} isn&apos;t configured yet.
+            </p>
+          )}
+
+          {isPaid && !missingPriceId && (
             <p className="text-center text-xs text-ink/30 mt-3">
               You&apos;ll be taken to a secure checkout page. Cancel anytime.
             </p>
@@ -279,6 +428,8 @@ export default function SignupPage() {
           All accounts start with the selected plan. Upgrade or downgrade anytime from settings.
         </p>
       </div>
+
+      {comingSoonPlan && <ComingSoonModal planName={comingSoonPlan} onClose={() => setComingSoonPlan(null)} />}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { planForPriceId } from '@/lib/stripe-plans';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
     apiVersion: '2026-03-25.dahlia',
@@ -42,41 +43,38 @@ export async function POST(request: Request) {
 
           // Determine plan based on price
           const priceId = subscription.items.data[0].price.id;
-          let plan = 'free';
-          if (priceId === 'price_1THWhJ2WmfLDfFrx11odjF0b') plan = 'pro';
-          if (priceId === 'price_1THWhM2WmfLDfFrxIaNUyoV3') plan = 'team';
+          const resolved = planForPriceId(priceId);
 
           // Update user's plan
           await supabase
             .from('profiles')
             .update({
-              plan,
+              plan: resolved?.plan ?? 'free',
+              plan_billing_period: resolved?.billingPeriod ?? null,
               stripe_subscription_id: subscription.id,
               stripe_customer_id: session.customer as string,
             })
             .eq('id', userId);
 
-          console.log(`Updated user ${userId} to ${plan} plan`);
+          console.log(`Updated user ${userId} to ${resolved?.plan ?? 'free'} plan`);
         }
         break;
       }
 
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
-        
+
         // Determine plan based on price
         const priceId = subscription.items.data[0].price.id;
-        let plan = 'free';
-        if (priceId === 'price_1THWhJ2WmfLDfFrx11odjF0b') plan = 'pro';
-        if (priceId === 'price_1THWhM2WmfLDfFrxIaNUyoV3') plan = 'team';
+        const resolved = planForPriceId(priceId);
 
         // Update plan
         await supabase
           .from('profiles')
-          .update({ plan })
+          .update({ plan: resolved?.plan ?? 'free', plan_billing_period: resolved?.billingPeriod ?? null })
           .eq('stripe_subscription_id', subscription.id);
 
-        console.log(`Updated subscription ${subscription.id} to ${plan} plan`);
+        console.log(`Updated subscription ${subscription.id} to ${resolved?.plan ?? 'free'} plan`);
         break;
       }
 
@@ -86,8 +84,9 @@ export async function POST(request: Request) {
         // Downgrade to free
         await supabase
           .from('profiles')
-          .update({ 
+          .update({
             plan: 'free',
+            plan_billing_period: null,
             stripe_subscription_id: null,
           })
           .eq('stripe_subscription_id', subscription.id);

@@ -9,6 +9,8 @@ export interface Board {
   team_id: string | null;
   status: 'draft' | 'in_review' | 'approved';
   board_type: 'canvas' | 'mosaic';
+  parent_id: string | null;
+  kind: string | null;
 }
 
 export interface Tack {

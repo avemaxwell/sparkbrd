@@ -3,8 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { usePlan } from "@/hooks/usePlan";
-import { hasFeature, Plan } from "@/lib/plan-limits";
+import { hasFeature, canCreatePrivateCollection, Plan } from "@/lib/plan-limits";
 import { useUser } from "@/hooks/useUser";
 import Link from "next/link";
 import ColorPicker from "@/components/ui/ColorPicker";
@@ -17,24 +16,32 @@ export default function NewBoardPage() {
   );
 }
 
+const LABEL_SUGGESTIONS = ["Class", "Unit", "Lesson", "Project"];
+
 function NewBoardForm() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [label, setLabel] = useState("");
   const [boardKind, setBoardKind] = useState<'moodboard' | 'studio' | 'mosaic'>('moodboard');
   const [bgStyle, setBgStyle] = useState("gradient");
-  const [color1, setColor1] = useState("#fef3e2");
-  const [color2, setColor2] = useState("#fce7f3");
+  const [color1, setColor1] = useState("#F0FFC2");
+  const [color2, setColor2] = useState("#FFD6F2");
+  const [isPublic, setIsPublic] = useState(true);
   const [creating, setCreating] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
   const [isAuthed, setIsAuthed] = useState(false);
+  const [parentBoard, setParentBoard] = useState<{ id: string; name: string; team_id: string | null; is_public: boolean } | null>(null);
 
   const router = useRouter();
   const searchParams = useSearchParams();
   const teamId = searchParams.get('team');
+  const parentId = searchParams.get('parent');
   const supabase = createClient();
-  const { canCreateBoard, boardsRemaining, isFreePlan, planDetails } = usePlan();
   const { profile } = useUser();
-  const canUseStudio = hasFeature(profile?.plan as Plan | undefined, 'studio_boards');
+  const plan = profile?.plan as Plan | undefined;
+  const canGoPrivate = canCreatePrivateCollection(plan);
+  const canUseStudio = hasFeature(plan, 'studio_boards');
+  const effectiveTeamId = teamId || parentBoard?.team_id || null;
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -45,9 +52,19 @@ function NewBoardForm() {
     checkAuth();
   }, []);
 
+  // Sub-collections inherit their parent's team/visibility as defaults —
+  // a copy at creation time, not live inheritance (see nesting RLS notes).
+  useEffect(() => {
+    if (!parentId) return;
+    (async () => {
+      const { data } = await supabase.from("boards").select("id, name, team_id, is_public").eq("id", parentId).single();
+      if (data) { setParentBoard(data); setIsPublic(data.is_public); }
+    })();
+  }, [parentId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !canCreateBoard) return;
+    if (!name.trim()) return;
 
     setCreating(true);
 
@@ -66,7 +83,10 @@ function NewBoardForm() {
         background_color: `${color1},${color2}`,
         owner_id: session.user.id,
         board_type: boardKind === 'mosaic' ? 'mosaic' : 'canvas',
-        ...(teamId ? { team_id: teamId } : {}),
+        is_public: canGoPrivate ? isPublic : true,
+        kind: label.trim() || null,
+        ...(parentId ? { parent_id: parentId } : {}),
+        ...(effectiveTeamId ? { team_id: effectiveTeamId } : {}),
       })
       .select()
       .single();
@@ -87,8 +107,8 @@ function NewBoardForm() {
     }
 
     // Log to team activity feed if this is a team board
-    if (teamId) {
-      fetch(`/api/teams/${teamId}/activity`, {
+    if (effectiveTeamId) {
+      fetch(`/api/teams/${effectiveTeamId}/activity`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -130,8 +150,8 @@ function NewBoardForm() {
         <rect x="3" y="3" width="18" height="18" rx="3" fill="url(#grad1)"/>
         <defs>
           <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#fce7f3"/>
-            <stop offset="100%" stopColor="#dbeafe"/>
+            <stop offset="0%" stopColor="#FFD6F2"/>
+            <stop offset="100%" stopColor="#DCDCFF"/>
           </linearGradient>
         </defs>
       </svg>
@@ -172,8 +192,8 @@ function NewBoardForm() {
               <circle cx="12" cy="7" r="4"/>
             </svg>
           </div>
-          <h1 className="font-serif text-2xl mb-2">Sign in to create a board</h1>
-          <p className="text-ink-soft mb-6">You need an account to start tacking your inspiration.</p>
+          <h1 className="font-serif text-2xl mb-2">Sign in to create a collection</h1>
+          <p className="text-ink-soft mb-6">You need an account to start saving your inspiration.</p>
           <Link 
             href="/login"
             className="inline-block px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors"
@@ -185,62 +205,13 @@ function NewBoardForm() {
     );
   }
 
-  if (!canCreateBoard) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full border border-ink/5">
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-papaya/10 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 stroke-papaya stroke-2 fill-none" viewBox="0 0 24 24">
-                <path d="M12 9v4M12 17h.01"/>
-                <circle cx="12" cy="12" r="10"/>
-              </svg>
-            </div>
-            <h1 className="font-serif text-2xl mb-2">You&apos;ve hit your board limit</h1>
-            <p className="text-ink-soft">
-              Your {planDetails.name} plan includes {planDetails.limits.max_boards} boards. 
-              Upgrade to Pro for unlimited boards!
-            </p>
-          </div>
-
-          <div className="bg-ink/5 rounded-xl p-4 mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <span className="font-medium">Pro Plan</span>
-              <span className="text-papaya font-bold">$8/month</span>
-            </div>
-            <ul className="text-sm text-ink-soft space-y-1">
-              <li>Unlimited boards</li>
-              <li>200 tacks per board</li>
-              <li>Custom background colors</li>
-              <li>No branding on shared boards</li>
-            </ul>
-          </div>
-
-          <Link
-            href="/settings/billing"
-            className="block w-full py-3 bg-papaya text-white rounded-full font-medium text-center hover:bg-papaya/90 transition-colors mb-3"
-          >
-            Upgrade to Pro
-          </Link>
-          
-          <Link
-            href="/"
-            className="block w-full py-3 bg-ink/5 text-ink rounded-full font-medium text-center hover:bg-ink/10 transition-colors"
-          >
-            Back to home
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
       {/* Subtle background */}
       <div className="fixed inset-0 opacity-40" style={{
         background: `
-          radial-gradient(ellipse at 0% 0%, #fce7f3 0%, transparent 50%),
-          radial-gradient(ellipse at 100% 100%, #dbeafe 0%, transparent 50%),
+          radial-gradient(ellipse at 0% 0%, #FFD6F2 0%, transparent 50%),
+          radial-gradient(ellipse at 100% 100%, #DCDCFF 0%, transparent 50%),
           white
         `
       }} />
@@ -248,9 +219,12 @@ function NewBoardForm() {
       <div className="relative bg-white rounded-2xl shadow-xl p-8 max-w-xl w-full border border-ink/5">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="font-serif text-2xl">Create a new board</h1>
-            {teamId && (
-              <p className="text-xs text-ink/50 mt-1">This board will be added to your team workspace.</p>
+            <h1 className="font-serif text-2xl">{parentId ? "Create a sub-collection" : "Create a new collection"}</h1>
+            {parentBoard && (
+              <p className="text-xs text-ink/50 mt-1">Nested inside <span className="font-medium text-ink/70">{parentBoard.name}</span>.</p>
+            )}
+            {!parentId && teamId && (
+              <p className="text-xs text-ink/50 mt-1">This collection will be added to your team workspace.</p>
             )}
           </div>
           <Link href="/" className="w-10 h-10 rounded-full hover:bg-ink/5 flex items-center justify-center transition-colors">
@@ -260,27 +234,77 @@ function NewBoardForm() {
           </Link>
         </div>
 
-        {isFreePlan && boardsRemaining <= 3 && (
-          <div className="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-xl">
-            <p className="text-sm text-amber-800">
-              <strong>{boardsRemaining}</strong> board{boardsRemaining !== 1 ? 's' : ''} remaining on your free plan.{' '}
-              <Link href="/settings/billing" className="underline">Upgrade for unlimited</Link>
-            </p>
-          </div>
-        )}
-
         <form onSubmit={handleSubmit}>
           {/* Board Name */}
           <div className="mb-5">
-            <label className="block text-sm font-medium text-ink mb-2">Board name</label>
+            <label className="block text-sm font-medium text-ink mb-2">Collection name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="My Inspiration Board"
+              placeholder="My Inspiration Collection"
               className="w-full px-4 py-3 bg-ink/5 rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 transition-all"
               required
             />
+          </div>
+
+          {/* Label — freeform, purely cosmetic (Class/Unit/Lesson/Project or anything) */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-ink mb-2">Label <span className="text-ink-soft font-normal">(optional)</span></label>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {LABEL_SUGGESTIONS.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setLabel(s)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${label === s ? 'bg-papaya text-white' : 'bg-ink/5 text-ink/50 hover:bg-ink/10'}`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+            <input
+              type="text"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="e.g. Class, Unit, Lesson — or your own"
+              className="w-full px-4 py-3 bg-ink/5 rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 transition-all"
+            />
+            <p className="text-[11px] text-ink/40 mt-1.5">A tag to help organize — freeform, doesn&apos;t change how the collection works.</p>
+          </div>
+
+          {/* Visibility */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-ink mb-3">Visibility</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setIsPublic(true)}
+                className={`p-3 rounded-xl border-2 text-left transition-all ${isPublic ? 'border-papaya bg-papaya/5' : 'border-ink/10 hover:border-ink/20'}`}
+              >
+                <p className="font-semibold text-xs text-ink">Public</p>
+                <p className="text-[10px] text-ink/40 mt-0.5 leading-tight">Anyone can find and view it</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => canGoPrivate ? setIsPublic(false) : undefined}
+                className={`relative p-3 rounded-xl border-2 text-left transition-all ${
+                  !canGoPrivate ? 'border-ink/10 opacity-60 cursor-default' :
+                  !isPublic ? 'border-papaya bg-papaya/5' : 'border-ink/10 hover:border-ink/20'
+                }`}
+              >
+                {!canGoPrivate && (
+                  <span className="absolute top-1.5 right-1.5 text-[9px] font-bold bg-ink/10 text-ink/40 px-1 py-0.5 rounded-full">Plus</span>
+                )}
+                <p className="font-semibold text-xs text-ink">Private</p>
+                <p className="text-[10px] text-ink/40 mt-0.5 leading-tight">Only you can see it</p>
+              </button>
+            </div>
+            {!canGoPrivate && (
+              <p className="text-xs text-ink/50 mt-2">
+                <Link href="/settings/billing" className="text-papaya underline">Upgrade to Sparkurio Plus</Link> for unlimited private collections.
+              </p>
+            )}
           </div>
 
           {/* Description */}
@@ -289,7 +313,7 @@ function NewBoardForm() {
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="What's this board about?"
+              placeholder="What's this collection about?"
               rows={2}
               className="w-full px-4 py-3 bg-ink/5 rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 resize-none transition-all"
             />
@@ -297,7 +321,7 @@ function NewBoardForm() {
 
           {/* Board type */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-ink mb-3">Board type</label>
+            <label className="block text-sm font-medium text-ink mb-3">Collection type</label>
             <div className="grid grid-cols-3 gap-2">
               {/* Moodboard */}
               <button
@@ -327,7 +351,7 @@ function NewBoardForm() {
                 }`}
               >
                 {!canUseStudio && (
-                  <span className="absolute top-1.5 right-1.5 text-[9px] font-bold bg-ink/10 text-ink/40 px-1 py-0.5 rounded-full">Pro</span>
+                  <span className="absolute top-1.5 right-1.5 text-[9px] font-bold bg-ink/10 text-ink/40 px-1 py-0.5 rounded-full">Plus</span>
                 )}
                 <div className="w-8 h-8 rounded-lg bg-papaya/10 flex items-center justify-center">
                   <svg className="w-4 h-4 stroke-papaya stroke-[1.5] fill-none" viewBox="0 0 24 24">
@@ -376,7 +400,7 @@ function NewBoardForm() {
           {/* Background Section — disabled for mosaic (always white) */}
           <div className={`mb-6 transition-opacity ${boardKind === 'mosaic' ? 'opacity-30 pointer-events-none select-none' : ''}`}>
             {boardKind === 'mosaic' && (
-              <p className="text-xs text-ink/40 mb-3 italic">Background style doesn&apos;t apply to mosaic boards.</p>
+              <p className="text-xs text-ink/40 mb-3 italic">Background style doesn&apos;t apply to mosaic collections.</p>
             )}
             <h3 className="text-sm font-medium text-ink mb-4">Background</h3>
             
@@ -436,7 +460,7 @@ function NewBoardForm() {
             disabled={!name.trim() || creating}
             className="w-full py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors disabled:opacity-50"
           >
-            {creating ? "Creating..." : "Create board"}
+            {creating ? "Creating..." : "Create collection"}
           </button>
         </form>
       </div>

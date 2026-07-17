@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
-import { PLAN_LIMITS } from '@/lib/plan-limits';
 
 // POST /api/downgrade
-// Downgrades the current user to the free plan.
-// Deletes excess boards (oldest activity first) to enforce free limits,
-// then cancels the Stripe subscription if one exists.
+// Downgrades the current user to the free plan and cancels their Stripe
+// subscription if one exists. Collections are unlimited in count for every
+// plan (the only plan-gated distinction is public vs. private), so downgrading
+// never deletes anything — private collections simply stop being creatable
+// going forward; existing ones are untouched.
 
 export async function POST() {
   try {
@@ -23,27 +24,6 @@ export async function POST() {
 
     if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     if (profile.plan === 'free') return NextResponse.json({ error: 'Already on free plan' }, { status: 400 });
-
-    const freeLimit = PLAN_LIMITS.free.max_boards; // 5
-
-    // Fetch all boards owned by this user, oldest updated_at first
-    const { data: boards } = await supabase
-      .from('boards')
-      .select('id, name, updated_at')
-      .eq('owner_id', user.id)
-      .order('updated_at', { ascending: true }); // oldest activity first
-
-    const boardList = boards ?? [];
-    const excess = boardList.length - freeLimit;
-    const deletedBoards: { id: string; name: string }[] = [];
-
-    if (excess > 0) {
-      const toDelete = boardList.slice(0, excess);
-      for (const b of toDelete) {
-        await supabase.from('boards').delete().eq('id', b.id);
-        deletedBoards.push({ id: b.id, name: b.name });
-      }
-    }
 
     // Cancel Stripe subscription via admin client if one exists
     if (profile.stripe_customer_id) {
@@ -65,22 +45,13 @@ export async function POST() {
       }
     }
 
-    // Update profile to free plan with correct limits
+    // Update profile to free plan
     await admin
       .from('profiles')
-      .update({
-        plan: 'free',
-        plan_limits: {
-          max_boards: PLAN_LIMITS.free.max_boards,
-          max_tacks_per_board: PLAN_LIMITS.free.max_tacks_per_board,
-        },
-      })
+      .update({ plan: 'free', plan_billing_period: null })
       .eq('id', user.id);
 
-    return NextResponse.json({
-      success: true,
-      deleted_boards: deletedBoards,
-    });
+    return NextResponse.json({ success: true });
   } catch (err) {
     console.error('Downgrade error:', err);
     return NextResponse.json({ error: 'Downgrade failed' }, { status: 500 });

@@ -70,12 +70,6 @@ export async function POST(_req: Request, { params }: Params) {
     // Strict email matching breaks legitimate cases: work email invited but
     // user's Sparkurio account uses a personal email, Apple private relay, etc.
 
-    // Verify user has team plan
-    const { data: profile } = await admin.from('profiles').select('plan').eq('id', user.id).single();
-    if (profile?.plan !== 'team') {
-      return NextResponse.json({ error: 'You need a Team plan to join a team workspace. Upgrade in settings.' }, { status: 403 });
-    }
-
     // Fetch team now so we can always return it
     const { data: team } = await admin.from('teams').select('id, name, slug').eq('id', invitation.team_id).single();
 

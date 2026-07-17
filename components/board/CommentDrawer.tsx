@@ -337,7 +337,7 @@ export default function CommentDrawer({ tack, boardId, currentUserId, onClose }:
             {tack.origin_item_id && (
               <span className="inline-flex items-center gap-1 mt-1 text-[10px] text-ink/50 bg-ink/5 px-2 py-0.5 rounded-full">
                 <svg className="w-3 h-3 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                Tacked from another board
+                Saved from another collection
               </span>
             )}
           </div>

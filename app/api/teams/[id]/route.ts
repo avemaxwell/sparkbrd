@@ -72,11 +72,13 @@ export async function GET(_req: Request, { params }: Params) {
       .gt('expires_at', new Date().toISOString())
       .order('created_at', { ascending: false });
 
-    // Team boards
+    // Team boards — top-level only; nested collections surface inside their
+    // parent's sub-collections strip, not in this flat team grid.
     const { data: boards } = await supabase
       .from('boards')
       .select('id, name, description, is_public, created_at, updated_at')
       .eq('team_id', id)
+      .is('parent_id', null)
       .order('updated_at', { ascending: false });
 
     return NextResponse.json({

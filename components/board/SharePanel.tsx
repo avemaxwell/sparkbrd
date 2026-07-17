@@ -146,7 +146,7 @@ export default function SharePanel({ boardId, onClose }: Props) {
         <div className="p-6 border-b border-ink/5">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-serif text-2xl text-ink">Share board</h2>
+              <h2 className="font-serif text-2xl text-ink">Share collection</h2>
               <p className="text-sm text-ink-soft mt-0.5">
                 Invite people to collaborate
               </p>
@@ -239,7 +239,7 @@ export default function SharePanel({ boardId, onClose }: Props) {
                             className="w-8 h-8 rounded-full object-cover flex-shrink-0"
                           />
                         ) : (
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#EB6E80] to-[#E9B000] flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blush to-mustard flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
                             {member.profile.name?.[0]?.toUpperCase() ??
                               member.profile.email?.[0]?.toUpperCase() ??
                               '?'}

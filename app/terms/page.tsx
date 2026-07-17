@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <main className="min-h-screen bg-[#FDFCFB]">
+    <main className="min-h-screen bg-cork-warm">
       {/* Minimal header */}
       <div className="border-b border-ink/8 px-6 py-4 flex items-center justify-between">
         <Link href="/" className="font-serif text-xl text-ink/80 hover:text-ink transition-colors">
@@ -34,7 +34,7 @@ export default function TermsPage() {
           <section>
             <h2 className="font-serif text-xl text-ink/80 mb-3">1. The Service</h2>
             <p>
-              Sparkurio is a visual inspiration and mood-board platform that allows users to collect, organize, and share images on collaborative boards. The Service is provided "as is" and may change, be suspended, or be discontinued at any time without notice.
+              Sparkurio is a platform that allows educators to collect, organize, and share classroom resources in collaborative collections. The Service is provided "as is" and may change, be suspended, or be discontinued at any time without notice.
             </p>
           </section>
 

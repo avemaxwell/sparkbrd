@@ -16,11 +16,11 @@ type Mode = "upload" | "url" | "scrape";
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 const PIN_COLORS = [
-  { id: "papaya",  hex: "#E24E42" },
-  { id: "mustard", hex: "#E9B000" },
-  { id: "aqua",    hex: "#2EC4B6" },
-  { id: "blush",   hex: "#F4A4B0" },
-  { id: "ink",     hex: "#1A1A1A" },
+  { id: "papaya",  hex: "#4C4DFF" },
+  { id: "mustard", hex: "#FF7A32" },
+  { id: "aqua",    hex: "#B9AEFF" },
+  { id: "blush",   hex: "#FF00C8" },
+  { id: "ink",     hex: "#111111" },
   { id: "white",   hex: "#FFFFFF" },
 ];
 
@@ -68,7 +68,7 @@ export default function FloatingTackButton() {
       <button
         onClick={handleOpen}
         className="fixed bottom-24 right-4 lg:bottom-8 lg:right-8 w-14 h-14 rounded-full bg-papaya text-white flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-transform z-50"
-        aria-label="Add tack"
+        aria-label="Add resource"
       >
         <svg className="w-6 h-6 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
           <path d="M12 5v14M5 12h14"/>
@@ -110,7 +110,7 @@ function AddTackFlow({ onClose }: { onClose: () => void }) {
     if (!session) return;
     const { data } = await supabase
       .from('boards')
-      .insert({ owner_id: session.user.id, name: 'New Board', vibe: 'gradient', background_color: '#fef3e2,#fce7f3' })
+      .insert({ owner_id: session.user.id, name: 'New Board', vibe: 'gradient', background_color: '#F0FFC2,#FFD6F2' })
       .select('id')
       .single();
     if (data) {
@@ -132,13 +132,13 @@ function AddTackFlow({ onClose }: { onClose: () => void }) {
   // No boards yet — create one first
   if (boards.length === 0) {
     return (
-      <ModalShell onClose={onClose} title="Create a board first">
-        <p className="text-sm text-ink/50 mb-6">You need at least one board to tack images to.</p>
+      <ModalShell onClose={onClose} title="Create a collection first">
+        <p className="text-sm text-ink/50 mb-6">You need at least one collection to add resources to.</p>
         <button
           onClick={handleNewBoard}
           className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors"
         >
-          Create my first board
+          Create my first collection
         </button>
       </ModalShell>
     );
@@ -158,7 +158,7 @@ function AddTackFlow({ onClose }: { onClose: () => void }) {
 
   // Board picker
   return (
-    <ModalShell onClose={onClose} title="Where do you want to tack this?">
+    <ModalShell onClose={onClose} title="Where do you want to save this?">
       <div className="space-y-2 mb-4 max-h-64 overflow-y-auto">
         {boards.map(board => (
           <button
@@ -175,7 +175,7 @@ function AddTackFlow({ onClose }: { onClose: () => void }) {
         className="w-full py-2.5 border border-dashed border-ink/20 rounded-xl text-sm text-ink/50 hover:border-papaya/50 hover:text-papaya transition-colors flex items-center justify-center gap-2"
       >
         <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-        New board
+        New collection
       </button>
     </ModalShell>
   );
@@ -378,7 +378,7 @@ function TackUploader({
           <NoteField note={note} setNote={setNote} />
           <PinColorPicker pinColor={pinColor} setPinColor={setPinColor} />
           <button type="submit" disabled={!url || uploading || checking || saving} className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors disabled:opacity-50">
-            {saving ? 'Saving…' : checking ? 'Checking…' : 'Tack it'}
+            {saving ? 'Saving…' : checking ? 'Checking…' : 'Save it'}
           </button>
         </form>
       )}
@@ -394,7 +394,7 @@ function TackUploader({
           <NoteField note={note} setNote={setNote} />
           <PinColorPicker pinColor={pinColor} setPinColor={setPinColor} />
           <button type="submit" disabled={!url || checking || saving} className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors disabled:opacity-50">
-            {saving ? 'Saving…' : checking ? 'Checking…' : 'Tack it'}
+            {saving ? 'Saving…' : checking ? 'Checking…' : 'Save it'}
           </button>
         </form>
       )}
@@ -413,7 +413,7 @@ function TackUploader({
           </div>
           {scrapedImages.length > 0 && (
             <>
-              <p className="text-sm text-ink/50 mb-3">Found {scrapedImages.length} images from <strong className="text-ink">{scrapedSource}</strong>. Select to tack:</p>
+              <p className="text-sm text-ink/50 mb-3">Found {scrapedImages.length} images from <strong className="text-ink">{scrapedSource}</strong>. Select to save:</p>
               <div className="grid grid-cols-3 gap-2 mb-4 max-h-52 overflow-y-auto">
                 {scrapedImages.map((img, i) => (
                   <button key={i} type="button" onClick={() => handleToggleScrape(img)} disabled={checking} className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${selectedImages.has(img) ? 'border-papaya ring-2 ring-papaya/30' : 'border-transparent hover:border-ink/20'}`}>
@@ -429,7 +429,7 @@ function TackUploader({
               <NoteField note={note} setNote={setNote} />
               <PinColorPicker pinColor={pinColor} setPinColor={setPinColor} />
               <button type="button" onClick={handleAddSelected} disabled={selectedImages.size === 0 || saving} className="w-full py-3 bg-papaya text-white font-medium rounded-full hover:bg-papaya/90 transition-colors disabled:opacity-50">
-                {saving ? 'Saving…' : `Tack ${selectedImages.size} image${selectedImages.size !== 1 ? 's' : ''}`}
+                {saving ? 'Saving…' : `Save ${selectedImages.size} image${selectedImages.size !== 1 ? 's' : ''}`}
               </button>
             </>
           )}
@@ -472,9 +472,9 @@ function ModalShell({ children, onClose, title }: { children: React.ReactNode; o
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="font-serif text-2xl">{title ?? 'Tack something new'}</h2>
+          <h2 className="font-serif text-2xl">{title ?? 'Share something new'}</h2>
           <button onClick={onClose} className="w-8 h-8 rounded-full hover:bg-ink/5 flex items-center justify-center">
-            <svg className="w-5 h-5 stroke-[#1A1A1A] stroke-[1.5] fill-none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            <svg className="w-5 h-5 stroke-ink stroke-[1.5] fill-none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
         {children}
