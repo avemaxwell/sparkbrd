@@ -1,15 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import type { SubjectDef } from "@/lib/subjects";
 import { Blob, IconBlob } from "@/components/home/decor";
-import { IconBookmark, IconChevronRight } from "@/components/icons";
-
-const FOLLOWER_INITIALS = ["JM", "MD", "RP"];
+import { IconChevronRight } from "@/components/icons";
 
 export default function SubjectHero({ subject }: { subject: SubjectDef }) {
-  const [following, setFollowing] = useState(false);
   const accentLabels = subject.subcategories.slice(1, 3);
   const isLight = subject.textOn === "ink";
 
@@ -46,31 +42,6 @@ export default function SubjectHero({ subject }: { subject: SubjectDef }) {
               >
                 Browse Resources
               </a>
-              <button
-                onClick={() => setFollowing((f) => !f)}
-                className={`inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold rounded-full border transition-colors ${
-                  following
-                    ? isLight ? "bg-ink text-white border-ink" : "bg-white text-ink border-white"
-                    : isLight ? "bg-white/80 text-ink border-black/10 hover:border-black/20" : "bg-white/10 text-white border-white/30 hover:border-white/50"
-                }`}
-              >
-                <IconBookmark className={`w-4 h-4 ${following ? (isLight ? "fill-white" : "fill-ink") : ""}`} />
-                {following ? "Following" : "Follow"}
-              </button>
-            </div>
-
-            <div className="mt-6 flex items-center gap-3">
-              <div className="flex -space-x-2">
-                {FOLLOWER_INITIALS.map((initials, i) => (
-                  <div
-                    key={i}
-                    className="w-8 h-8 rounded-full bg-gradient-to-br from-papaya to-lavender ring-2 ring-white/70 flex items-center justify-center text-white text-[10px] font-bold"
-                  >
-                    {initials}
-                  </div>
-                ))}
-              </div>
-              <p className={`text-sm ${textMuted}`}>{subject.followerCount} educators follow this subject</p>
             </div>
           </div>
 

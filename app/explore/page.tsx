@@ -1,27 +1,34 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/layout/Header";
 import BottomNav from "@/components/layout/BottomNav";
-import ResourceCard from "@/components/ResourceCard";
-import { getAllResources } from "@/lib/subjects";
+import ResourceCard, { type ResourceCardData } from "@/components/ResourceCard";
+import { resourceToCardData, type RealResource } from "@/lib/resources-adapter";
 import { getShapeCorner } from "@/components/decor/ShapeCorner";
 
-const ALL_RESOURCES = getAllResources();
 const ShapeCorner = getShapeCorner("explore-shapes");
 
 export default function ExplorePage() {
   const [query, setQuery] = useState("");
+  const [realResources, setRealResources] = useState<ResourceCardData[]>([]);
+
+  useEffect(() => {
+    fetch("/api/resources?limit=60")
+      .then((r) => r.json())
+      .then((data) => setRealResources((data.resources ?? []).map((r: RealResource) => resourceToCardData(r))))
+      .catch(() => {});
+  }, []);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return ALL_RESOURCES;
-    return ALL_RESOURCES.filter((r) =>
+    if (!q) return realResources;
+    return realResources.filter((r) =>
       r.title.toLowerCase().includes(q) ||
       r.description.toLowerCase().includes(q) ||
       r.type.toLowerCase().includes(q)
     );
-  }, [query]);
+  }, [query, realResources]);
 
   const clearSearch = () => setQuery("");
 

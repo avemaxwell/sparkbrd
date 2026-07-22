@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Header from "@/components/layout/Header";
 import BottomNav from "@/components/layout/BottomNav";
 import Link from "next/link";
-import ResourceCard from "@/components/ResourceCard";
-import { getAllResources } from "@/lib/subjects";
+import ResourceCard, { type ResourceCardData } from "@/components/ResourceCard";
+import { resourceToCardData, type RealResource } from "@/lib/resources-adapter";
 import { getShapeCorner } from "@/components/decor/ShapeCorner";
 
-const ALL_RESOURCES = getAllResources();
 const ShapeCorner = getShapeCorner("search-page");
 
 interface SearchBoard {
@@ -28,19 +27,12 @@ function SearchContent() {
 
   const [query, setQuery] = useState(searchParams.get('q') || '');
   const [boards, setBoards] = useState<SearchBoard[]>([]);
+  const [realResources, setRealResources] = useState<ResourceCardData[]>([]);
   const [expandedTerms, setExpandedTerms] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
-  const resources = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q || !searched) return [];
-    return ALL_RESOURCES.filter((r) =>
-      r.title.toLowerCase().includes(q) ||
-      r.description.toLowerCase().includes(q) ||
-      r.type.toLowerCase().includes(q)
-    );
-  }, [query, searched]);
+  const resources = realResources;
 
   useEffect(() => {
     const q = searchParams.get('q');
@@ -61,6 +53,7 @@ function SearchContent() {
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=60`);
       const data = await res.json();
       setBoards(data.boards || []);
+      setRealResources(((data.resources ?? []) as RealResource[]).map(resourceToCardData));
       setExpandedTerms(data.terms || []);
     } catch {
       setBoards([]);

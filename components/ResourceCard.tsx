@@ -3,22 +3,30 @@
 import type { ComponentType } from "react";
 import { IconBlob } from "@/components/home/decor";
 import {
-  IconMedal, IconUsers, IconPersonCheck, IconRefresh,
+  IconMedal, IconUsers, IconPersonCheck, IconRefresh, IconTestTube, IconShieldCheck,
   IconClock, IconDownload, IconHeart, IconBookmark, IconMoreHorizontal, IconFlag,
 } from "@/components/icons";
 import RetackButton from "@/components/tacks/RetackButton";
 
-export type BadgeKey = "proven" | "peer" | "verified" | "updated";
+export type BadgeKey = "proven" | "peer" | "verified" | "updated" | "starter" | "official";
 
 export const BADGE_META: Record<BadgeKey, { label: string; icon: ComponentType<{ className?: string }>; className: string }> = {
   proven:   { label: "Classroom Proven",  icon: IconMedal,       className: "bg-papaya text-white" },
   peer:     { label: "Peer Reviewed",     icon: IconUsers,       className: "bg-blush text-white" },
   verified: { label: "Verified Educator", icon: IconPersonCheck, className: "bg-lime text-ink" },
   updated:  { label: "Updated Recently",  icon: IconRefresh,     className: "bg-mustard text-white" },
+  // Not an achievement — a status flag meaning "not yet classroom-tested,"
+  // so it's deliberately muted/neutral rather than styled like the others.
+  starter:  { label: "Sparkurio Labs — untested", icon: IconTestTube, className: "bg-ink/70 text-white" },
+  // First-party, finished content from the Sparkurio team — dark/premium
+  // treatment, distinct from both "Classroom Proven" (community-earned) and
+  // "Verified Educator" (a real teacher's credential).
+  official: { label: "Sparkurio Official", icon: IconShieldCheck, className: "bg-ink text-white" },
 };
 
 export interface ResourceCardData {
   id?: string;
+  resourceId?: string;
   title: string;
   description: string;
   image?: string;
@@ -27,11 +35,13 @@ export interface ResourceCardData {
   creatorName: string;
   creatorSchool: string;
   duration: string;
+  priceCents?: number | null;
   downloads: string;
   likes: string;
   grade: string;
   type: string;
   subcategorySlug?: string;
+  standards?: string[];
   badges: BadgeKey[];
   href: string;
 }
@@ -55,16 +65,26 @@ export default function ResourceCard({ resource, onReport }: { resource: Resourc
         </a>
 
         {primaryBadge && (
-          <span className={`absolute top-3 left-3 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full pointer-events-none ${BADGE_META[primaryBadge].className}`}>
+          <span
+            title={BADGE_META[primaryBadge].label}
+            className={`absolute top-3 left-3 max-w-[58%] inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full pointer-events-none truncate ${BADGE_META[primaryBadge].className}`}
+          >
             {BADGE_META[primaryBadge].label}
           </span>
         )}
-        {r.duration && (
-          <span className="absolute top-3 right-3 inline-flex items-center gap-1 text-[10px] font-medium text-ink bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full pointer-events-none">
-            <IconClock className="w-3 h-3" />
-            {r.duration}
-          </span>
-        )}
+        <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 max-w-[42%]">
+          {typeof r.priceCents === "number" && r.priceCents > 0 && (
+            <span className="inline-flex items-center text-[10px] font-semibold text-ink bg-lime px-2 py-1 rounded-full pointer-events-none">
+              ${(r.priceCents / 100).toFixed(2)}
+            </span>
+          )}
+          {r.duration && (
+            <span title={r.duration} className="inline-flex items-center gap-1 text-[10px] font-medium text-ink bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full pointer-events-none max-w-full">
+              <IconClock className="w-3 h-3 flex-shrink-0" />
+              <span className="truncate">{r.duration}</span>
+            </span>
+          )}
+        </div>
 
         {onReport && (
           <button
@@ -78,12 +98,16 @@ export default function ResourceCard({ resource, onReport }: { resource: Resourc
 
         {r.id ? (
           <RetackButton tackId={r.id} />
+        ) : r.resourceId ? (
+          <RetackButton resourceId={r.resourceId} />
         ) : (
           <button
             aria-label="Save"
-            className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-white z-10"
+            disabled
+            title="Not saveable — sample content"
+            className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-white/60 backdrop-blur-sm flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-not-allowed z-10"
           >
-            <IconBookmark className="w-4 h-4 text-ink" />
+            <IconBookmark className="w-4 h-4 text-ink/40" />
           </button>
         )}
       </div>

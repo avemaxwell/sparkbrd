@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useUser } from "@/hooks/useUser";
-import { getSubject, getSubjectResources } from "@/lib/subjects";
-import ResourceCard from "@/components/ResourceCard";
+import { getSubject } from "@/lib/subjects";
+import { resourceToCardData, type RealResource } from "@/lib/resources-adapter";
+import ResourceCard, { type ResourceCardData } from "@/components/ResourceCard";
 import { IconBlob } from "@/components/home/decor";
 import { IconLightbulb } from "@/components/icons";
 import SubjectHero from "./SubjectHero";
@@ -36,7 +37,26 @@ function parseCount(s: string): number {
 export default function SubjectPageClient({ slug }: { slug: string }) {
   const { profile } = useUser();
   const subject = useMemo(() => getSubject(slug), [slug]);
-  const resources = useMemo(() => getSubjectResources(slug), [slug]);
+  const [realResources, setRealResources] = useState<ResourceCardData[]>([]);
+  const [realStandards, setRealStandards] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch(`/api/resources?subject=${encodeURIComponent(subject.name)}&limit=60`)
+      .then((r) => r.json())
+      .then((data) => {
+        const raw = (data.resources ?? []) as (RealResource & { standards?: string[] })[];
+        setRealResources(raw.map((r) => resourceToCardData(r)));
+        setRealStandards([...new Set(raw.flatMap((r) => r.standards ?? []))]);
+      })
+      .catch(() => {});
+  }, [subject.name]);
+
+  const resources = realResources;
+  const typeCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of resources) counts.set(r.type, (counts.get(r.type) ?? 0) + 1);
+    return [...counts.entries()].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count);
+  }, [resources]);
   const allTabSlug = subject.subcategories[0]?.slug;
   const [activeTab, setActiveTab] = useState(allTabSlug ?? "");
   const [filters, setFilters] = useState<SubjectFilters>(DEFAULT_FILTERS);
@@ -49,6 +69,10 @@ export default function SubjectPageClient({ slug }: { slug: string }) {
     if (filters.type !== "All") list = list.filter((r) => r.type === filters.type);
     if (filters.time !== "All") list = list.filter((r) => matchesTime(r.duration, filters.time));
     if (filters.provenOnly) list = list.filter((r) => r.badges.includes("proven"));
+    if (filters.standard.trim()) {
+      const needle = filters.standard.trim().toLowerCase();
+      list = list.filter((r) => r.standards?.some((s) => s.toLowerCase().includes(needle)));
+    }
 
     if (filters.sort === "downloads") return [...list].sort((a, b) => parseCount(b.downloads) - parseCount(a.downloads));
     if (filters.sort === "likes") return [...list].sort((a, b) => parseCount(b.likes) - parseCount(a.likes));
@@ -67,12 +91,16 @@ export default function SubjectPageClient({ slug }: { slug: string }) {
         active={activeTab}
         onChange={(slug) => { setActiveTab(slug); resetPaging(); }}
       />
-      <FilterBar filters={filters} onChange={(patch) => { setFilters((f) => ({ ...f, ...patch })); resetPaging(); }} />
+      <FilterBar filters={filters} onChange={(patch) => { setFilters((f) => ({ ...f, ...patch })); resetPaging(); }} standardOptions={realStandards} />
 
       <div id="resources" className="max-w-7xl mx-auto px-6 py-8 grid lg:grid-cols-[1fr_300px] gap-8 items-start">
         <div>
           {visible.length === 0 ? (
-            <div className="text-center py-20 text-ink/40 text-sm">No resources match these filters.</div>
+            <div className="text-center py-20 text-ink/40 text-sm">
+              {resources.length === 0
+                ? `No resources in ${subject.name} yet — be the first to share one.`
+                : "No resources match these filters."}
+            </div>
           ) : (
             <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
               {visible.map((r, i) => <ResourceCard key={`${r.title}-${i}`} resource={r} />)}
@@ -89,7 +117,7 @@ export default function SubjectPageClient({ slug }: { slug: string }) {
             </div>
           )}
         </div>
-        <SubjectSidebar subject={subject} />
+        <SubjectSidebar subject={subject} typeCounts={typeCounts} />
       </div>
 
       <section className="px-6 pb-16">

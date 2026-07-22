@@ -24,10 +24,25 @@ function SettingsPageContent() {
   const { profile, loading, refreshProfile, signOut } = useUser();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab");
-  const [activeTab, setActiveTab] = useState<"profile" | "account" | "educator" | "preferences" | "privacy">(
-    initialTab === "educator" ? "educator" : "profile"
+  const VALID_TABS = ["profile", "account", "educator", "preferences", "privacy"] as const;
+  const [activeTab, setActiveTab] = useState<typeof VALID_TABS[number]>(
+    VALID_TABS.includes(initialTab as any) ? (initialTab as typeof VALID_TABS[number]) : "profile"
   );
   const router = useRouter();
+
+  useEffect(() => {
+    // Coming back from a successful Stripe checkout — the cached profile
+    // (from before the redirect to Stripe) still shows the old plan, and the
+    // webhook that actually updates it can lag the redirect slightly. Refetch
+    // now and once more shortly after so the new plan (and, for Creator Pro,
+    // the payout card) shows up without requiring a manual page refresh.
+    if (searchParams.get("upgrade") === "success") {
+      refreshProfile();
+      const timer = setTimeout(refreshProfile, 2500);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (loading) {
     return (
@@ -320,6 +335,41 @@ function ProfileSection({ onUpdate }: { onUpdate: () => void }) {
 
 function AccountSection({ profile }: { profile: any }) {
   const currentPlanName = planDisplayName(profile.plan);
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [agreedToCreatorTerms, setAgreedToCreatorTerms] = useState(false);
+
+  const startConnectOnboarding = async () => {
+    setConnecting(true);
+    setConnectError(null);
+    try {
+      const res = await fetch('/api/creator/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agreedToTerms: agreedToCreatorTerms }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setConnectError(data.error ?? 'Something went wrong.'); setConnecting(false); return; }
+      window.location.href = data.url;
+    } catch {
+      setConnectError('Something went wrong. Please try again.');
+      setConnecting(false);
+    }
+  };
+
+  const openPayoutsDashboard = async () => {
+    setConnecting(true);
+    setConnectError(null);
+    try {
+      const res = await fetch('/api/creator/connect');
+      const data = await res.json();
+      if (!res.ok) { setConnectError(data.error ?? 'Something went wrong.'); setConnecting(false); return; }
+      window.open(data.url, '_blank');
+    } catch {
+      setConnectError('Something went wrong. Please try again.');
+    }
+    setConnecting(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -341,6 +391,56 @@ function AccountSection({ profile }: { profile: any }) {
           </Link>
         </div>
       </div>
+
+      {profile.plan === "creator_pro" && (
+        <div className="bg-white rounded-2xl shadow-sm p-6">
+          <h2 className="font-serif text-2xl mb-2">Sell your resources</h2>
+          {profile.stripe_connect_payouts_enabled ? (
+            <>
+              <p className="text-sm text-ink-soft mb-4">
+                Payouts are connected — you can price any resource you share. Your Creator Pro rate keeps Sparkurio's fee at 7%.
+              </p>
+              {connectError && <p className="text-sm text-papaya mb-3">{connectError}</p>}
+              <button
+                onClick={openPayoutsDashboard}
+                disabled={connecting}
+                className="px-6 py-3 border-2 border-ink/20 text-ink rounded-full font-medium hover:border-ink/40 transition-colors disabled:opacity-50"
+              >
+                {connecting ? "Loading…" : "Manage payouts"}
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-ink-soft mb-4">
+                Connect a payout account to price your resources — Sparkurio takes a 7% fee per sale as a Creator Pro member, the rest is transferred to you automatically via Stripe.
+              </p>
+              {connectError && <p className="text-sm text-papaya mb-3">{connectError}</p>}
+              <label className="flex items-start gap-2.5 mb-4 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={agreedToCreatorTerms}
+                  onChange={(e) => setAgreedToCreatorTerms(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-papaya flex-shrink-0"
+                />
+                <span className="text-sm text-ink-soft">
+                  I agree to the{" "}
+                  <a href="/terms#creator-terms" target="_blank" rel="noopener noreferrer" className="text-papaya font-medium hover:underline">
+                    Creator Terms
+                  </a>
+                  , including that all sales are final and I&apos;m solely responsible for what I list.
+                </span>
+              </label>
+              <button
+                onClick={startConnectOnboarding}
+                disabled={connecting || !agreedToCreatorTerms}
+                className="px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors disabled:opacity-50"
+              >
+                {connecting ? "Loading…" : "Connect payout account"}
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -488,13 +588,155 @@ function PreferencesSection() {
 // PRIVACY SECTION
 // ============================================================================
 
+interface MfaFactor {
+  id: string;
+  status: string;
+  factor_type: string;
+}
+
 function PrivacySection({ profile }: { profile: any }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
   const [deleting, setDeleting] = useState(false);
-  
+
+  const [factors, setFactors] = useState<MfaFactor[]>([]);
+  const [factorsLoading, setFactorsLoading] = useState(true);
+  const [enrolling, setEnrolling] = useState(false);
+  const [enrollData, setEnrollData] = useState<{ factorId: string; qrCode: string; secret: string } | null>(null);
+  const [verifyCode, setVerifyCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [mfaError, setMfaError] = useState<string | null>(null);
+  const [unenrolling, setUnenrolling] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [disableCode, setDisableCode] = useState("");
+  const [showDisableChallenge, setShowDisableChallenge] = useState(false);
+
   const supabase = createClient();
   const router = useRouter();
+
+  const handleExportData = async () => {
+    setExporting(true);
+    try {
+      const res = await fetch('/api/account/export');
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'sparkurio-data-export.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Couldn't export your data. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const verifiedFactor = factors.find((f) => f.factor_type === "totp" && f.status === "verified");
+
+  const loadFactors = async () => {
+    const { data } = await supabase.auth.mfa.listFactors();
+    setFactors(data?.totp ?? []);
+    setFactorsLoading(false);
+  };
+
+  useEffect(() => {
+    loadFactors();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const startEnroll = async () => {
+    setMfaError(null);
+    setEnrolling(true);
+
+    // A previous enrollment attempt that was abandoned mid-flow (closed tab,
+    // reloaded, tried again) leaves unverified factors behind, which block a
+    // fresh enroll with a "friendly name already exists" error — clear all
+    // of them first, not just the first one found.
+    const { data: existing } = await supabase.auth.mfa.listFactors();
+    const stale = existing?.totp.filter((f: MfaFactor) => f.status === "unverified") ?? [];
+    for (const f of stale) await supabase.auth.mfa.unenroll({ factorId: f.id });
+
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp" });
+    if (error || !data) {
+      setMfaError(error?.message ?? "Couldn't start 2FA setup. Please try again.");
+      setEnrolling(false);
+      return;
+    }
+    setEnrollData({ factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret });
+  };
+
+  const cancelEnroll = async () => {
+    if (enrollData) await supabase.auth.mfa.unenroll({ factorId: enrollData.factorId });
+    setEnrollData(null);
+    setVerifyCode("");
+    setMfaError(null);
+    setEnrolling(false);
+  };
+
+  const confirmEnroll = async () => {
+    if (!enrollData || verifyCode.trim().length !== 6) return;
+    setVerifying(true);
+    setMfaError(null);
+    const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: enrollData.factorId });
+    if (challengeError || !challenge) {
+      setMfaError(challengeError?.message ?? "Couldn't verify that code. Please try again.");
+      setVerifying(false);
+      return;
+    }
+    const { error: verifyError } = await supabase.auth.mfa.verify({
+      factorId: enrollData.factorId,
+      challengeId: challenge.id,
+      code: verifyCode.trim(),
+    });
+    if (verifyError) {
+      setMfaError("That code didn't match. Check your authenticator app and try again.");
+      setVerifying(false);
+      return;
+    }
+    setEnrollData(null);
+    setVerifyCode("");
+    setEnrolling(false);
+    setVerifying(false);
+    await loadFactors();
+  };
+
+  // Supabase requires the session to be stepped up to AAL2 before a verified
+  // factor can be removed — a password-only session isn't enough, otherwise
+  // 2FA could be defeated by anyone who just knows the password. So disabling
+  // asks for one more code from the authenticator app first.
+  const startDisable = () => {
+    setMfaError(null);
+    setDisableCode("");
+    setShowDisableChallenge(true);
+  };
+
+  const confirmDisable = async (factorId: string) => {
+    if (disableCode.trim().length !== 6) return;
+    setUnenrolling(factorId);
+    setMfaError(null);
+    const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId });
+    if (challengeError || !challenge) {
+      setMfaError(challengeError?.message ?? "Couldn't verify that code. Please try again.");
+      setUnenrolling(null);
+      return;
+    }
+    const { error: verifyError } = await supabase.auth.mfa.verify({
+      factorId,
+      challengeId: challenge.id,
+      code: disableCode.trim(),
+    });
+    if (verifyError) {
+      setMfaError("That code didn't match. Check your authenticator app and try again.");
+      setUnenrolling(null);
+      return;
+    }
+    await supabase.auth.mfa.unenroll({ factorId });
+    setShowDisableChallenge(false);
+    setDisableCode("");
+    await loadFactors();
+    setUnenrolling(null);
+  };
 
   const handleDeleteAccount = async () => {
     if (deleteInput !== "DELETE") return;
@@ -539,14 +781,95 @@ function PrivacySection({ profile }: { profile: any }) {
         <div className="border-t border-ink/10 pt-6">
           <h3 className="font-medium mb-2">Two-Factor Authentication</h3>
           <p className="text-sm text-ink-soft mb-4">
-            Add an extra layer of security to your account.
+            Add an extra layer of security to your account with an authenticator app.
           </p>
-          <button
-            className="px-5 py-2.5 bg-ink/5 text-ink rounded-full font-medium hover:bg-ink/10 transition-colors"
-            onClick={() => alert("Coming soon!")}
-          >
-            Enable 2FA
-          </button>
+
+          {factorsLoading ? (
+            <div className="w-5 h-5 border-2 border-ink/10 border-t-papaya rounded-full animate-spin" />
+          ) : enrollData ? (
+            <div className="bg-ink/5 rounded-2xl p-5 max-w-sm">
+              <p className="text-sm text-ink mb-3">Scan this code with your authenticator app (like Google Authenticator or Authy):</p>
+              <img src={enrollData.qrCode} alt="2FA QR code" className="w-40 h-40 bg-white rounded-xl p-2 mb-3" />
+              <p className="text-xs text-ink-soft mb-3">Or enter this code manually: <code className="bg-white px-1.5 py-0.5 rounded">{enrollData.secret}</code></p>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={verifyCode}
+                onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, ""))}
+                placeholder="6-digit code"
+                className="w-full px-4 py-2.5 bg-white rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 transition-all mb-3"
+              />
+              {mfaError && <p className="text-sm text-red-600 mb-3">{mfaError}</p>}
+              <div className="flex gap-2">
+                <button
+                  onClick={confirmEnroll}
+                  disabled={verifyCode.length !== 6 || verifying}
+                  className="px-5 py-2.5 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors disabled:opacity-50"
+                >
+                  {verifying ? "Verifying…" : "Confirm"}
+                </button>
+                <button
+                  onClick={cancelEnroll}
+                  className="px-5 py-2.5 bg-white text-ink rounded-full font-medium hover:bg-ink/5 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : verifiedFactor ? (
+            showDisableChallenge ? (
+              <div className="bg-ink/5 rounded-2xl p-5 max-w-sm">
+                <p className="text-sm text-ink mb-3">Enter a code from your authenticator app to confirm disabling 2FA:</p>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={disableCode}
+                  onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, ""))}
+                  placeholder="6-digit code"
+                  className="w-full px-4 py-2.5 bg-white rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 transition-all mb-3"
+                />
+                {mfaError && <p className="text-sm text-red-600 mb-3">{mfaError}</p>}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => confirmDisable(verifiedFactor.id)}
+                    disabled={disableCode.length !== 6 || unenrolling === verifiedFactor.id}
+                    className="px-5 py-2.5 bg-red-600 text-white rounded-full font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+                  >
+                    {unenrolling === verifiedFactor.id ? "Disabling…" : "Confirm disable"}
+                  </button>
+                  <button
+                    onClick={() => { setShowDisableChallenge(false); setDisableCode(""); setMfaError(null); }}
+                    className="px-5 py-2.5 bg-white text-ink rounded-full font-medium hover:bg-ink/5 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full font-medium">2FA is enabled</span>
+                <button
+                  onClick={startDisable}
+                  className="px-5 py-2.5 bg-ink/5 text-ink rounded-full font-medium hover:bg-ink/10 transition-colors"
+                >
+                  Disable 2FA
+                </button>
+              </div>
+            )
+          ) : (
+            <>
+              {mfaError && <p className="text-sm text-red-600 mb-3">{mfaError}</p>}
+              <button
+                onClick={startEnroll}
+                disabled={enrolling}
+                className="px-5 py-2.5 bg-ink/5 text-ink rounded-full font-medium hover:bg-ink/10 transition-colors disabled:opacity-50"
+              >
+                {enrolling ? "Starting…" : "Enable 2FA"}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -560,10 +883,11 @@ function PrivacySection({ profile }: { profile: any }) {
             Download a copy of all your collections, resources, and account information.
           </p>
           <button
-            className="px-5 py-2.5 bg-ink/5 text-ink rounded-full font-medium hover:bg-ink/10 transition-colors"
-            onClick={() => alert("Coming soon!")}
+            onClick={handleExportData}
+            disabled={exporting}
+            className="px-5 py-2.5 bg-ink/5 text-ink rounded-full font-medium hover:bg-ink/10 transition-colors disabled:opacity-50"
           >
-            Request data export
+            {exporting ? "Preparing…" : "Download my data"}
           </button>
         </div>
       </div>
