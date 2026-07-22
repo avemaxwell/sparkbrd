@@ -21,7 +21,7 @@ export default function Breadcrumb({
 }: {
   boardId: string;
   boardName: string;
-  variant: "canvas" | "mosaic";
+  variant: "canvas" | "mosaic" | "collection";
 }) {
   const router = useRouter();
   const [ancestors, setAncestors] = useState<Ancestor[]>([]);

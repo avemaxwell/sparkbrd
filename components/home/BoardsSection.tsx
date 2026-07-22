@@ -37,6 +37,61 @@ const BOARD_GRADIENTS = [
 ];
 const COLLAGE_ANGLES = [-5, 3, -2];
 
+// Collections hold flat documents, not pinned snapshots — a plain,
+// non-rotated grid of the saved resources' own cover images reads as a
+// folder of worksheets instead of a corkboard, and reuses whatever image
+// each resource already displays elsewhere (no tack-thumbnail rewrite).
+function CollectionPreviewCard({ board, images, index, badge }: { board: Board; images: string[]; index: number; badge?: React.ReactNode }) {
+  const gradient = BOARD_GRADIENTS[index % BOARD_GRADIENTS.length];
+  return (
+    <Link
+      href={`/board/${board.id}`}
+      className={`group relative aspect-[3/4] rounded-2xl overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 bg-gradient-to-br ${gradient}`}
+      style={{ transitionDelay: `${index * 30}ms` }}
+    >
+      {images.length > 0 && (
+        <div className="absolute inset-3 grid grid-cols-2 grid-rows-2 gap-1.5">
+          {images.slice(0, 4).map((imgUrl, i) => (
+            <img
+              key={i}
+              src={imgUrl}
+              alt=""
+              className="w-full h-full object-cover rounded-lg shadow-sm pointer-events-none bg-white"
+              draggable={false}
+            />
+          ))}
+        </div>
+      )}
+      <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/50 to-transparent">
+        <h3 className="font-serif text-base text-white line-clamp-2 leading-snug">{board.name}</h3>
+        {badge}
+      </div>
+      <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors duration-300" />
+    </Link>
+  );
+}
+
+function CollectionPreviewCardMobile({ board, images, index }: { board: Board; images: string[]; index: number }) {
+  const gradient = BOARD_GRADIENTS[index % BOARD_GRADIENTS.length];
+  return (
+    <Link
+      href={`/board/${board.id}`}
+      className={`relative flex-shrink-0 w-36 aspect-[3/4] rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 bg-gradient-to-br ${gradient}`}
+    >
+      {images.length > 0 && (
+        <div className="absolute inset-2 grid grid-cols-2 grid-rows-2 gap-1">
+          {images.slice(0, 4).map((imgUrl, i) => (
+            <img key={i} src={imgUrl} alt="" className="w-full h-full object-cover rounded-md shadow-sm pointer-events-none bg-white" draggable={false} />
+          ))}
+        </div>
+      )}
+      <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/50 to-transparent">
+        <h3 className="font-serif text-sm text-white line-clamp-2 leading-snug">{board.name}</h3>
+      </div>
+    </Link>
+  );
+}
+
 // A collection that contains sub-collections gets a folder treatment instead
 // of the fanned photo-stack — the stack visually implies "flat resources
 // live here," which is misleading once a collection is really a container.
@@ -82,6 +137,10 @@ function BoardCard({
   const gradient = BOARD_GRADIENTS[index % BOARD_GRADIENTS.length];
 
   if (childCount > 0) return <FolderCard board={board} childCount={childCount} index={index} />;
+
+  if (board.board_type === 'collection') {
+    return <CollectionPreviewCard board={board} images={images} index={index} badge={badge} />;
+  }
 
   return (
     <Link
@@ -143,6 +202,10 @@ function BoardCardMobile({
   const images = boardImages[board.id] || [];
   const hasImages = images.length > 0;
   const gradient = BOARD_GRADIENTS[index % BOARD_GRADIENTS.length];
+
+  if (board.board_type === 'collection' && childCount === 0) {
+    return <CollectionPreviewCardMobile board={board} images={images} index={index} />;
+  }
 
   if (childCount > 0) {
     return (
@@ -262,16 +325,31 @@ export default function BoardsSection({ showAll = false }: { showAll?: boolean }
         const boardIds = allBoards.map((b) => b.id);
         const { data: tacksData } = await supabase
           .from("tacks")
-          .select("board_id, content_url")
+          .select("board_id, content_url, resource_id")
           .in("board_id", boardIds);
 
         if (tacksData) {
+          // Collections preview the saved resources' own cover images (via
+          // resource_id) — raw tack content_url is only for legacy
+          // canvas/mosaic boards, which don't get resource links.
+          const resourceIds = [...new Set(tacksData.map((t: { resource_id: string | null }) => t.resource_id).filter((id: string | null): id is string => !!id))];
+          const photoMap: Record<string, string | undefined> = {};
+          if (resourceIds.length > 0) {
+            const { data: resourceRows } = await supabase
+              .from("resources")
+              .select("id, photos")
+              .in("id", resourceIds);
+            for (const r of resourceRows || []) {
+              photoMap[r.id] = (r.photos as string[] | null)?.[0];
+            }
+          }
+
           const imageMap: Record<string, string[]> = {};
           for (const tack of tacksData) {
             if (!imageMap[tack.board_id]) imageMap[tack.board_id] = [];
-            if (imageMap[tack.board_id].length < 3) {
-              imageMap[tack.board_id].push(tack.content_url);
-            }
+            if (imageMap[tack.board_id].length >= 4) continue;
+            const img = tack.resource_id ? photoMap[tack.resource_id] : tack.content_url;
+            if (img) imageMap[tack.board_id].push(img);
           }
           setBoardImages(imageMap);
         }

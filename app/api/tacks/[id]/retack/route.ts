@@ -42,7 +42,7 @@ export async function POST(
       .from('tacks')
       .select(`
         id, content_url, title, note, source, pin_color,
-        width, height, rotation, origin_item_id,
+        width, height, rotation, origin_item_id, resource_id,
         boards!inner(is_public, owner_id)
       `)
       .eq('id', tackId)
@@ -104,6 +104,7 @@ export async function POST(
         position_y,
         z_index,
         origin_item_id: originItemId,
+        resource_id: (source as any).resource_id ?? null,
         user_id: user.id,
         added_by: user.id,
       })

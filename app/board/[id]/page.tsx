@@ -5,11 +5,12 @@ import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import BoardCanvas from "@/components/board/BoardCanvas";
 import MosaicBoard from "@/components/board/MosaicBoard";
+import ResourceCollectionView from "@/components/board/ResourceCollectionView";
 
 export default function BoardPage() {
   const params = useParams();
   const boardId = params.id as string;
-  const [boardType, setBoardType] = useState<'canvas' | 'mosaic' | null>(null);
+  const [boardType, setBoardType] = useState<'canvas' | 'mosaic' | 'collection' | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -19,7 +20,7 @@ export default function BoardPage() {
       .eq("id", boardId)
       .single()
       .then(({ data }: { data: { board_type?: string } | null }) => {
-        setBoardType((data?.board_type as 'canvas' | 'mosaic') ?? 'canvas');
+        setBoardType((data?.board_type as 'canvas' | 'mosaic' | 'collection') ?? 'collection');
       });
   }, [boardId]);
 
@@ -32,5 +33,6 @@ export default function BoardPage() {
   }
 
   if (boardType === 'mosaic') return <MosaicBoard />;
-  return <BoardCanvas />;
+  if (boardType === 'canvas') return <BoardCanvas />;
+  return <ResourceCollectionView />;
 }

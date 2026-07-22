@@ -13,20 +13,25 @@ interface Board {
 
 type State = 'idle' | 'picking' | 'saving' | 'done' | 'error';
 
-interface Props {
-  tackId: string;
-}
+type Props = ({ tackId: string; resourceId?: undefined } | { tackId?: undefined; resourceId: string }) & {
+  // Overlay (default): absolute-positioned, hover-reveal — for card contexts.
+  // Standalone: static, always visible, labeled — for a page's own CTA area.
+  standalone?: boolean;
+};
 
 const POPOVER_W = 208; // w-52 = 13rem = 208px
 const POPOVER_MAX_H = 300;
 
-export default function RetackButton({ tackId }: Props) {
+export default function RetackButton({ tackId, resourceId, standalone = false }: Props) {
   const { profile } = useUser();
   const [state, setState] = useState<State>('idle');
   const [boards, setBoards] = useState<Board[]>([]);
   const [boardsLoaded, setBoardsLoaded] = useState(false);
   const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
   const [mounted, setMounted] = useState(false);
+  const [creatingBoard, setCreatingBoard] = useState(false);
+  const [newBoardName, setNewBoardName] = useState('');
+  const [boardCreating, setBoardCreating] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => { setMounted(true); }, []);
@@ -44,6 +49,14 @@ export default function RetackButton({ tackId }: Props) {
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, [state]);
+
+  // Reset the inline "new collection" form whenever the popover closes.
+  useEffect(() => {
+    if (state !== 'picking') {
+      setCreatingBoard(false);
+      setNewBoardName('');
+    }
   }, [state]);
 
   const openPicker = async (e: React.MouseEvent) => {
@@ -84,13 +97,11 @@ export default function RetackButton({ tackId }: Props) {
     }
   };
 
-  const handleSelect = async (e: React.MouseEvent, boardId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const saveToBoard = async (boardId: string) => {
     setState('saving');
-
     try {
-      const res = await fetch(`/api/tacks/${tackId}/retack`, {
+      const url = resourceId ? `/api/resources/${resourceId}/save` : `/api/tacks/${tackId}/retack`;
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ board_id: boardId }),
@@ -112,7 +123,48 @@ export default function RetackButton({ tackId }: Props) {
     }
   };
 
+  const handleSelect = async (e: React.MouseEvent, boardId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await saveToBoard(boardId);
+  };
+
+  const handleCreateAndSave = async (e: React.MouseEvent | React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!profile || !newBoardName.trim()) return;
+
+    setBoardCreating(true);
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('boards')
+      .insert({ name: newBoardName.trim(), owner_id: profile.id })
+      .select('id, name')
+      .single();
+    setBoardCreating(false);
+
+    if (error || !data) {
+      console.error('Create collection failed:', error);
+      setState('error');
+      setTimeout(() => setState('idle'), 2000);
+      return;
+    }
+
+    setBoards((prev) => [data, ...prev]);
+    setCreatingBoard(false);
+    setNewBoardName('');
+    await saveToBoard(data.id);
+  };
+
   if (!profile) {
+    if (standalone) {
+      return (
+        <Link href="/login" className="inline-flex items-center gap-2 px-5 py-2.5 bg-ink/5 text-ink rounded-full text-sm font-medium hover:bg-ink/10 transition-colors">
+          <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          Sign in to save
+        </Link>
+      );
+    }
     return (
       <Link
         href="/login"
@@ -137,34 +189,96 @@ export default function RetackButton({ tackId }: Props) {
       <p className="px-4 pt-3 pb-2 text-xs font-semibold text-ink/40 uppercase tracking-widest">
         Save to collection
       </p>
-      {!boardsLoaded ? (
-        <div className="flex justify-center py-4">
-          <div className="w-4 h-4 border-2 border-ink/10 border-t-papaya rounded-full animate-spin" />
-        </div>
-      ) : boards.length === 0 ? (
-        <div className="px-4 pb-4">
-          <p className="text-xs text-ink/40 mb-2">No collections yet.</p>
-          <Link href="/board/new" className="block text-center text-xs font-medium text-papaya hover:text-papaya/80 transition-colors">
-            Create a collection →
-          </Link>
-        </div>
+
+      {creatingBoard ? (
+        <form onSubmit={handleCreateAndSave} className="px-4 pb-3">
+          <input
+            autoFocus
+            type="text"
+            value={newBoardName}
+            onChange={(e) => setNewBoardName(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            placeholder="Collection name"
+            className="w-full px-3 py-2 bg-ink/5 rounded-lg outline-none focus:ring-2 focus:ring-papaya/30 transition-all text-sm mb-2"
+          />
+          <div className="flex items-center gap-2">
+            <button
+              type="submit"
+              disabled={!newBoardName.trim() || boardCreating}
+              className="flex-1 px-3 py-2 bg-papaya text-white rounded-lg text-xs font-medium hover:bg-papaya/90 transition-colors disabled:opacity-50"
+            >
+              {boardCreating ? "Creating…" : "Create & save"}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCreatingBoard(false); setNewBoardName(''); }}
+              className="text-xs text-ink/40 hover:text-ink transition-colors px-2"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
       ) : (
-        <ul className="max-h-56 overflow-y-auto pb-2">
-          {boards.map(board => (
-            <li key={board.id}>
-              <button
-                onClick={(e) => handleSelect(e, board.id)}
-                className="w-full text-left px-4 py-2.5 text-sm text-ink hover:bg-ink/5 transition-colors truncate"
-              >
-                {board.name}
-              </button>
-            </li>
-          ))}
-        </ul>
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCreatingBoard(true); }}
+          className="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm font-medium text-papaya hover:bg-papaya/5 transition-colors"
+        >
+          <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none flex-shrink-0" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          New collection
+        </button>
+      )}
+
+      {!creatingBoard && (
+        !boardsLoaded ? (
+          <div className="flex justify-center py-4">
+            <div className="w-4 h-4 border-2 border-ink/10 border-t-papaya rounded-full animate-spin" />
+          </div>
+        ) : boards.length === 0 ? (
+          <p className="px-4 pb-3 text-xs text-ink/40">No collections yet.</p>
+        ) : (
+          <ul className="max-h-56 overflow-y-auto pb-2 border-t border-ink/5 mt-1 pt-1">
+            {boards.map(board => (
+              <li key={board.id}>
+                <button
+                  onClick={(e) => handleSelect(e, board.id)}
+                  className="w-full text-left px-4 py-2.5 text-sm text-ink hover:bg-ink/5 transition-colors truncate"
+                >
+                  {board.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )
       )}
     </div>,
     document.body
   ) : null;
+
+  if (standalone) {
+    return (
+      <div data-retack-root className="relative inline-block">
+        <button
+          ref={btnRef}
+          onClick={state === 'picking' ? (e) => { e.stopPropagation(); setState('idle'); } : openPicker}
+          className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-colors ${
+            state === 'done' ? 'bg-green-500 text-white' : state === 'error' ? 'bg-red-400 text-white' : 'bg-papaya text-white hover:bg-papaya/90'
+          }`}
+        >
+          {state === 'saving' ? (
+            <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+          ) : state === 'done' ? (
+            <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          ) : state === 'error' ? (
+            <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          ) : (
+            <svg className="w-4 h-4 stroke-current stroke-[1.5] fill-none" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          )}
+          {state === 'done' ? 'Saved!' : state === 'error' ? 'Failed' : state === 'saving' ? 'Saving…' : 'Save to collection'}
+        </button>
+        {popover}
+      </div>
+    );
+  }
 
   return (
     <div data-retack-root className="absolute bottom-2 right-2 z-10">

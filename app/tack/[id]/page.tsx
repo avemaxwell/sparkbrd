@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import BottomNav from "@/components/layout/BottomNav";
@@ -30,6 +30,7 @@ interface RelatedTack {
 
 export default function TackPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { profile } = useUser();
   const supabase = createClient();
 
@@ -50,9 +51,16 @@ export default function TackPage() {
 
       const { data, error } = await supabase
         .from("tacks")
-        .select("id, content_url, title, source, note, tags, board_id, boards(id, name, is_public)")
+        .select("id, content_url, title, source, note, tags, board_id, resource_id, boards(id, name, is_public)")
         .eq("id", id)
         .maybeSingle();
+
+      // A saved resource's canonical page is /resources/[id] — it has no
+      // concept of the old standalone tack view, so send it there instead.
+      if (data?.resource_id) {
+        router.replace(`/resources/${data.resource_id}`);
+        return;
+      }
 
       if (error || !data) {
         setNotFound(true);
