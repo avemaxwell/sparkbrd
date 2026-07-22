@@ -187,6 +187,33 @@ export function IconBrain(props: IconProps) {
   );
 }
 
+const MASK_OUTLINE =
+  "M -4 -2 C -4 -4.5 -2.2 -5.5 0 -5.5 C 2.2 -5.5 4 -4.5 4 -2 C 4 0 3.3 0.8 3.3 2.2 " +
+  "C 3.3 4.5 1.8 5.5 0 5.5 C -1.8 5.5 -3.3 4.5 -3.3 2.2 C -3.3 0.8 -4 0 -4 -2 Z";
+
+export function IconTheatreMasks(props: IconProps) {
+  return (
+    <Base {...props}>
+      {/* Comedy mask — back/left, smiling */}
+      <g transform="translate(8.5,12.5) scale(0.85)">
+        <path d={MASK_OUTLINE} />
+        <path d="M-2.6-1.3Q-1.8-2.3-1-1.3" />
+        <path d="M1-1.3Q1.8-2.3 2.6-1.3" />
+        <path d="M-2.5 1.8Q0 4 2.5 1.8" />
+      </g>
+      {/* Tragedy mask — front/right, frowning */}
+      <g transform="translate(16,10.8) scale(0.85)">
+        <path d={MASK_OUTLINE} />
+        <circle cx="-1.8" cy="-1.3" r="0.45" fill="currentColor" stroke="none" />
+        <circle cx="1.8" cy="-1.3" r="0.45" fill="currentColor" stroke="none" />
+        <path d="M-2.8-2.7L-1-1.9" />
+        <path d="M2.8-2.7L1-1.9" />
+        <path d="M-2.5 3Q0 1 2.5 3" />
+      </g>
+    </Base>
+  );
+}
+
 export function IconChatBubble(props: IconProps) {
   return <Base {...props}><path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" /></Base>;
 }
@@ -235,6 +262,30 @@ export function IconLightbulb(props: IconProps) {
       <path d="M9 18h6" />
       <path d="M10 22h4" />
       <path d="M12 2a7 7 0 0 0-4 12.7c.6.4 1 1.2 1 2.3h6c0-1.1.4-1.9 1-2.3A7 7 0 0 0 12 2Z" />
+    </Base>
+  );
+}
+
+export function IconLock(props: IconProps) {
+  return (
+    <Base {...props}>
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </Base>
+  );
+}
+
+export function IconCalculator(props: IconProps) {
+  return (
+    <Base {...props}>
+      <rect x="5" y="2.5" width="14" height="19" rx="2.5" />
+      <rect x="7.5" y="5" width="9" height="4" rx="0.5" />
+      <line x1="8" y1="13" x2="8" y2="13" />
+      <line x1="12" y1="13" x2="12" y2="13" />
+      <line x1="16" y1="13" x2="16" y2="13" />
+      <line x1="8" y1="17" x2="8" y2="17" />
+      <line x1="12" y1="17" x2="12" y2="17" />
+      <line x1="16" y1="17" x2="16" y2="17" />
     </Base>
   );
 }

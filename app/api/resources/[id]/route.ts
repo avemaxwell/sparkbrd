@@ -20,13 +20,38 @@ export async function GET(_req: Request, { params }: Params) {
     if (resource.owner_id) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('name, avatar_url')
+        .select('name, avatar_url, is_official')
         .eq('id', resource.owner_id)
         .maybeSingle();
       owner = profile;
     }
 
-    return NextResponse.json({ resource: { ...resource, owner } });
+    // Paid resources: only the owner or a verified buyer gets working
+    // attachment links. Everyone else still sees file names (so they know
+    // what's included) but the url is stripped server-side — the client
+    // never receives anything usable to bypass the "Buy" gate with.
+    let purchased = true;
+    if (resource.price_cents && resource.price_cents > 0) {
+      const { data: { user } } = await supabase.auth.getUser();
+      const isOwner = !!user && user.id === resource.owner_id;
+      if (!isOwner) {
+        purchased = false;
+        if (user) {
+          const { data: purchase } = await supabase
+            .from('purchases')
+            .select('id')
+            .eq('resource_id', id)
+            .eq('buyer_id', user.id)
+            .maybeSingle();
+          purchased = !!purchase;
+        }
+      }
+      if (!isOwner && !purchased) {
+        resource.attachments = (resource.attachments ?? []).map((a: { name: string; url: string }) => ({ name: a.name, url: '' }));
+      }
+    }
+
+    return NextResponse.json({ resource: { ...resource, owner, purchased } });
   } catch (err) {
     console.error('GET /api/resources/[id] error:', err);
     return NextResponse.json({ error: 'Failed to fetch resource' }, { status: 500 });
@@ -42,14 +67,32 @@ export async function PATCH(request: Request, { params }: Params) {
 
     const body = await request.json();
     const allowed = [
-      'title', 'subject', 'grade_band', 'resource_type',
+      'title', 'subject', 'grade_band', 'resource_type', 'state',
       'standards', 'materials', 'learning_targets', 'directions',
-      'photos', 'attachments', 'status',
+      'photos', 'attachments', 'section_order', 'status',
     ];
     const update: Record<string, unknown> = {};
     for (const key of allowed) {
       if (key in body) update[key] = body[key];
     }
+
+    // Same rule as POST: a price only sticks if the seller has completed
+    // Stripe Connect onboarding; otherwise it's silently dropped to free.
+    if ('price_cents' in body) {
+      if (body.price_cents && body.price_cents > 0) {
+        const { data: sellerProfile } = await supabase
+          .from('profiles')
+          .select('is_creator, stripe_connect_payouts_enabled')
+          .eq('id', user.id)
+          .single();
+        update.price_cents = sellerProfile?.is_creator && sellerProfile.stripe_connect_payouts_enabled
+          ? Math.round(body.price_cents)
+          : null;
+      } else {
+        update.price_cents = null;
+      }
+    }
+
     update.updated_at = new Date().toISOString();
 
     const { data: resource, error } = await supabase

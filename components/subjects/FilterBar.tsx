@@ -7,11 +7,12 @@ export interface SubjectFilters {
   grade: string;
   type: string;
   time: string;
+  standard: string;
   provenOnly: boolean;
   sort: string;
 }
 
-export const DEFAULT_FILTERS: SubjectFilters = { grade: "All", type: "All", time: "All", provenOnly: false, sort: "relevant" };
+export const DEFAULT_FILTERS: SubjectFilters = { grade: "All", type: "All", time: "All", standard: "", provenOnly: false, sort: "relevant" };
 
 const TIME_BUCKETS = ["All", "Under 30 min", "30-60 min", "1-2 hrs", "2+ hrs"];
 const SORTS = [
@@ -36,12 +37,28 @@ function Select({ value, onChange, options, placeholder }: { value: string; onCh
   );
 }
 
-export default function FilterBar({ filters, onChange }: { filters: SubjectFilters; onChange: (patch: Partial<SubjectFilters>) => void }) {
+export default function FilterBar({ filters, onChange, standardOptions = [] }: { filters: SubjectFilters; onChange: (patch: Partial<SubjectFilters>) => void; standardOptions?: string[] }) {
   return (
     <div className="max-w-7xl mx-auto px-6 py-4 flex flex-wrap items-center gap-2.5">
       <Select value={filters.grade} onChange={(grade) => onChange({ grade })} options={[...GRADE_BANDS]} placeholder="Grade Level" />
       <Select value={filters.type} onChange={(type) => onChange({ type })} options={[...RESOURCE_TYPES]} placeholder="Resource Type" />
       <Select value={filters.time} onChange={(time) => onChange({ time })} options={TIME_BUCKETS.slice(1)} placeholder="Time" />
+
+      <div className="relative">
+        <input
+          type="text"
+          list="standard-options"
+          value={filters.standard}
+          onChange={(e) => onChange({ standard: e.target.value })}
+          placeholder="Standard (e.g. CCSS.ELA...)"
+          className="w-48 pl-3.5 pr-3 py-2 rounded-full text-sm font-medium bg-white border border-black/10 text-ink hover:border-black/20 transition-colors outline-none focus:ring-2 focus:ring-papaya/30 placeholder:text-ink/40 placeholder:font-normal"
+        />
+        {standardOptions.length > 0 && (
+          <datalist id="standard-options">
+            {standardOptions.map((s) => <option key={s} value={s} />)}
+          </datalist>
+        )}
+      </div>
 
       <button
         onClick={() => onChange({ provenOnly: !filters.provenOnly })}

@@ -175,9 +175,53 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.json({ tacks, boards, terms });
+    // ── Resource search ──────────────────────────────────────────────────────
+    // Same ilike-on-title/subject pattern already used for boards above.
+    type ResourceResult = { id: string; title: string; subject: string; grade_band: string; resource_type: string; photos: string[]; duration: string | null; standards: string[]; price_cents: number | null; owner: { name: string | null; avatar_url: string | null; is_verified_educator: boolean; is_official: boolean } | null; save_count: number };
+    let resources: ResourceResult[] = [];
+
+    const resourceOrParts = rawTerms.flatMap(term => {
+      const safe = term.replace(/[%_]/g, '\\$&');
+      return [`title.ilike.%${safe}%`, `subject.ilike.%${safe}%`];
+    }).join(',');
+
+    if (resourceOrParts) {
+      const { data: rawResources } = await supabase
+        .from('resources')
+        .select('id, owner_id, title, subject, grade_band, resource_type, photos, duration, standards, price_cents')
+        .eq('status', 'published')
+        .eq('is_starter', false) // Starter Library content only surfaces on /labs
+        .or(resourceOrParts)
+        .limit(limit);
+
+      if (rawResources && rawResources.length > 0) {
+        const resourceIds = rawResources.map(r => r.id);
+        const ownerIds = [...new Set(rawResources.map(r => r.owner_id).filter(Boolean))];
+
+        const [{ data: owners }, { data: saveRows }] = await Promise.all([
+          supabase.from('profiles').select('id, name, avatar_url, is_verified_educator, is_official').in('id', ownerIds),
+          supabase.from('tacks').select('resource_id').in('resource_id', resourceIds),
+        ]);
+
+        const ownerMap = Object.fromEntries((owners ?? []).map(o => [o.id, o]));
+        const saveCounts: Record<string, number> = {};
+        for (const row of saveRows ?? []) {
+          if (row.resource_id) saveCounts[row.resource_id] = (saveCounts[row.resource_id] ?? 0) + 1;
+        }
+
+        resources = rawResources.map(r => ({
+          id: r.id, title: r.title, subject: r.subject, grade_band: r.grade_band,
+          resource_type: r.resource_type, photos: r.photos, duration: r.duration, standards: r.standards ?? [],
+          price_cents: r.price_cents ?? null,
+          owner: ownerMap[r.owner_id] ?? null,
+          save_count: saveCounts[r.id] ?? 0,
+        }));
+      }
+    }
+
+    return NextResponse.json({ tacks, boards, resources, terms });
   } catch (err) {
     console.error('Search error:', err);
-    return NextResponse.json({ tacks: [], boards: [], terms: [] });
+    return NextResponse.json({ tacks: [], boards: [], resources: [], terms: [] });
   }
 }

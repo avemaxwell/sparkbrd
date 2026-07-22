@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useUser } from "@/hooks/useUser";
 import { SUBJECTS, GRADE_BANDS, RESOURCE_TYPES } from "@/lib/subjects";
+import { US_STATES } from "@/lib/us-states";
 import TagListInput from "@/components/resources/TagListInput";
 import FileUploadList from "@/components/resources/FileUploadList";
+import StandardsPicker from "@/components/resources/StandardsPicker";
+import SectionOrderPicker, { DEFAULT_SECTION_ORDER } from "@/components/resources/SectionOrderPicker";
 
 const SUBJECT_NAMES = Object.values(SUBJECTS).map((s) => s.name);
 
@@ -17,21 +20,33 @@ interface FormState {
   subject: string;
   gradeBand: string;
   resourceType: string;
+  state: string;
   standards: string[];
   materials: string[];
   learningTargets: string[];
   directions: string[];
   photos: UploadedFile[];
   attachments: UploadedFile[];
+  sectionOrder: string[];
+  priceCents: number | null;
 }
 
 const EMPTY: FormState = {
-  title: "", subject: "", gradeBand: "", resourceType: "",
+  title: "", subject: "", gradeBand: "", resourceType: "", state: "",
   standards: [], materials: [], learningTargets: [], directions: [],
-  photos: [], attachments: [],
+  photos: [], attachments: [], sectionOrder: [...DEFAULT_SECTION_ORDER],
+  priceCents: null,
 };
 
-const STEPS = ["Title", "The basics", "Standards", "Materials", "Learning targets", "Directions", "Photos", "Attachments", "Review"];
+type StepId = "title" | "basics" | "standards" | "materials" | "learningTargets" | "directions" | "photos" | "attachments" | "sections" | "review";
+
+// Worksheets/templates/assessments are usually "here's the file" resources, not
+// step-by-step lesson plans — attachments are the main content, so they (and
+// photos) come right after the basics instead of after four lesson-only steps.
+const ATTACHMENT_FIRST_TYPES = ["Worksheet", "Template", "Assessment"];
+
+const LESSON_SHAPED_ORDER: StepId[] = ["title", "basics", "standards", "materials", "learningTargets", "directions", "photos", "attachments", "sections", "review"];
+const ATTACHMENT_FIRST_ORDER: StepId[] = ["title", "basics", "attachments", "photos", "standards", "materials", "learningTargets", "directions", "sections", "review"];
 
 function ChipSelect({ options, value, onChange }: { options: readonly string[]; value: string; onChange: (v: string) => void }) {
   return (
@@ -80,9 +95,12 @@ export default function NewResourcePage() {
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((f) => ({ ...f, [key]: value }));
 
+  const steps = ATTACHMENT_FIRST_TYPES.includes(form.resourceType) ? ATTACHMENT_FIRST_ORDER : LESSON_SHAPED_ORDER;
+  const currentStepId = steps[step];
+
   const canAdvance = () => {
-    if (step === 0) return form.title.trim().length > 0;
-    if (step === 1) return !!form.subject && !!form.gradeBand && !!form.resourceType;
+    if (currentStepId === "title") return form.title.trim().length > 0;
+    if (currentStepId === "basics") return !!form.subject && !!form.gradeBand && !!form.resourceType;
     return true;
   };
 
@@ -98,12 +116,15 @@ export default function NewResourcePage() {
           subject: form.subject,
           grade_band: form.gradeBand,
           resource_type: form.resourceType,
+          state: form.state || null,
           standards: form.standards,
           materials: form.materials,
           learning_targets: form.learningTargets,
           directions: form.directions,
           photos: form.photos.map((p) => p.url),
           attachments: form.attachments,
+          section_order: form.sectionOrder,
+          price_cents: form.priceCents,
           status,
         }),
       });
@@ -121,15 +142,15 @@ export default function NewResourcePage() {
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <Link href="/" className="text-sm text-ink/50 hover:text-ink transition-colors">Cancel</Link>
-          <p className="text-xs text-ink/40 uppercase tracking-widest">Step {step + 1} of {STEPS.length}</p>
+          <p className="text-xs text-ink/40 uppercase tracking-widest">Step {step + 1} of {steps.length}</p>
         </div>
 
         <div className="h-1.5 bg-ink/10 rounded-full overflow-hidden mb-10">
-          <div className="h-full bg-papaya rounded-full transition-all" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
+          <div className="h-full bg-papaya rounded-full transition-all" style={{ width: `${((step + 1) / steps.length) * 100}%` }} />
         </div>
 
         <div className="bg-white rounded-3xl shadow-xl p-8 md:p-10">
-          {step === 0 && (
+          {currentStepId === "title" && (
             <div>
               <h1 className="font-serif font-bold text-3xl text-ink mb-2">What are you teaching?</h1>
               <p className="text-ink/50 mb-6">Give your resource a clear, searchable title.</p>
@@ -144,7 +165,7 @@ export default function NewResourcePage() {
             </div>
           )}
 
-          {step === 1 && (
+          {currentStepId === "basics" && (
             <div className="space-y-8">
               <div>
                 <h2 className="font-serif font-bold text-2xl text-ink mb-4">The basics</h2>
@@ -159,42 +180,88 @@ export default function NewResourcePage() {
                 <p className="text-sm font-medium text-ink/60 mb-3">Resource type</p>
                 <ChipSelect options={RESOURCE_TYPES} value={form.resourceType} onChange={(v) => set("resourceType", v)} />
               </div>
+              <div>
+                <p className="text-sm font-medium text-ink/60 mb-3">State <span className="font-normal text-ink/35">(optional — helps with context, not required)</span></p>
+                <select
+                  value={form.state}
+                  onChange={(e) => set("state", e.target.value)}
+                  className="w-full px-4 py-3 bg-ink/5 rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 transition-all text-sm"
+                >
+                  <option value="">Select a state…</option>
+                  {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                {profile.plan === "creator_pro" && profile.stripe_connect_payouts_enabled ? (
+                  <>
+                    <p className="text-sm font-medium text-ink/60 mb-3">Price <span className="font-normal text-ink/35">(optional — leave blank to share for free)</span></p>
+                    <div className="relative w-40">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-ink/40">$</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="0.01"
+                        value={form.priceCents ? (form.priceCents / 100).toString() : ""}
+                        onChange={(e) => {
+                          const dollars = parseFloat(e.target.value);
+                          set("priceCents", Number.isFinite(dollars) && dollars > 0 ? Math.round(dollars * 100) : null);
+                        }}
+                        placeholder="0.00"
+                        className="w-full pl-8 pr-4 py-3 bg-ink/5 rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 transition-all text-sm"
+                      />
+                    </div>
+                    {form.priceCents ? (
+                      <p className="text-xs text-ink/35 mt-2">You'll receive ${(form.priceCents * 0.93 / 100).toFixed(2)} per sale after Sparkurio's 7% Creator Pro fee.</p>
+                    ) : null}
+                  </>
+                ) : profile.plan === "creator_pro" ? (
+                  <p className="text-xs text-ink/40 bg-ink/5 rounded-xl px-4 py-3">
+                    Want to charge for this resource?{" "}
+                    <Link href="/settings?tab=account" className="text-papaya font-medium hover:underline">Connect your payout account</Link> to unlock pricing.
+                  </p>
+                ) : (
+                  <p className="text-xs text-ink/40 bg-ink/5 rounded-xl px-4 py-3">
+                    Want to charge for this resource?{" "}
+                    <Link href="/settings/billing" className="text-papaya font-medium hover:underline">Upgrade to Creator Pro</Link> to unlock pricing.
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
-          {step === 2 && (
+          {currentStepId === "standards" && (
             <div>
               <h2 className="font-serif font-bold text-2xl text-ink mb-2">Standards</h2>
-              <p className="text-ink/50 mb-6">Which standards does this align to? (Optional)</p>
-              <TagListInput items={form.standards} onChange={(v) => set("standards", v)} placeholder="e.g. CCSS.ELA-LITERACY.W.6.1" />
+              <p className="text-ink/50 mb-6">Which standards does this align to? (Optional — skip if this doesn't apply)</p>
+              <StandardsPicker items={form.standards} onChange={(v) => set("standards", v)} subject={form.subject} gradeBand={form.gradeBand} />
             </div>
           )}
 
-          {step === 3 && (
+          {currentStepId === "materials" && (
             <div>
               <h2 className="font-serif font-bold text-2xl text-ink mb-2">Materials</h2>
-              <p className="text-ink/50 mb-6">What do teachers need to gather?</p>
+              <p className="text-ink/50 mb-6">What do teachers need to gather? (Optional — skip if this doesn't apply)</p>
               <TagListInput items={form.materials} onChange={(v) => set("materials", v)} placeholder="e.g. Air-dry clay, rolling pins" />
             </div>
           )}
 
-          {step === 4 && (
+          {currentStepId === "learningTargets" && (
             <div>
               <h2 className="font-serif font-bold text-2xl text-ink mb-2">Learning targets</h2>
-              <p className="text-ink/50 mb-6">What should students be able to do by the end?</p>
+              <p className="text-ink/50 mb-6">What should students be able to do by the end? (Optional — skip if this doesn't apply)</p>
               <TagListInput items={form.learningTargets} onChange={(v) => set("learningTargets", v)} placeholder="e.g. I can identify the elements of a coil pot" />
             </div>
           )}
 
-          {step === 5 && (
+          {currentStepId === "directions" && (
             <div>
               <h2 className="font-serif font-bold text-2xl text-ink mb-2">Directions</h2>
-              <p className="text-ink/50 mb-6">Walk other teachers through it, step by step.</p>
+              <p className="text-ink/50 mb-6">Walk other teachers through it, step by step. (Optional — skip if this doesn't apply)</p>
               <TagListInput items={form.directions} onChange={(v) => set("directions", v)} placeholder="Describe the next step…" variant="numbered" />
             </div>
           )}
 
-          {step === 6 && (
+          {currentStepId === "photos" && (
             <div>
               <h2 className="font-serif font-bold text-2xl text-ink mb-2">Photos</h2>
               <p className="text-ink/50 mb-6">Show what this looks like in the classroom. (Optional)</p>
@@ -202,15 +269,30 @@ export default function NewResourcePage() {
             </div>
           )}
 
-          {step === 7 && (
+          {currentStepId === "attachments" && (
             <div>
               <h2 className="font-serif font-bold text-2xl text-ink mb-2">Attachments</h2>
-              <p className="text-ink/50 mb-6">Add any handouts, slides, or templates. (Optional)</p>
-              <FileUploadList bucket="resource-attachments" files={form.attachments} onChange={(v) => set("attachments", v)} accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx" label="Click to upload files" />
+              <p className="text-ink/50 mb-6">
+                {ATTACHMENT_FIRST_TYPES.includes(form.resourceType)
+                  ? "Upload your file — this is the main thing people will download."
+                  : "Add any handouts, slides, or templates. (Optional)"}
+              </p>
+              <FileUploadList bucket={form.priceCents ? "resource-attachments-paid" : "resource-attachments"} files={form.attachments} onChange={(v) => set("attachments", v)} accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx" label="Click to upload files" />
+              {form.priceCents ? (
+                <p className="text-xs text-ink/35 mt-3">This is a paid resource — files upload privately and only unlock for buyers after purchase.</p>
+              ) : null}
             </div>
           )}
 
-          {step === 8 && (
+          {currentStepId === "sections" && (
+            <div>
+              <h2 className="font-serif font-bold text-2xl text-ink mb-2">Sections</h2>
+              <p className="text-ink/50 mb-6">Choose which sections appear on the published page, and in what order.</p>
+              <SectionOrderPicker order={form.sectionOrder} onChange={(v) => set("sectionOrder", v)} />
+            </div>
+          )}
+
+          {currentStepId === "review" && (
             <div>
               <h2 className="font-serif font-bold text-2xl text-ink mb-2">Review &amp; publish</h2>
               <p className="text-ink/50 mb-6">Sparkurio will build the lesson page automatically.</p>
@@ -235,6 +317,16 @@ export default function NewResourcePage() {
                     <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Type</p>
                     <p className="text-ink">{form.resourceType || "—"}</p>
                   </div>
+                  {form.state && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">State</p>
+                      <p className="text-ink">{form.state}</p>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Sections</p>
+                  <p className="text-ink/70 text-sm">{form.sectionOrder.length} of {DEFAULT_SECTION_ORDER.length} included</p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Standards</p>
@@ -255,6 +347,10 @@ export default function NewResourcePage() {
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Photos &amp; attachments</p>
                   <p className="text-ink/70 text-sm">{form.photos.length} photo{form.photos.length !== 1 ? "s" : ""}, {form.attachments.length} file{form.attachments.length !== 1 ? "s" : ""}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Price</p>
+                  <p className="text-ink/70 text-sm">{form.priceCents ? `$${(form.priceCents / 100).toFixed(2)}` : "Free"}</p>
                 </div>
               </div>
 
@@ -278,7 +374,7 @@ export default function NewResourcePage() {
           )}
         </div>
 
-        {step < 8 && (
+        {currentStepId !== "review" && (
           <div className="flex items-center justify-between mt-6">
             <button
               onClick={() => setStep((s) => Math.max(0, s - 1))}
@@ -288,7 +384,7 @@ export default function NewResourcePage() {
               Back
             </button>
             <button
-              onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
+              onClick={() => setStep((s) => Math.min(steps.length - 1, s + 1))}
               disabled={!canAdvance()}
               className="px-7 py-3 bg-ink text-white rounded-full font-medium hover:bg-ink/85 transition-colors disabled:opacity-30"
             >

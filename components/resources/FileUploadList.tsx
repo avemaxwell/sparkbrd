@@ -15,7 +15,7 @@ export default function FileUploadList({
   accept,
   label,
 }: {
-  bucket: "resource-photos" | "resource-attachments";
+  bucket: "resource-photos" | "resource-attachments" | "resource-attachments-paid";
   files: UploadedFile[];
   onChange: (files: UploadedFile[]) => void;
   accept: string;
@@ -34,6 +34,10 @@ export default function FileUploadList({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setError("You need to be signed in to upload files."); setUploading(false); return; }
 
+    // `resource-attachments-paid` is a private bucket (paid resources) — it has
+    // no public SELECT policy, so `getPublicUrl` would return a URL that never
+    // resolves. Store the raw storage path instead; the download API resolves
+    // it to a short-lived signed URL only after verifying purchase/ownership.
     const uploaded: UploadedFile[] = [];
     for (const file of Array.from(fileList)) {
       const path = `${user.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
@@ -42,8 +46,12 @@ export default function FileUploadList({
         setError(`Failed to upload ${file.name}: ${uploadError.message}`);
         continue;
       }
-      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-      uploaded.push({ name: file.name, url: data.publicUrl });
+      if (bucket === "resource-attachments-paid") {
+        uploaded.push({ name: file.name, url: path });
+      } else {
+        const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+        uploaded.push({ name: file.name, url: data.publicUrl });
+      }
     }
 
     onChange([...files, ...uploaded]);
