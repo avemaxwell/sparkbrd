@@ -19,6 +19,13 @@ function Check() {
 
 type BillingPeriod = "monthly" | "annual";
 
+// One brand shape per plan (public/shapes/*, the same asterisk/flower/
+// quatrefoil set the resource hero uses in app/resources/[id]/page.tsx),
+// but treated the way that hero treats it — one large, quiet watermark
+// bleeding off the edge at low opacity, not a saturated full-card fill.
+// Cards stay white/neutral. `logo` points at public/plans/*.png — each is a
+// full icon+wordmark lockup, so it's shown at real size, not squeezed into
+// a small icon chip.
 function getPlans(billingPeriod: BillingPeriod) {
   return [
     {
@@ -28,6 +35,8 @@ function getPlans(billingPeriod: BillingPeriod) {
       period: "",
       priceId: null as string | null,
       contactOnly: false,
+      shape: "/shapes/flower-blush.png",
+      logo: "/plans/free.png",
       features: [
         "Unlimited browsing & search",
         "Unlimited resource previews",
@@ -45,6 +54,8 @@ function getPlans(billingPeriod: BillingPeriod) {
       priceId: billingPeriod === "annual" ? STRIPE_PRICES.plusAnnual : STRIPE_PRICES.plusMonthly,
       contactOnly: false,
       popular: true,
+      shape: "/shapes/asterisk-lavender.png",
+      logo: "/plans/plus.png",
       features: [
         "Unlimited downloads",
         "Unlimited private collections",
@@ -61,6 +72,8 @@ function getPlans(billingPeriod: BillingPeriod) {
       period: "/mo",
       priceId: STRIPE_PRICES.creatorProMonthly,
       contactOnly: false,
+      shape: "/shapes/asterisk-mustard.png",
+      logo: "/plans/creator-pro.png",
       features: [
         "Everything in Plus",
         "Sales dashboard & revenue tracking",
@@ -77,6 +90,8 @@ function getPlans(billingPeriod: BillingPeriod) {
       priceId: billingPeriod === "annual" ? STRIPE_PRICES.homeschoolAnnual : STRIPE_PRICES.homeschoolMonthly,
       contactOnly: false,
       comingSoon: true,
+      shape: "/shapes/flower-lime.png",
+      logo: "/plans/homeschool.png",
       features: [
         "Everything in Plus",
         "Pacing & scheduling tools",
@@ -91,6 +106,8 @@ function getPlans(billingPeriod: BillingPeriod) {
       period: "",
       priceId: null as string | null,
       contactOnly: true,
+      shape: "/shapes/quatrefoil-ink.png",
+      logo: "/plans/district.png",
       features: [
         "SSO & district administration",
         "Private district & department libraries",
@@ -145,7 +162,7 @@ export default function BillingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-cork-warm flex items-center justify-center">
+      <div className="min-h-screen bg-lime/8 flex items-center justify-center">
         <p className="text-ink-soft">Loading...</p>
       </div>
     );
@@ -159,7 +176,7 @@ export default function BillingPage() {
   const currentPlan = profile.plan || 'free';
 
   return (
-    <div className="min-h-screen bg-cork-warm">
+    <div className="min-h-screen bg-lime/8">
       <header className="border-b border-ink/5">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/settings" className="text-ink/60 hover:text-ink transition-colors flex items-center gap-2">
@@ -201,74 +218,90 @@ export default function BillingPage() {
           </button>
         </div>
 
-        <div className="grid md:grid-cols-3 lg:grid-cols-5 gap-6 mb-12">
+        <div className="grid md:grid-cols-3 xl:grid-cols-5 gap-6 mb-12">
           {PLANS.map((p) => {
             const isCurrent = currentPlan === p.id;
             const missingPriceId = !p.contactOnly && p.id !== 'free' && !p.priceId;
 
             return (
-              <div key={p.id} className={`relative border-2 rounded-2xl p-8 ${isCurrent ? 'border-papaya bg-papaya/5' : 'border-ink/10 bg-white'}`}>
+              <div key={p.id} className={`relative overflow-hidden rounded-3xl p-6 bg-white shadow-sm transition-shadow hover:shadow-md h-full flex flex-col ${isCurrent ? 'border-2 border-papaya' : p.popular ? 'border-2 border-ink/15' : 'border border-ink/10'}`}>
+                <img
+                  src={p.shape}
+                  alt=""
+                  className="absolute -top-6 -right-6 w-32 h-32 opacity-[0.07] pointer-events-none"
+                  draggable={false}
+                />
+
                 {p.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
                     <span className="px-4 py-1 bg-papaya text-white text-xs font-semibold rounded-full">Popular</span>
                   </div>
                 )}
 
-                <div className="mb-6">
-                  <h2 className="text-2xl font-semibold mb-2">{p.name}</h2>
-                  <div className="flex items-baseline gap-1">
-                    <span className={p.price === 'Custom' ? 'text-3xl font-bold text-ink/70' : 'text-5xl font-bold'}>{p.price}</span>
-                    {p.period && <span className="text-ink/60">{p.period}</span>}
+                <div className="relative mb-6">
+                  <img
+                    src={p.logo}
+                    alt=""
+                    className="w-20 h-20 object-contain mb-3 -ml-1"
+                    draggable={false}
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                  <h2 className="text-xl font-semibold mb-2 text-ink">{p.name}</h2>
+                  <div className="flex flex-wrap items-baseline gap-1">
+                    <span className={p.price === 'Custom' ? 'text-3xl font-bold text-ink/70' : 'text-4xl font-bold text-ink'}>{p.price}</span>
+                    {p.period && <span className="text-ink/50 text-sm">{p.period}</span>}
                   </div>
                 </div>
 
-                <ul className="space-y-3 mb-8">
+                <ul className="relative flex-1 space-y-3 mb-8">
                   {p.features.map((f) => (
                     <li key={f} className="flex items-start gap-3">
-                      <Check /><span className="text-ink/70">{f}</span>
+                      <Check /><span className="text-ink/70 text-sm">{f}</span>
                     </li>
                   ))}
                 </ul>
 
-                {p.comingSoon ? (
-                  <button
-                    onClick={() => setComingSoonPlan(p.name)}
-                    className="w-full px-6 py-3 border-2 border-ink/20 text-ink/60 rounded-full font-medium hover:border-ink/40 transition-colors"
-                  >
-                    Coming soon
-                  </button>
-                ) : isCurrent ? (
-                  <div className="px-4 py-3 bg-ink/5 rounded-full text-center text-sm text-ink/60 font-medium">
-                    Current plan
-                  </div>
-                ) : p.contactOnly ? (
-                  <a
-                    href="mailto:admin@sparkurio.com?subject=District inquiry"
-                    className="block w-full px-6 py-3 border-2 border-ink/20 text-ink rounded-full font-medium hover:border-ink/40 transition-colors text-center"
-                  >
-                    Contact us
-                  </a>
-                ) : p.id === 'free' ? (
-                  <button
-                    onClick={() => setShowConfirm(true)}
-                    disabled={upgrading}
-                    className="w-full px-6 py-3 border-2 border-ink/20 text-ink rounded-full font-medium hover:border-ink/40 transition-colors disabled:opacity-50"
-                  >
-                    Downgrade to Free
-                  </button>
-                ) : missingPriceId ? (
-                  <div className="px-4 py-3 bg-red-50 text-red-500 rounded-full text-center text-xs font-medium">
-                    Checkout not configured
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => proceedToCheckout(p.priceId!)}
-                    disabled={upgrading}
-                    className="w-full px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors disabled:opacity-50"
-                  >
-                    {upgrading ? 'Processing...' : `Upgrade to ${p.name}`}
-                  </button>
-                )}
+                <div className="h-20 flex items-center">
+                  {p.comingSoon ? (
+                    <button
+                      onClick={() => setComingSoonPlan(p.name)}
+                      className="w-full px-6 py-3 border-2 border-ink/20 text-ink/60 rounded-full font-medium hover:border-ink/40 transition-colors"
+                    >
+                      Coming soon
+                    </button>
+                  ) : isCurrent ? (
+                    <div className="w-full px-4 py-3 bg-ink/5 rounded-full text-center text-sm text-ink/60 font-medium">
+                      Current plan
+                    </div>
+                  ) : p.contactOnly ? (
+                    <a
+                      href="mailto:admin@sparkurio.com?subject=District inquiry"
+                      className="block w-full px-6 py-3 border-2 border-ink/20 text-ink rounded-full font-medium hover:border-ink/40 transition-colors text-center"
+                    >
+                      Contact us
+                    </a>
+                  ) : p.id === 'free' ? (
+                    <button
+                      onClick={() => setShowConfirm(true)}
+                      disabled={upgrading}
+                      className="w-full px-6 py-3 border-2 border-ink/20 text-ink rounded-full font-medium hover:border-ink/40 transition-colors disabled:opacity-50"
+                    >
+                      Downgrade to Free
+                    </button>
+                  ) : missingPriceId ? (
+                    <div className="w-full px-4 py-3 bg-red-50 text-red-500 rounded-full text-center text-xs font-medium">
+                      Checkout not configured
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => proceedToCheckout(p.priceId!)}
+                      disabled={upgrading}
+                      className="w-full px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors disabled:opacity-50"
+                    >
+                      {upgrading ? 'Processing...' : `Upgrade to ${p.name}`}
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}

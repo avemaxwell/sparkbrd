@@ -33,6 +33,32 @@ export async function POST(request: Request) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
+
+        if (session.mode === 'payment') {
+          // One-time resource purchase, not a subscription.
+          const resourceId = session.metadata?.resource_id;
+          const buyerId = session.metadata?.buyer_id;
+          const feeCents = session.metadata?.platform_fee_cents;
+
+          if (resourceId && buyerId) {
+            await supabase
+              .from('purchases')
+              .upsert(
+                {
+                  resource_id: resourceId,
+                  buyer_id: buyerId,
+                  amount_cents: session.amount_total ?? 0,
+                  platform_fee_cents: feeCents ? parseInt(feeCents, 10) : 0,
+                  stripe_checkout_session_id: session.id,
+                },
+                { onConflict: 'resource_id,buyer_id', ignoreDuplicates: true }
+              );
+
+            console.log(`Recorded purchase of resource ${resourceId} by ${buyerId}`);
+          }
+          break;
+        }
+
         const userId = session.metadata?.user_id;
 
         if (userId && session.subscription) {
@@ -58,6 +84,19 @@ export async function POST(request: Request) {
 
           console.log(`Updated user ${userId} to ${resolved?.plan ?? 'free'} plan`);
         }
+        break;
+      }
+
+      case 'account.updated': {
+        const account = event.data.object as Stripe.Account;
+        const payoutsEnabled = !!account.charges_enabled && !!account.payouts_enabled;
+
+        await supabase
+          .from('profiles')
+          .update({ stripe_connect_payouts_enabled: payoutsEnabled })
+          .eq('stripe_connect_account_id', account.id);
+
+        console.log(`Connect account ${account.id} payouts_enabled=${payoutsEnabled}`);
         break;
       }
 

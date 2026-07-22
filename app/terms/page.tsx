@@ -122,7 +122,7 @@ export default function TermsPage() {
           <section>
             <h2 className="font-serif text-xl text-ink/80 mb-3">10. Termination</h2>
             <p>
-              We may suspend or terminate your account and access to the Service at any time, with or without cause, and with or without notice. You may delete your account at any time through your account settings. Upon termination, your right to use the Service ceases immediately. Sections 4, 11, 12, 13, and 14 survive termination.
+              We may suspend or terminate your account and access to the Service at any time, with or without cause, and with or without notice. You may delete your account at any time through your account settings. Upon termination, your right to use the Service ceases immediately. Sections 4, 11, 12, 13, 14, and 16 survive termination.
             </p>
           </section>
 
@@ -167,8 +167,33 @@ export default function TermsPage() {
             </p>
           </section>
 
+          <section id="creator-terms">
+            <h2 className="font-serif text-xl text-ink/80 mb-3">16. Marketplace: Paid Resources</h2>
+            <p>
+              <strong className="text-ink/80">(a) Marketplace Role.</strong> Certain users ("Creators") may offer resources for sale ("Paid Resources") to other users ("Buyers") through the Service. Sparkurio provides the technology platform and payment facilitation only. Sparkurio is not a party to any transaction between a Creator and a Buyer, does not take title to any Paid Resource, and does not guarantee the accuracy, quality, legality, originality, or fitness for any purpose of any Paid Resource.
+            </p>
+            <p className="mt-3">
+              <strong className="text-ink/80">(b) Creator Eligibility and Warranties.</strong> To offer Paid Resources, a Creator must complete identity verification and payment onboarding through our third-party payment processor. By listing a Paid Resource, a Creator represents and warrants that: (i) they own all right, title, and interest in the Paid Resource, or hold all rights and licenses necessary to sell and distribute it through the Service; (ii) the Paid Resource does not infringe, misappropriate, or violate any third party's intellectual property, privacy, or other rights; and (iii) all statements made about the Paid Resource (grade level, subject, standards alignment, or otherwise) are accurate. Creators are solely and fully responsible for the content of their Paid Resources and indemnify Sparkurio to the fullest extent set forth in Section 13.
+            </p>
+            <p className="mt-3">
+              <strong className="text-ink/80">(c) Payment Processing.</strong> All payments for Paid Resources are processed by Stripe, Inc. ("Stripe") through Stripe Connect. By enabling payouts, a Creator agrees to Stripe's Connected Account Agreement and any applicable Stripe terms, in addition to these Terms. Sparkurio retains a percentage of each transaction as a platform fee, disclosed to the Creator prior to enabling payouts; the remainder is transferred to the Creator by Stripe. Sparkurio does not hold, control, or have custody of Creator funds at any point; Stripe acts as the payment processor for all such transactions.
+            </p>
+            <p className="mt-3">
+              <strong className="text-ink/80">(d) No Refund Obligation.</strong> All sales of Paid Resources are final. Sparkurio has no obligation to issue, facilitate, or guarantee any refund to a Buyer. A Buyer's sole recourse for a dispute regarding a Paid Resource is directly with the Creator or, where applicable, a chargeback or dispute filed with their payment card issuer through the card network's standard dispute process. Sparkurio may, but is not obligated to, assist in resolving disputes between Creators and Buyers, and may remove a Paid Resource, suspend a Creator's ability to sell, or withhold future payouts pending investigation of any suspected fraud, infringement, or violation of these Terms, without liability to either the Creator or any Buyer for resulting losses.
+            </p>
+            <p className="mt-3">
+              <strong className="text-ink/80">(e) Tax Responsibility.</strong> Creators are solely responsible for determining, collecting (where applicable), and remitting any taxes owed on their earnings from Paid Resources. Stripe may issue applicable tax forms (e.g., Form 1099-K) directly to Creators as required by law. Sparkurio does not provide tax advice and is not responsible for any Creator's tax obligations.
+            </p>
+            <p className="mt-3">
+              <strong className="text-ink/80">(f) Removal and Termination.</strong> In addition to Sparkurio's general rights under Sections 4 and 10, Sparkurio may remove any Paid Resource, terminate a Creator's ability to sell, and/or withhold pending payouts at any time and in its sole discretion, including in response to a DMCA notice under Section 8, suspected stolen or infringing content, or a pattern of Buyer disputes or chargebacks — without any obligation to compensate the Creator for resulting losses.
+            </p>
+            <p className="mt-3">
+              <strong className="text-ink/80">(g) Acknowledgment.</strong> By checking the applicable box and enabling payouts, a Creator affirmatively acknowledges and agrees to this Section 16 in addition to the remainder of these Terms.
+            </p>
+          </section>
+
           <section>
-            <h2 className="font-serif text-xl text-ink/80 mb-3">16. Contact</h2>
+            <h2 className="font-serif text-xl text-ink/80 mb-3">17. Contact</h2>
             <p>
               Questions about these Terms may be directed to:<br />
               <a href="mailto:admin@sparkurio.com" className="text-papaya hover:text-papaya/70 transition-colors">admin@sparkurio.com</a>

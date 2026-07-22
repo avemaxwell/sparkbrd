@@ -18,6 +18,8 @@ interface Profile {
   verified_institution_name: string | null;
   verified_at: string | null;
   display_school_publicly: boolean;
+  is_creator: boolean;
+  stripe_connect_payouts_enabled: boolean;
 }
 
 // Cache outside component - persists across renders but resets on hot reload

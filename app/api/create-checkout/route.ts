@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@/lib/supabase/server';
+import { planForPriceId } from '@/lib/stripe-plans';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
    apiVersion: '2026-03-25.dahlia',
@@ -43,6 +44,12 @@ export async function POST(request: Request) {
         .eq('id', user.id);
     }
 
+    // Creator Pro is the only plan where selling becomes available, so land
+    // that upgrade directly on the Settings tab that shows the new payout
+    // card instead of the generic Profile tab every other plan lands on.
+    const isCreatorPro = planForPriceId(priceId)?.plan === 'creator_pro';
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://sparkurio.com';
+
     // Create checkout session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -54,8 +61,10 @@ export async function POST(request: Request) {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://sparkurio.com'}/settings?upgrade=success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://sparkurio.com'}/settings/billing?upgrade=cancelled`,
+      success_url: isCreatorPro
+        ? `${siteUrl}/settings?upgrade=success&tab=account`
+        : `${siteUrl}/settings?upgrade=success`,
+      cancel_url: `${siteUrl}/settings/billing?upgrade=cancelled`,
       metadata: {
         user_id: user.id,
       },
