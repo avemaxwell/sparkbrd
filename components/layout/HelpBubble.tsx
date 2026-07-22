@@ -68,7 +68,7 @@ export default function HelpBubble() {
       {/* Bubble button */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed left-4 lg:left-6 z-40 flex items-center gap-2 px-4 py-2.5 bg-ink text-white rounded-full shadow-lg hover:bg-ink/90 hover:shadow-xl hover:-translate-y-0.5 transition-all text-sm font-medium"
+        className="fixed left-4 lg:left-6 z-40 flex items-center gap-2 px-4 py-2.5 bg-ink text-white rounded-full shadow-lg hover:bg-ink/90 hover:shadow-xl hover:-translate-y-0.5 transition-all text-sm font-medium print:hidden"
         style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
         aria-label="Help"
       >

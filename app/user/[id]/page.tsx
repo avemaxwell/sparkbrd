@@ -6,6 +6,8 @@ import Link from "next/link";
 import Header from "@/components/layout/Header";
 import BottomNav from "@/components/layout/BottomNav";
 import { useUser } from "@/hooks/useUser";
+import ResourceCard, { type ResourceCardData } from "@/components/ResourceCard";
+import { resourceToCardData, type RealResource } from "@/lib/resources-adapter";
 
 interface PublicProfile {
   id: string;
@@ -38,6 +40,7 @@ export default function UserProfilePage() {
 
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [boards, setBoards] = useState<PublicBoard[]>([]);
+  const [resources, setResources] = useState<ResourceCardData[]>([]);
   const [following, setFollowing] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
@@ -52,6 +55,7 @@ export default function UserProfilePage() {
     ]).then(([userData, followData]) => {
       if (userData.profile) setProfile(userData.profile);
       if (userData.boards) setBoards(userData.boards);
+      if (userData.resources) setResources((userData.resources as RealResource[]).map(resourceToCardData));
       setFollowing(followData.following ?? false);
       setFollowerCount(followData.followerCount ?? 0);
       setFollowingCount(followData.followingCount ?? 0);
@@ -184,6 +188,16 @@ export default function UserProfilePage() {
                 </Link>
               );
             })}
+          </div>
+        )}
+
+        {/* Shared resources */}
+        {resources.length > 0 && (
+          <div className="mt-10">
+            <h2 className="font-serif text-xl text-ink/80 mb-5">Shared resources</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {resources.map((r) => <ResourceCard key={r.resourceId} resource={r} />)}
+            </div>
           </div>
         )}
       </div>

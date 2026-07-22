@@ -9,13 +9,19 @@ export async function GET(_req: Request, { params }: Params) {
     const { id } = await params;
     const supabase = await createClient();
 
-    const [profileRes, boardsRes] = await Promise.all([
+    const [profileRes, boardsRes, resourcesRes] = await Promise.all([
       supabase.from('profiles').select('id, name, avatar_url, bio, created_at, is_verified_educator, verified_institution_name, display_school_publicly').eq('id', id).single(),
       supabase
         .from('boards')
         .select('id, name, description, background_color, vibe')
         .eq('owner_id', id)
         .eq('is_public', true)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('resources')
+        .select('id, title, subject, grade_band, resource_type, photos, duration, created_at')
+        .eq('owner_id', id)
+        .eq('status', 'published')
         .order('created_at', { ascending: false }),
     ]);
 
@@ -29,7 +35,7 @@ export async function GET(_req: Request, { params }: Params) {
       verified_institution_name: display_school_publicly ? verified_institution_name : null,
     };
 
-    return NextResponse.json({ profile, boards: boardsRes.data ?? [] });
+    return NextResponse.json({ profile, boards: boardsRes.data ?? [], resources: resourcesRes.data ?? [] });
   } catch (err) {
     console.error('GET /api/users/[id] error:', err);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

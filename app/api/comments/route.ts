@@ -18,17 +18,21 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const boardId = searchParams.get('board_id');
     const tackId = searchParams.get('tack_id');
+    const resourceId = searchParams.get('resource_id');
 
-    if (!boardId || !tackId) {
-      return NextResponse.json({ error: 'board_id and tack_id are required' }, { status: 400 });
+    if (!resourceId && (!boardId || !tackId)) {
+      return NextResponse.json({ error: 'board_id and tack_id, or resource_id, are required' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    let commentsQuery = supabase
       .from('comments')
-      .select('id, board_id, tack_id, parent_id, body, created_at, updated_at, user_id')
-      .eq('board_id', boardId)
-      .eq('tack_id', tackId)
+      .select('id, board_id, tack_id, resource_id, parent_id, body, created_at, updated_at, user_id')
       .order('created_at', { ascending: true });
+    commentsQuery = resourceId
+      ? commentsQuery.eq('resource_id', resourceId)
+      : commentsQuery.eq('board_id', boardId!).eq('tack_id', tackId!);
+
+    const { data, error } = await commentsQuery;
 
     if (error) throw error;
 
@@ -48,6 +52,7 @@ export async function GET(request: Request) {
         id: c.id,
         board_id: c.board_id,
         tack_id: c.tack_id,
+        resource_id: c.resource_id,
         parent_id: c.parent_id,
         body: c.body,
         created_at: c.created_at,
@@ -75,13 +80,54 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    const { board_id, tack_id, parent_id, body: commentBody } = body;
+    const { board_id, tack_id, resource_id, parent_id, body: commentBody } = body;
 
-    if (!board_id || !tack_id || !commentBody?.trim()) {
-      return NextResponse.json({ error: 'board_id, tack_id, and body are required' }, { status: 400 });
-    }
+    if (!commentBody?.trim()) return NextResponse.json({ error: 'body is required' }, { status: 400 });
     if (commentBody.trim().length > 2000) {
       return NextResponse.json({ error: 'Comment too long' }, { status: 400 });
+    }
+
+    // Resource feedback — kept deliberately simple (no @mentions, no team
+    // activity log) rather than folded into the tack path below.
+    if (resource_id) {
+      const { data: resource } = await supabase
+        .from('resources')
+        .select('id, owner_id, status')
+        .eq('id', resource_id)
+        .single();
+      if (!resource || (resource.status !== 'published' && resource.owner_id !== user.id)) {
+        return NextResponse.json({ error: 'Resource not found' }, { status: 404 });
+      }
+
+      const { data: inserted, error: insertErr } = await supabase
+        .from('comments')
+        .insert({ resource_id, user_id: user.id, parent_id: parent_id ?? null, body: commentBody.trim() })
+        .select('id, resource_id, parent_id, body, created_at, updated_at, user_id')
+        .single();
+      if (insertErr || !inserted) throw insertErr;
+
+      const { data: profile } = await supabase.from('profiles').select('id, name, avatar_url').eq('id', user.id).single();
+
+      if (resource.owner_id && resource.owner_id !== user.id && !parent_id) {
+        await supabase.from('notifications').insert({
+          recipient_id: resource.owner_id,
+          actor_id: user.id,
+          type: 'comment_on_my_tack',
+          comment_id: inserted.id,
+        });
+      }
+
+      return NextResponse.json({
+        comment: {
+          ...inserted,
+          author: { id: profile?.id ?? user.id, name: profile?.name ?? null, avatar_url: profile?.avatar_url ?? null },
+          reply_count: 0,
+        },
+      });
+    }
+
+    if (!board_id || !tack_id) {
+      return NextResponse.json({ error: 'board_id and tack_id, or resource_id, are required' }, { status: 400 });
     }
 
     // Verify tack belongs to this board
