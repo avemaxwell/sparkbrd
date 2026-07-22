@@ -4,7 +4,6 @@ import { useUser } from "@/hooks/useUser";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import StatusBanner from "./StatusBanner";
 import NotificationBell from "@/components/board/NotificationBell";
 import { planDisplayName } from "@/lib/plan-limits";
 
@@ -58,9 +57,6 @@ export default function Header() {
         hidden ? '-translate-y-full' : 'translate-y-0'
       }`}
     >
-      <div className="-mx-6 -mt-3">
-        <StatusBanner />
-      </div>
       <div className="max-w-7xl mx-auto flex items-center gap-6">
         {/* Logo */}
         <Link href="/" className="flex-shrink-0">
