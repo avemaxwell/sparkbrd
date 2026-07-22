@@ -51,8 +51,8 @@ export default function Header() {
   return (
     <>
     <header
-      className={`fixed top-0 left-0 right-0 z-50 px-6 py-3 transition-all duration-300 ${
-        scrolled ? 'bg-[#F6F6F6]/90 backdrop-blur-md shadow-sm' : ''
+      className={`fixed top-0 left-0 right-0 z-50 px-6 py-3 transition-all duration-300 backdrop-blur-md ${
+        scrolled ? 'bg-[#F6F6F6]/90 shadow-sm' : 'bg-white/40'
       } ${
         hidden ? '-translate-y-full' : 'translate-y-0'
       }`}
