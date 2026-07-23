@@ -21,8 +21,11 @@ export async function POST(request: Request) {
     const html = `
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#F6F6F6;font-family:'Georgia',serif;">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body style="margin:0;padding:0;background:#F6F6F6;font-family:'Montserrat','Century Gothic',Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#F6F6F6;padding:40px 0;">
     <tr><td align="center">
       <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.07);">
@@ -46,7 +49,7 @@ export async function POST(request: Request) {
             <p style="margin:0 0 32px;font-size:15px;color:#888;font-style:italic;">
               "Come join me."
             </p>
-            <a href="${SIGNUP_URL}" style="display:inline-block;background:#4C4DFF;color:#ffffff;text-decoration:none;font-family:sans-serif;font-size:15px;font-weight:600;padding:14px 32px;border-radius:999px;">
+            <a href="${SIGNUP_URL}" style="display:inline-block;background:#4C4DFF;color:#ffffff;text-decoration:none;font-family:'Montserrat','Century Gothic',Arial,sans-serif;font-size:15px;font-weight:600;padding:14px 32px;border-radius:999px;">
               Join Sparkurio — it's free →
             </a>
           </td>
@@ -55,7 +58,7 @@ export async function POST(request: Request) {
         <!-- Footer -->
         <tr>
           <td style="padding:20px 40px 32px;text-align:center;border-top:1px solid #f0ece8;">
-            <p style="margin:0;font-size:12px;color:#bbb;font-family:sans-serif;">
+            <p style="margin:0;font-size:12px;color:#bbb;font-family:'Montserrat','Century Gothic',Arial,sans-serif;">
               You received this because ${name} thought you'd love it.<br/>
               <a href="${SIGNUP_URL}" style="color:#4C4DFF;text-decoration:none;">sparkurio.com</a>
             </p>
