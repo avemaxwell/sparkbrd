@@ -11,6 +11,7 @@ import RetackButton from "@/components/tacks/RetackButton";
 import ResourceComments from "@/components/resources/ResourceComments";
 import { DEFAULT_SECTION_ORDER, SECTION_LABELS } from "@/components/resources/SectionOrderPicker";
 import { useUser } from "@/hooks/useUser";
+import FileUploadList from "@/components/resources/FileUploadList";
 
 interface ResourceRecord {
   id: string;
@@ -70,6 +71,7 @@ function ResourcePageContent() {
   const [buyError, setBuyError] = useState<string | null>(null);
   const [downloadingPath, setDownloadingPath] = useState<string | null>(null);
   const [printing, setPrinting] = useState(false);
+  const [savingAttachments, setSavingAttachments] = useState(false);
 
   const loadResource = () => {
     fetch(`/api/resources/${id}`)
@@ -102,6 +104,20 @@ function ResourcePageContent() {
     } catch {
       setBuyError("Something went wrong. Please try again.");
       setBuying(false);
+    }
+  };
+
+  const saveAttachments = async (attachments: { name: string; url: string }[]) => {
+    setSavingAttachments(true);
+    setResource((prev) => (prev ? { ...prev, attachments } : prev));
+    try {
+      await fetch(`/api/resources/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ attachments }),
+      });
+    } finally {
+      setSavingAttachments(false);
     }
   };
 
@@ -260,10 +276,31 @@ function ResourcePageContent() {
         ) : null;
 
       case "attachments": {
-        if (resource.attachments.length === 0) return null;
-        const isPaid = !!resource.price_cents && resource.price_cents > 0;
         const isOwner = !!profile && profile.id === resource.owner_id;
+        if (resource.attachments.length === 0 && !isOwner) return null;
+        const isPaid = !!resource.price_cents && resource.price_cents > 0;
         const locked = isPaid && !resource.purchased && !isOwner;
+
+        if (isOwner) {
+          return (
+            <section key={key}>
+              <div className="flex items-center justify-between mb-4">
+                <SectionHeading sectionKey={key} />
+                {savingAttachments && <span className="text-xs text-ink/40">Saving…</span>}
+              </div>
+              <p className="text-xs text-ink/40 mb-3 -mt-2">
+                Accompanying files for this lesson — worksheets, organizers, rubrics, and the like.
+              </p>
+              <FileUploadList
+                bucket={isPaid ? "resource-attachments-paid" : "resource-attachments"}
+                files={resource.attachments}
+                onChange={saveAttachments}
+                accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx"
+                label="Click to upload files"
+              />
+            </section>
+          );
+        }
 
         return (
           <section key={key}>
