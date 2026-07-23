@@ -42,7 +42,7 @@ export async function GET(request: Request) {
     const ownerIds = [...new Set(list.map((r) => r.owner_id).filter(Boolean))];
     const { data: owners } = await supabase
       .from('profiles')
-      .select('id, name, avatar_url, is_verified_educator, is_official')
+      .select('id, name, avatar_url, is_verified_educator, is_official, is_founding_educator')
       .in('id', ownerIds);
     const ownerMap = Object.fromEntries((owners ?? []).map((o) => [o.id, o]));
 

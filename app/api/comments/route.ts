@@ -7,7 +7,7 @@ async function attachProfiles(supabase: Awaited<ReturnType<typeof createClient>>
   if (userIds.length === 0) return {};
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id, name, avatar_url')
+    .select('id, name, avatar_url, is_founding_educator')
     .in('id', userIds);
   return Object.fromEntries((profiles ?? []).map(p => [p.id, p]));
 }
@@ -61,6 +61,7 @@ export async function GET(request: Request) {
           id: profile?.id ?? c.user_id,
           name: profile?.name ?? null,
           avatar_url: profile?.avatar_url ?? null,
+          is_founding_educator: profile?.is_founding_educator ?? false,
         },
         reply_count: replyCounts[c.id] ?? 0,
       };
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
         .single();
       if (insertErr || !inserted) throw insertErr;
 
-      const { data: profile } = await supabase.from('profiles').select('id, name, avatar_url').eq('id', user.id).single();
+      const { data: profile } = await supabase.from('profiles').select('id, name, avatar_url, is_founding_educator').eq('id', user.id).single();
 
       if (resource.owner_id && resource.owner_id !== user.id && !parent_id) {
         await supabase.from('notifications').insert({
@@ -120,7 +121,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         comment: {
           ...inserted,
-          author: { id: profile?.id ?? user.id, name: profile?.name ?? null, avatar_url: profile?.avatar_url ?? null },
+          author: { id: profile?.id ?? user.id, name: profile?.name ?? null, avatar_url: profile?.avatar_url ?? null, is_founding_educator: profile?.is_founding_educator ?? false },
           reply_count: 0,
         },
       });
@@ -159,7 +160,7 @@ export async function POST(request: Request) {
     // Fetch the author profile separately
     const { data: profile } = await supabase
       .from('profiles')
-      .select('id, name, avatar_url')
+      .select('id, name, avatar_url, is_founding_educator')
       .eq('id', user.id)
       .single();
 
@@ -175,6 +176,7 @@ export async function POST(request: Request) {
         id: profile?.id ?? user.id,
         name: profile?.name ?? null,
         avatar_url: profile?.avatar_url ?? null,
+        is_founding_educator: profile?.is_founding_educator ?? false,
       },
       reply_count: 0,
     };

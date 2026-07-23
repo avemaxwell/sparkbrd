@@ -133,7 +133,12 @@ export default function Header() {
                   />
                   <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-ink/5 z-50 overflow-hidden">
                     <div className="p-4 border-b border-ink/5">
-                      <p className="font-medium text-ink">{profile.name}</p>
+                      <p className="font-medium text-ink flex items-center gap-1.5">
+                        <span>{profile.name}</span>
+                        {profile.is_founding_educator && (
+                          <img src="/icon.png" alt="" title="Founding Educator" className="w-4 h-4 flex-shrink-0" />
+                        )}
+                      </p>
                       <p className="text-sm text-ink/50">{profile.email}</p>
                       <div className="mt-2 inline-block px-2 py-0.5 bg-ink/5 rounded-full">
                         <p className="text-xs text-ink/60">{planDisplayName(profile.plan)} plan</p>

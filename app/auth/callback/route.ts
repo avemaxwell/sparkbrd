@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { enrollFoundingEducatorIfConsented } from '@/lib/founding-educator';
 
 // Handles Supabase email confirmation links.
 // Supabase redirects here with ?code=... after the user clicks the confirm link.
@@ -10,8 +11,13 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      // Enrollment is deferred here (rather than right after signUp()) when
+      // email confirmation is required, since no session exists until now.
+      if (data.user) {
+        await enrollFoundingEducatorIfConsented(createAdminClient(), data.user).catch(() => {});
+      }
       return NextResponse.redirect(`${origin}${next}`);
     }
   }

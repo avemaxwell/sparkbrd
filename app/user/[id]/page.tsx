@@ -17,6 +17,7 @@ interface PublicProfile {
   created_at: string;
   is_verified_educator: boolean;
   verified_institution_name: string | null;
+  is_founding_educator: boolean;
 }
 
 interface PublicBoard {
@@ -116,7 +117,12 @@ export default function UserProfilePage() {
 
           {/* Info */}
           <div className="flex-1 text-center sm:text-left">
-            <h1 className="font-serif text-3xl text-ink/90 mb-1">{profile.name ?? "Anonymous"}</h1>
+            <h1 className="font-serif text-3xl text-ink/90 mb-1 flex items-center justify-center sm:justify-start gap-2">
+              <span>{profile.name ?? "Anonymous"}</span>
+              {profile.is_founding_educator && (
+                <img src="/icon.png" alt="" title="Founding Educator" className="w-6 h-6 flex-shrink-0" />
+              )}
+            </h1>
             {profile.is_verified_educator && profile.verified_institution_name && (
               <span className="inline-block mb-3 px-2.5 py-1 bg-lime/60 text-ink text-xs font-medium rounded-full">
                 🏫 {profile.verified_institution_name}

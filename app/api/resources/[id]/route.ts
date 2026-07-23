@@ -20,7 +20,7 @@ export async function GET(_req: Request, { params }: Params) {
     if (resource.owner_id) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('name, avatar_url, is_official')
+        .select('name, avatar_url, is_official, is_founding_educator')
         .eq('id', resource.owner_id)
         .maybeSingle();
       owner = profile;

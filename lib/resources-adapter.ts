@@ -15,7 +15,7 @@ export interface RealResource {
   photos?: string[];
   duration?: string | null;
   standards?: string[];
-  owner?: { name: string | null; avatar_url: string | null; is_verified_educator?: boolean; is_official?: boolean } | null;
+  owner?: { name: string | null; avatar_url: string | null; is_verified_educator?: boolean; is_official?: boolean; is_founding_educator?: boolean } | null;
   save_count?: number;
   is_starter?: boolean;
   price_cents?: number | null;
@@ -43,6 +43,7 @@ export function resourceToCardData(r: RealResource): ResourceCardData {
     // its own attribution rather than falling back to a generic name.
     creatorName: r.is_starter ? "Sparkurio Starter Library" : (r.owner?.name ?? "A Sparkurio educator"),
     creatorSchool: r.is_starter ? "Not yet classroom-tested" : "",
+    creatorIsFoundingEducator: !r.is_starter && !!r.owner?.is_founding_educator,
     grade: r.grade_band,
     type: r.resource_type,
     duration: r.duration ?? "",

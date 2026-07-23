@@ -139,6 +139,7 @@ function SignupPageContent() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [comingSoonPlan, setComingSoonPlan] = useState<string | null>(null);
+  const [foundingEducatorConsent, setFoundingEducatorConsent] = useState(false);
   const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -155,7 +156,7 @@ function SignupPageContent() {
       email,
       password,
       options: {
-        data: { name },
+        data: { name, founding_educator_consent: foundingEducatorConsent },
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
@@ -169,7 +170,13 @@ function SignupPageContent() {
     // If a session came back, email confirmation is disabled — user is logged in
     if (data.session) {
       resetUserCache();
-      const plan = PLANS.find(p => p.id === selectedPlan);
+      if (foundingEducatorConsent) {
+        fetch("/api/founding-educator/enroll", { method: "POST" }).catch(() => {});
+      }
+      // Founding Educators already get Plus for free via the enroll call
+      // above — never send them to Stripe checkout, regardless of what's
+      // selected in the plan grid below.
+      const plan = foundingEducatorConsent ? null : PLANS.find(p => p.id === selectedPlan);
       if (plan?.contactOnly) {
         window.location.href = "mailto:admin@sparkurio.com?subject=District inquiry&body=Hi, I just signed up and I'm interested in Sparkurio for my district.";
       } else if (plan?.priceId) {
@@ -244,9 +251,20 @@ function SignupPageContent() {
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-widest uppercase text-lime bg-ink px-3 py-1.5 rounded-full mb-3">
             Founding Educator Access
           </span>
-          <p className="text-ink/60 text-sm max-w-md mx-auto leading-relaxed">
+          <p className="text-ink/60 text-sm max-w-md mx-auto leading-relaxed mb-4">
             You&rsquo;re getting Sparkurio before anyone else. Help us build the resource library real classrooms actually want — your fingerprints will be on it.
           </p>
+          <label className="flex items-start gap-2.5 max-w-md mx-auto text-left bg-white rounded-xl p-4 border border-black/5 shadow-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={foundingEducatorConsent}
+              onChange={(e) => setFoundingEducatorConsent(e.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-papaya flex-shrink-0"
+            />
+            <span className="text-xs text-ink/60 leading-relaxed">
+              <strong className="text-ink">Get Sparkurio Plus free for 1 year</strong> as a Founding Educator — I understand I need to publish at least 5 resources every month to keep it. If I don&rsquo;t, my account moves to the Free plan.
+            </span>
+          </label>
         </div>
 
         {/* Intent-driven benefits callout */}
@@ -269,7 +287,17 @@ function SignupPageContent() {
           </div>
         )}
 
-        {/* Plan selector */}
+        {/* Plan selector — hidden for Founding Educators, who already get
+            Plus free; showing a paid-plan picker next to that would be
+            confusing (and risk sending them to Stripe checkout for a plan
+            they're not paying for). */}
+        {foundingEducatorConsent ? (
+          <div className="mb-6 text-center bg-lime/15 rounded-2xl p-4 max-w-md mx-auto">
+            <p className="text-sm text-ink/70">
+              You&rsquo;re all set with <strong>Sparkurio Plus, free</strong> for your first year — no card required.
+            </p>
+          </div>
+        ) : (
         <div className="mb-6">
           <div className="flex items-center justify-center gap-3 mb-4">
             <p className="text-center text-xs text-ink/40 uppercase tracking-widest">Choose your plan</p>
@@ -343,6 +371,7 @@ function SignupPageContent() {
             ))}
           </div>
         </div>
+        )}
 
         {/* Signup form */}
         <form onSubmit={handleSignup} className="max-w-md mx-auto bg-white rounded-2xl p-8 shadow-xl">
@@ -435,7 +464,9 @@ function SignupPageContent() {
         </form>
 
         <p className="text-center text-xs text-ink/30 mt-4">
-          All accounts start with the selected plan. Upgrade or downgrade anytime from settings.
+          {foundingEducatorConsent
+            ? "You can upgrade, downgrade, or leave the Founding Educator program anytime from settings."
+            : "All accounts start with the selected plan. Upgrade or downgrade anytime from settings."}
         </p>
       </div>
 

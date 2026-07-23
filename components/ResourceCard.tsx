@@ -34,6 +34,7 @@ export interface ResourceCardData {
   iconColor?: string;
   creatorName: string;
   creatorSchool: string;
+  creatorIsFoundingEducator?: boolean;
   duration: string;
   priceCents?: number | null;
   downloads: string;
@@ -123,7 +124,12 @@ export default function ResourceCard({ resource, onReport }: { resource: Resourc
             {r.creatorName.split(" ").map((n) => n[0]).slice(0, 2).join("")}
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-medium text-ink truncate">{r.creatorName}</p>
+            <p className="text-xs font-medium text-ink truncate flex items-center gap-1">
+              <span className="truncate">{r.creatorName}</span>
+              {r.creatorIsFoundingEducator && (
+                <img src="/icon.png" alt="" title="Founding Educator" className="w-3.5 h-3.5 flex-shrink-0" />
+              )}
+            </p>
             <p className="text-[10px] text-ink/40 truncate">{r.creatorSchool}</p>
           </div>
         </div>

@@ -1,0 +1,47 @@
+<!--
+  Supabase Auth "Magic Link" email template.
+  Paste this into: Supabase Dashboard → Authentication → Email Templates → Magic Link
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#F6F6F6;font-family:Georgia,serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F6F6F6;padding:40px 0;">
+    <tr><td align="center">
+      <table width="480" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);">
+
+        <tr>
+          <td style="background:#ffffff;padding:28px 40px 20px;text-align:center;border-bottom:2px solid #F6F6F6;">
+            <img src="https://sparkurio.com/logo.png" alt="Sparkurio" height="36" style="height:36px;width:auto;display:block;margin:0 auto;border:0;" />
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:32px 40px 40px;">
+            <h1 style="margin:0 0 8px;font-size:22px;font-weight:400;color:#1a1a1a;">Sign in to Sparkurio</h1>
+            <p style="margin:0 0 24px;color:#666;font-size:14px;line-height:1.6;">
+              Click below to sign in — no password needed.
+            </p>
+
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td align="center">
+                  <a href="{{ .ConfirmationURL }}"
+                     style="display:inline-block;padding:14px 36px;background:#4C4DFF;color:#fff;text-decoration:none;border-radius:99px;font-size:15px;font-family:Georgia,serif;">
+                    Sign in
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:24px 0 0;font-size:12px;color:#aaa;text-align:center;line-height:1.5;">
+              This link expires shortly and can only be used once. If you didn&rsquo;t request it, you can ignore this email.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

@@ -16,6 +16,7 @@ interface CommentAuthor {
   id: string;
   name: string | null;
   avatar_url: string | null;
+  is_founding_educator?: boolean;
 }
 
 interface Comment {
@@ -107,7 +108,12 @@ function CommentRow({
       <Avatar name={comment.author.name} avatarUrl={comment.author.avatar_url} size={7} />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 flex-wrap">
-          <span className="text-xs font-semibold text-ink">{comment.author.name ?? 'Anonymous'}</span>
+          <span className="text-xs font-semibold text-ink flex items-center gap-1">
+            <span>{comment.author.name ?? 'Anonymous'}</span>
+            {comment.author.is_founding_educator && (
+              <img src="/icon.png" alt="" title="Founding Educator" className="w-3 h-3" />
+            )}
+          </span>
           <span className="text-[10px] text-ink/40">{relativeTime(comment.created_at)}</span>
           {comment.updated_at !== comment.created_at && (
             <span className="text-[10px] text-ink/30 italic">edited</span>

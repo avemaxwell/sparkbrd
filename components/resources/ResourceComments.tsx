@@ -8,6 +8,7 @@ interface CommentAuthor {
   id: string;
   name: string | null;
   avatar_url: string | null;
+  is_founding_educator?: boolean;
 }
 
 interface Comment {
@@ -109,7 +110,12 @@ export default function ResourceComments({ resourceId }: { resourceId: string })
               <Avatar name={c.author.name} avatarUrl={c.author.avatar_url} />
               <div className="flex-1 bg-white rounded-2xl p-3.5 border border-black/5">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-medium text-ink">{c.author.name ?? "A Sparkurio educator"}</span>
+                  <span className="text-sm font-medium text-ink flex items-center gap-1">
+                    <span>{c.author.name ?? "A Sparkurio educator"}</span>
+                    {c.author.is_founding_educator && (
+                      <img src="/icon.png" alt="" title="Founding Educator" className="w-3.5 h-3.5" />
+                    )}
+                  </span>
                   <span className="text-xs text-ink/30">{relativeTime(c.created_at)}</span>
                 </div>
                 <p className="text-sm text-ink/70 whitespace-pre-line">{c.body}</p>

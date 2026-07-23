@@ -10,7 +10,7 @@ export async function GET(_req: Request, { params }: Params) {
     const supabase = await createClient();
 
     const [profileRes, boardsRes, resourcesRes] = await Promise.all([
-      supabase.from('profiles').select('id, name, avatar_url, bio, created_at, is_verified_educator, verified_institution_name, display_school_publicly').eq('id', id).single(),
+      supabase.from('profiles').select('id, name, avatar_url, bio, created_at, is_verified_educator, verified_institution_name, display_school_publicly, is_founding_educator').eq('id', id).single(),
       supabase
         .from('boards')
         .select('id, name, description, background_color, vibe')

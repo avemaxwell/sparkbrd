@@ -20,6 +20,7 @@ interface Profile {
   display_school_publicly: boolean;
   is_creator: boolean;
   stripe_connect_payouts_enabled: boolean;
+  is_founding_educator: boolean;
 }
 
 // Cache outside component - persists across renders but resets on hot reload

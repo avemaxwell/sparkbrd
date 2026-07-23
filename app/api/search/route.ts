@@ -177,7 +177,7 @@ export async function GET(request: Request) {
 
     // ── Resource search ──────────────────────────────────────────────────────
     // Same ilike-on-title/subject pattern already used for boards above.
-    type ResourceResult = { id: string; title: string; subject: string; grade_band: string; resource_type: string; photos: string[]; duration: string | null; standards: string[]; price_cents: number | null; owner: { name: string | null; avatar_url: string | null; is_verified_educator: boolean; is_official: boolean } | null; save_count: number };
+    type ResourceResult = { id: string; title: string; subject: string; grade_band: string; resource_type: string; photos: string[]; duration: string | null; standards: string[]; price_cents: number | null; owner: { name: string | null; avatar_url: string | null; is_verified_educator: boolean; is_official: boolean; is_founding_educator: boolean } | null; save_count: number };
     let resources: ResourceResult[] = [];
 
     const resourceOrParts = rawTerms.flatMap(term => {
@@ -199,7 +199,7 @@ export async function GET(request: Request) {
         const ownerIds = [...new Set(rawResources.map(r => r.owner_id).filter(Boolean))];
 
         const [{ data: owners }, { data: saveRows }] = await Promise.all([
-          supabase.from('profiles').select('id, name, avatar_url, is_verified_educator, is_official').in('id', ownerIds),
+          supabase.from('profiles').select('id, name, avatar_url, is_verified_educator, is_official, is_founding_educator').in('id', ownerIds),
           supabase.from('tacks').select('resource_id').in('resource_id', resourceIds),
         ]);
 
