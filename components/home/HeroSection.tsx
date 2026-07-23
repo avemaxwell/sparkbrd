@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@/hooks/useUser";
 import { Blob, IconBlob, SparkBurst, PatternCorner, WaveDivider } from "./decor";
 import { IconPalette, IconLaptop, IconVase, IconAtom, IconGlobe, IconPencil } from "@/components/icons";
+import FoundingEducatorModal from "./FoundingEducatorModal";
+
+const FOUNDING_MODAL_KEY = "founding_educator_modal_seen";
 
 const POPULAR_SEARCHES = [
   "Middle School Art",
@@ -34,8 +37,20 @@ export default function HeroSection() {
   const { profile } = useUser();
   const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState("");
+  const [showFoundingModal, setShowFoundingModal] = useState(false);
 
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (profile || sessionStorage.getItem(FOUNDING_MODAL_KEY)) return;
+    const timer = setTimeout(() => setShowFoundingModal(true), 1200);
+    return () => clearTimeout(timer);
+  }, [profile]);
+
+  const dismissFoundingModal = () => {
+    sessionStorage.setItem(FOUNDING_MODAL_KEY, "1");
+    setShowFoundingModal(false);
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +59,8 @@ export default function HeroSection() {
   };
 
   return (
+    <>
+    {showFoundingModal && <FoundingEducatorModal onClose={dismissFoundingModal} />}
     <section className="relative overflow-hidden bg-lime">
       {/* Decorative background shapes */}
       <Blob className="absolute bottom-10 -left-16 w-64 h-64 bg-lavender/40 pointer-events-none" />
@@ -54,6 +71,11 @@ export default function HeroSection() {
       <div className="relative max-w-7xl mx-auto px-6 pt-32 pb-16 md:pt-40 md:pb-20 grid lg:grid-cols-2 lg:gap-12 items-center">
         {/* Text column — normal document flow, never overlapped */}
         <div className={`relative z-10 text-center lg:text-left transition-all duration-700 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
+          {!profile && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-widest uppercase text-lime bg-ink px-3 py-1.5 rounded-full mb-5">
+              Founding Educator Access
+            </span>
+          )}
           <h1 className="font-serif font-bold text-4xl sm:text-5xl md:text-6xl leading-[1.1] text-ink">
             Confidence for tomorrow&rsquo;s classroom,{" "}
             <span className="text-papaya">built by today&rsquo;s educators.</span>
@@ -158,5 +180,6 @@ export default function HeroSection() {
         }
       `}</style>
     </section>
+    </>
   );
 }

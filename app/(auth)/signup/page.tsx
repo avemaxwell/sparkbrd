@@ -239,6 +239,16 @@ function SignupPageContent() {
           </p>
         </div>
 
+        {/* Founding Educator callout */}
+        <div className="mb-8 text-center">
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-widest uppercase text-lime bg-ink px-3 py-1.5 rounded-full mb-3">
+            Founding Educator Access
+          </span>
+          <p className="text-ink/60 text-sm max-w-md mx-auto leading-relaxed">
+            You&rsquo;re getting Sparkurio before anyone else. Help us build the resource library real classrooms actually want — your fingerprints will be on it.
+          </p>
+        </div>
+
         {/* Intent-driven benefits callout */}
         {intent && (
           <div className="mb-8 bg-white rounded-2xl p-6 border border-black/5 shadow-sm">
