@@ -56,6 +56,10 @@ export default function AboutPage() {
             Join Sparkurio
           </Link>
         </div>
+
+        <p className="text-center text-sm text-ink/40 mt-8">
+          Have a question? <Link href="/faq" className="text-papaya underline">Check our FAQ</Link>.
+        </p>
       </div>
       <BottomNav />
     </main>

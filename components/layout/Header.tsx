@@ -198,6 +198,13 @@ export default function Header() {
                     </div>
                     <div className="px-4 pb-3 flex gap-3">
                       <Link
+                        href="/faq"
+                        onClick={() => setDropdownOpen(false)}
+                        className="text-[11px] text-ink/30 hover:text-ink/50 transition-colors"
+                      >
+                        FAQ
+                      </Link>
+                      <Link
                         href="/terms"
                         onClick={() => setDropdownOpen(false)}
                         className="text-[11px] text-ink/30 hover:text-ink/50 transition-colors"
