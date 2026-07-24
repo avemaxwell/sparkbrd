@@ -6,7 +6,7 @@ import Link from "next/link";
 import Header from "@/components/layout/Header";
 import BottomNav from "@/components/layout/BottomNav";
 import { getSubject, slugify } from "@/lib/subjects";
-import { IconDownload, IconFlag, IconWrench, IconBook, IconShieldCheck, IconCamera, IconTestTube, IconClock, IconLock } from "@/components/icons";
+import { IconDownload, IconFlag, IconWrench, IconBook, IconShieldCheck, IconCamera, IconTestTube, IconClock, IconLock, IconChevronDown } from "@/components/icons";
 import RetackButton from "@/components/tacks/RetackButton";
 import ResourceComments from "@/components/resources/ResourceComments";
 import { DEFAULT_SECTION_ORDER, SECTION_LABELS } from "@/components/resources/SectionOrderPicker";
@@ -31,10 +31,15 @@ interface ResourceRecord {
   status: string;
   created_at: string;
   is_starter: boolean;
+  classroom_proven: boolean;
+  upvotes: number;
+  downvotes: number;
+  netScore: number;
+  myVote: 1 | -1 | null;
   price_cents: number | null;
   purchased: boolean;
   owner_id: string | null;
-  owner: { name: string | null; avatar_url: string | null; is_official?: boolean } | null;
+  owner: { name: string | null; avatar_url: string | null; is_official?: boolean; is_founding_educator?: boolean } | null;
 }
 
 const SECTION_ICONS: Record<string, typeof IconFlag> = {
@@ -104,6 +109,30 @@ function ResourcePageContent() {
     } catch {
       setBuyError("Something went wrong. Please try again.");
       setBuying(false);
+    }
+  };
+
+  const castVote = async (vote: 1 | -1) => {
+    if (!profile) { window.location.href = `/login?redirect=/resources/${id}`; return; }
+    try {
+      const res = await fetch(`/api/resources/${id}/vote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vote }),
+      });
+      const data = await res.json();
+      if (!res.ok) return;
+      setResource((prev) => prev ? {
+        ...prev,
+        upvotes: data.upvotes,
+        downvotes: data.downvotes,
+        netScore: data.netScore,
+        myVote: data.myVote,
+        status: data.status,
+        classroom_proven: data.classroom_proven,
+      } : prev);
+    } catch {
+      // Non-fatal — leave the vote UI as-is, user can retry.
     }
   };
 
@@ -416,11 +445,32 @@ function ResourcePageContent() {
                     ${(resource.price_cents / 100).toFixed(2)}
                   </span>
                 )}
-                {resource.is_starter && (
+                {!resource.classroom_proven && (
                   <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide px-3 py-1 rounded-full bg-ink/70 text-white print:!bg-transparent print:!text-ink print:border print:border-ink/20">
                     <IconTestTube className="w-3 h-3" />
                     Sparkurio Labs — untested
                   </span>
+                )}
+                {!resource.classroom_proven && (
+                  <div className="flex items-center gap-1 bg-black/10 rounded-full print:hidden">
+                    <button
+                      type="button"
+                      aria-label="Upvote"
+                      onClick={() => castVote(1)}
+                      className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${resource.myVote === 1 ? "bg-lime text-ink" : `${textOn} hover:bg-black/10`}`}
+                    >
+                      <IconChevronDown className="w-3.5 h-3.5 rotate-180" />
+                    </button>
+                    <span className={`text-xs font-semibold min-w-[1.5em] text-center ${textOn}`}>{resource.netScore}</span>
+                    <button
+                      type="button"
+                      aria-label="Downvote"
+                      onClick={() => castVote(-1)}
+                      className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${resource.myVote === -1 ? "bg-lime text-ink" : `${textOn} hover:bg-black/10`}`}
+                    >
+                      <IconChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 )}
                 {!resource.is_starter && resource.owner?.is_official && (
                   <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide px-3 py-1 rounded-full bg-ink/70 text-white print:!bg-transparent print:!text-ink print:border print:border-ink/20">
@@ -466,7 +516,12 @@ function ResourcePageContent() {
                         {resource.owner.name?.[0]?.toUpperCase() ?? "?"}
                       </div>
                     )}
-                    <span className={`text-sm opacity-80 print:!text-ink/60 print:!opacity-100 ${textOn}`}>{resource.owner.name ?? "A Sparkurio educator"}</span>
+                    <span className={`text-sm opacity-80 print:!text-ink/60 print:!opacity-100 flex items-center gap-1.5 ${textOn}`}>
+                      <span>{resource.owner.name ?? "A Sparkurio educator"}</span>
+                      {resource.owner.is_founding_educator && (
+                        <img src="/icon.png" alt="" title="Founding Educator" className="w-4 h-4 flex-shrink-0 print:hidden" />
+                      )}
+                    </span>
                   </div>
                 )}
                 <div className="flex items-center gap-2 print:hidden">

@@ -18,6 +18,7 @@ export interface RealResource {
   owner?: { name: string | null; avatar_url: string | null; is_verified_educator?: boolean; is_official?: boolean; is_founding_educator?: boolean } | null;
   save_count?: number;
   is_starter?: boolean;
+  classroom_proven?: boolean;
   price_cents?: number | null;
 }
 
@@ -37,12 +38,14 @@ export function resourceToCardData(r: RealResource): ResourceCardData {
     image: r.photos?.[0],
     icon: r.photos?.[0] ? undefined : subjectDef.icon,
     iconColor: subjectDef.color,
-    // Starter Library content has no real owner and never earns badges —
-    // those signal real classroom validation, which this hasn't had yet.
-    // Official Sparkurio-produced content (real, finished worksheets) gets
-    // its own attribution rather than falling back to a generic name.
+    // is_starter is an attribution fact ("Sparkurio wrote this with AI") —
+    // separate from classroom_proven, a trust/gating fact ("this has been
+    // proven in a classroom"). A real teacher's unproven Labs submission
+    // gets the honest "not yet classroom-tested" note without losing their
+    // real name to the Starter Library override. Official Sparkurio content
+    // gets its own attribution rather than falling back to a generic name.
     creatorName: r.is_starter ? "Sparkurio Starter Library" : (r.owner?.name ?? "A Sparkurio educator"),
-    creatorSchool: r.is_starter ? "Not yet classroom-tested" : "",
+    creatorSchool: !r.classroom_proven ? "Not yet classroom-tested" : "",
     creatorIsFoundingEducator: !r.is_starter && !!r.owner?.is_founding_educator,
     grade: r.grade_band,
     type: r.resource_type,
@@ -51,7 +54,7 @@ export function resourceToCardData(r: RealResource): ResourceCardData {
     standards: r.standards ?? [],
     downloads: formatCount(r.save_count ?? 0),
     likes: "0",
-    badges: r.owner?.is_official ? ["official"] : r.is_starter ? ["starter"] : r.owner?.is_verified_educator ? ["verified"] : [],
+    badges: r.owner?.is_official ? ["official"] : !r.classroom_proven ? ["starter"] : r.owner?.is_verified_educator ? ["verified"] : ["proven"],
     href: `/resources/${r.id}`,
   };
 }

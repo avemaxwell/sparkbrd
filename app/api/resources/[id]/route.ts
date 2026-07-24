@@ -51,7 +51,18 @@ export async function GET(_req: Request, { params }: Params) {
       }
     }
 
-    return NextResponse.json({ resource: { ...resource, owner, purchased } });
+    const { data: { user: viewer } } = await supabase.auth.getUser();
+    const { data: votes } = await supabase
+      .from('resource_votes')
+      .select('vote, user_id')
+      .eq('resource_id', id);
+    const upvotes = (votes ?? []).filter((v) => v.vote === 1).length;
+    const downvotes = (votes ?? []).filter((v) => v.vote === -1).length;
+    const myVote = viewer ? (votes ?? []).find((v) => v.user_id === viewer.id)?.vote ?? null : null;
+
+    return NextResponse.json({
+      resource: { ...resource, owner, purchased, upvotes, downvotes, netScore: upvotes - downvotes, myVote },
+    });
   } catch (err) {
     console.error('GET /api/resources/[id] error:', err);
     return NextResponse.json({ error: 'Failed to fetch resource' }, { status: 500 });

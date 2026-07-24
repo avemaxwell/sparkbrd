@@ -15,15 +15,18 @@ export async function GET(request: Request) {
     const standard = searchParams.get('standard');
     const q = searchParams.get('q')?.trim();
     const limit = Math.min(parseInt(searchParams.get('limit') || '60'), 100);
-    // Default surfaces (explore/search/subjects) never show starter content —
-    // ?starter=true is the one exception, used only by the Labs page.
+    // Default surfaces (explore/search/subjects) only ever show resources
+    // that have earned Classroom Proven status — ?starter=true is the one
+    // exception (used only by the Labs page), showing unproven content
+    // instead. Not the same thing as is_starter (which just means
+    // "Sparkurio wrote this with AI") — see add_resource_voting.sql.
     const starterOnly = searchParams.get('starter') === 'true';
 
     let query = supabase
       .from('resources')
-      .select('id, owner_id, title, subject, grade_band, resource_type, standards, photos, duration, is_starter, price_cents, created_at')
+      .select('id, owner_id, title, subject, grade_band, resource_type, standards, photos, duration, is_starter, classroom_proven, price_cents, created_at')
       .eq('status', 'published')
-      .eq('is_starter', starterOnly)
+      .eq('classroom_proven', !starterOnly)
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -56,11 +59,29 @@ export async function GET(request: Request) {
       if (row.resource_id) saveCounts[row.resource_id] = (saveCounts[row.resource_id] ?? 0) + 1;
     }
 
+    // Vote data only matters in Labs (unproven content) — skip the extra
+    // query on every normal Discover/subject-page fetch.
+    let scoresByResource: Record<string, number> = {};
+    let myVotesByResource: Record<string, 1 | -1> = {};
+    if (starterOnly) {
+      const { data: voteRows } = await supabase
+        .from('resource_votes')
+        .select('resource_id, vote, user_id')
+        .in('resource_id', resourceIds);
+      const { data: { user: viewer } } = await supabase.auth.getUser();
+      for (const row of voteRows ?? []) {
+        scoresByResource[row.resource_id] = (scoresByResource[row.resource_id] ?? 0) + row.vote;
+        if (viewer && row.user_id === viewer.id) myVotesByResource[row.resource_id] = row.vote;
+      }
+    }
+
     return NextResponse.json({
       resources: list.map((r) => ({
         ...r,
         owner: ownerMap[r.owner_id] ?? null,
         save_count: saveCounts[r.id] ?? 0,
+        vote_score: scoresByResource[r.id] ?? 0,
+        my_vote: myVotesByResource[r.id] ?? null,
       })),
     });
   } catch (err) {
@@ -87,20 +108,26 @@ export async function POST(request: Request) {
     if (!grade_band) return NextResponse.json({ error: 'Grade level is required' }, { status: 400 });
     if (!resource_type) return NextResponse.json({ error: 'Resource type is required' }, { status: 400 });
 
+    const { data: ownerProfile } = await supabase
+      .from('profiles')
+      .select('is_creator, stripe_connect_payouts_enabled, is_official')
+      .eq('id', user.id)
+      .single();
+
     // Never trust a client-sent price — only honor it if this seller has
     // actually completed Stripe Connect onboarding, otherwise silently drop
     // it to free rather than publishing an unsellable "paid" resource.
     let resolvedPriceCents: number | null = null;
-    if (price_cents && price_cents > 0) {
-      const { data: sellerProfile } = await supabase
-        .from('profiles')
-        .select('is_creator, stripe_connect_payouts_enabled')
-        .eq('id', user.id)
-        .single();
-      if (sellerProfile?.is_creator && sellerProfile.stripe_connect_payouts_enabled) {
-        resolvedPriceCents = Math.round(price_cents);
-      }
+    if (price_cents && price_cents > 0 && ownerProfile?.is_creator && ownerProfile.stripe_connect_payouts_enabled) {
+      resolvedPriceCents = Math.round(price_cents);
     }
+
+    // Official Sparkurio content is already vetted, so it skips the Labs
+    // gate — everyone else's new resources start unproven regardless of
+    // plan (Founding Educators included) and earn their way to Discover via
+    // community upvotes. See app/api/resources/[id]/vote/route.ts.
+    const isPublishing = status === 'published';
+    const classroomProven = isPublishing && !!ownerProfile?.is_official;
 
     const { data: resource, error } = await supabase
       .from('resources')
@@ -118,8 +145,9 @@ export async function POST(request: Request) {
         photos: photos ?? [],
         attachments: attachments ?? [],
         section_order: section_order ?? null,
-        status: status === 'published' ? 'published' : 'draft',
+        status: isPublishing ? 'published' : 'draft',
         price_cents: resolvedPriceCents,
+        classroom_proven: classroomProven,
       })
       .select()
       .single();

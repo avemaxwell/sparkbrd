@@ -5,6 +5,7 @@ import { IconBlob } from "@/components/home/decor";
 import {
   IconMedal, IconUsers, IconPersonCheck, IconRefresh, IconTestTube, IconShieldCheck,
   IconClock, IconDownload, IconHeart, IconBookmark, IconMoreHorizontal, IconFlag,
+  IconChevronDown,
 } from "@/components/icons";
 import RetackButton from "@/components/tacks/RetackButton";
 
@@ -47,7 +48,13 @@ export interface ResourceCardData {
   href: string;
 }
 
-export default function ResourceCard({ resource, onReport }: { resource: ResourceCardData; onReport?: () => void }) {
+export interface VotingProps {
+  score: number;
+  myVote: 1 | -1 | null;
+  onVote: (vote: 1 | -1) => void;
+}
+
+export default function ResourceCard({ resource, onReport, voting }: { resource: ResourceCardData; onReport?: () => void; voting?: VotingProps }) {
   const r = resource;
   const primaryBadge = r.badges[0];
 
@@ -136,14 +143,38 @@ export default function ResourceCard({ resource, onReport }: { resource: Resourc
 
         <div className="flex items-center justify-between border-t border-ink/5 pt-3 text-ink/40">
           <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-1 text-[11px]">
-              <IconDownload className="w-3.5 h-3.5" />
-              {r.downloads}
-            </span>
-            <span className="inline-flex items-center gap-1 text-[11px]">
-              <IconHeart className="w-3.5 h-3.5" />
-              {r.likes}
-            </span>
+            {voting ? (
+              <div className="flex items-center gap-1 relative z-10">
+                <button
+                  type="button"
+                  aria-label="Upvote"
+                  onClick={(e) => { e.preventDefault(); voting.onVote(1); }}
+                  className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${voting.myVote === 1 ? "bg-papaya/15 text-papaya" : "hover:bg-ink/5"}`}
+                >
+                  <IconChevronDown className="w-3.5 h-3.5 rotate-180" />
+                </button>
+                <span className="text-[11px] font-semibold text-ink/70 min-w-[1.5em] text-center">{voting.score}</span>
+                <button
+                  type="button"
+                  aria-label="Downvote"
+                  onClick={(e) => { e.preventDefault(); voting.onVote(-1); }}
+                  className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${voting.myVote === -1 ? "bg-papaya/15 text-papaya" : "hover:bg-ink/5"}`}
+                >
+                  <IconChevronDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <>
+                <span className="inline-flex items-center gap-1 text-[11px]">
+                  <IconDownload className="w-3.5 h-3.5" />
+                  {r.downloads}
+                </span>
+                <span className="inline-flex items-center gap-1 text-[11px]">
+                  <IconHeart className="w-3.5 h-3.5" />
+                  {r.likes}
+                </span>
+              </>
+            )}
           </div>
           <button aria-label="More options" onClick={(e) => e.preventDefault()} className="hover:text-ink transition-colors">
             <IconMoreHorizontal className="w-4 h-4" />

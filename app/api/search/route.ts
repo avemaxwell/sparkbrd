@@ -190,7 +190,7 @@ export async function GET(request: Request) {
         .from('resources')
         .select('id, owner_id, title, subject, grade_band, resource_type, photos, duration, standards, price_cents')
         .eq('status', 'published')
-        .eq('is_starter', false) // Starter Library content only surfaces on /labs
+        .eq('classroom_proven', true) // Unproven/Labs content only surfaces on /labs, not in search
         .or(resourceOrParts)
         .limit(limit);
 
