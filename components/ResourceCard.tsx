@@ -68,7 +68,7 @@ export default function ResourceCard({ resource, onReport }: { resource: Resourc
         {primaryBadge && (
           <span
             title={BADGE_META[primaryBadge].label}
-            className={`absolute top-3 left-3 max-w-[58%] inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full pointer-events-none truncate ${BADGE_META[primaryBadge].className}`}
+            className={`absolute top-3 left-3 max-w-[58%] min-w-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full pointer-events-none truncate ${BADGE_META[primaryBadge].className}`}
           >
             {BADGE_META[primaryBadge].label}
           </span>
@@ -80,9 +80,9 @@ export default function ResourceCard({ resource, onReport }: { resource: Resourc
             </span>
           )}
           {r.duration && (
-            <span title={r.duration} className="inline-flex items-center gap-1 text-[10px] font-medium text-ink bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full pointer-events-none max-w-full">
+            <span title={r.duration} className="inline-flex items-center gap-1 text-[10px] font-medium text-ink bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full pointer-events-none max-w-full min-w-0">
               <IconClock className="w-3 h-3 flex-shrink-0" />
-              <span className="truncate">{r.duration}</span>
+              <span className="truncate min-w-0">{r.duration}</span>
             </span>
           )}
         </div>
