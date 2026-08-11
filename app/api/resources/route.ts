@@ -96,12 +96,12 @@ export async function POST(request: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const body = await request.json();
+    const requestBody = await request.json();
     const {
       title, subject, grade_band, resource_type, state,
-      standards, materials, learning_targets, directions,
+      standards, materials, learning_targets, directions, body: lessonBody,
       photos, attachments, section_order, status, price_cents,
-    } = body;
+    } = requestBody;
 
     if (!title?.trim()) return NextResponse.json({ error: 'Title is required' }, { status: 400 });
     if (!subject) return NextResponse.json({ error: 'Subject is required' }, { status: 400 });
@@ -142,6 +142,7 @@ export async function POST(request: Request) {
         materials: materials ?? [],
         learning_targets: learning_targets ?? [],
         directions: directions ?? [],
+        body: lessonBody || null,
         photos: photos ?? [],
         attachments: attachments ?? [],
         section_order: section_order ?? null,

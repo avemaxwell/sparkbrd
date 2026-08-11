@@ -10,6 +10,7 @@ import TagListInput from "@/components/resources/TagListInput";
 import FileUploadList from "@/components/resources/FileUploadList";
 import StandardsPicker from "@/components/resources/StandardsPicker";
 import SectionOrderPicker, { DEFAULT_SECTION_ORDER } from "@/components/resources/SectionOrderPicker";
+import LessonPlanUpload, { PII_REMINDER } from "@/components/resources/LessonPlanUpload";
 
 const SUBJECT_NAMES = Object.values(SUBJECTS).map((s) => s.name);
 
@@ -25,6 +26,8 @@ interface FormState {
   materials: string[];
   learningTargets: string[];
   directions: string[];
+  body: string;
+  lessonPlanFile: UploadedFile | null;
   photos: UploadedFile[];
   attachments: UploadedFile[];
   sectionOrder: string[];
@@ -34,19 +37,25 @@ interface FormState {
 const EMPTY: FormState = {
   title: "", subject: "", gradeBand: "", resourceType: "", state: "",
   standards: [], materials: [], learningTargets: [], directions: [],
+  body: "", lessonPlanFile: null,
   photos: [], attachments: [], sectionOrder: [...DEFAULT_SECTION_ORDER],
   priceCents: null,
 };
 
-type StepId = "title" | "basics" | "standards" | "materials" | "learningTargets" | "directions" | "photos" | "attachments" | "sections" | "review";
+type StepId = "mode" | "title" | "basics" | "standards" | "materials" | "learningTargets" | "directions" | "uploadDoc" | "photos" | "attachments" | "sections" | "review";
+type Mode = "build" | "upload";
 
 // Worksheets/templates/assessments are usually "here's the file" resources, not
 // step-by-step lesson plans — attachments are the main content, so they (and
 // photos) come right after the basics instead of after four lesson-only steps.
 const ATTACHMENT_FIRST_TYPES = ["Worksheet", "Template", "Assessment"];
 
-const LESSON_SHAPED_ORDER: StepId[] = ["title", "basics", "standards", "materials", "learningTargets", "directions", "photos", "attachments", "sections", "review"];
-const ATTACHMENT_FIRST_ORDER: StepId[] = ["title", "basics", "attachments", "photos", "standards", "materials", "learningTargets", "directions", "sections", "review"];
+const LESSON_SHAPED_ORDER: StepId[] = ["mode", "title", "basics", "standards", "materials", "learningTargets", "directions", "photos", "attachments", "sections", "review"];
+const ATTACHMENT_FIRST_ORDER: StepId[] = ["mode", "title", "basics", "attachments", "photos", "standards", "materials", "learningTargets", "directions", "sections", "review"];
+// Uploading an existing document replaces materials/learning targets/
+// directions entirely — the document's own wording is the content, not
+// something to re-chop into those arrays.
+const UPLOAD_ORDER: StepId[] = ["mode", "title", "basics", "standards", "uploadDoc", "photos", "attachments", "sections", "review"];
 
 function ChipSelect({ options, value, onChange }: { options: readonly string[]; value: string; onChange: (v: string) => void }) {
   return (
@@ -71,6 +80,7 @@ export default function NewResourcePage() {
   const { profile, loading } = useUser();
   const router = useRouter();
   const [step, setStep] = useState(0);
+  const [mode, setMode] = useState<Mode | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,12 +105,17 @@ export default function NewResourcePage() {
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((f) => ({ ...f, [key]: value }));
 
-  const steps = ATTACHMENT_FIRST_TYPES.includes(form.resourceType) ? ATTACHMENT_FIRST_ORDER : LESSON_SHAPED_ORDER;
+  const steps =
+    mode === "upload" ? UPLOAD_ORDER
+    : ATTACHMENT_FIRST_TYPES.includes(form.resourceType) ? ATTACHMENT_FIRST_ORDER
+    : LESSON_SHAPED_ORDER;
   const currentStepId = steps[step];
 
   const canAdvance = () => {
+    if (currentStepId === "mode") return !!mode;
     if (currentStepId === "title") return form.title.trim().length > 0;
     if (currentStepId === "basics") return !!form.subject && !!form.gradeBand && !!form.resourceType;
+    if (currentStepId === "uploadDoc") return !!form.lessonPlanFile && form.body.trim().length > 0;
     return true;
   };
 
@@ -121,8 +136,9 @@ export default function NewResourcePage() {
           materials: form.materials,
           learning_targets: form.learningTargets,
           directions: form.directions,
+          body: form.body || null,
           photos: form.photos.map((p) => p.url),
-          attachments: form.attachments,
+          attachments: form.lessonPlanFile ? [form.lessonPlanFile, ...form.attachments] : form.attachments,
           section_order: form.sectionOrder,
           price_cents: form.priceCents,
           status,
@@ -150,6 +166,31 @@ export default function NewResourcePage() {
         </div>
 
         <div className="bg-white rounded-3xl shadow-xl p-8 md:p-10">
+          {currentStepId === "mode" && (
+            <div>
+              <h1 className="font-serif font-bold text-3xl text-ink mb-2">How do you want to create this?</h1>
+              <p className="text-ink/50 mb-6">Either way, it&rsquo;ll look the same to everyone else on Sparkurio.</p>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => setMode("build")}
+                  className={`text-left p-6 rounded-2xl border-2 transition-colors ${mode === "build" ? "border-papaya bg-papaya/5" : "border-ink/10 hover:border-ink/20"}`}
+                >
+                  <p className="font-serif font-semibold text-lg text-ink mb-1.5">Build from scratch</p>
+                  <p className="text-sm text-ink/50 leading-relaxed">Fill in materials, learning targets, and step-by-step directions as you go — good for a brand-new lesson.</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("upload")}
+                  className={`text-left p-6 rounded-2xl border-2 transition-colors ${mode === "upload" ? "border-papaya bg-papaya/5" : "border-ink/10 hover:border-ink/20"}`}
+                >
+                  <p className="font-serif font-semibold text-lg text-ink mb-1.5">Upload an existing lesson plan</p>
+                  <p className="text-sm text-ink/50 leading-relaxed">Already have it written in Word or as a PDF? Upload it and we&rsquo;ll pull in the text — no retyping.</p>
+                </button>
+              </div>
+            </div>
+          )}
+
           {currentStepId === "title" && (
             <div>
               <h1 className="font-serif font-bold text-3xl text-ink mb-2">What are you teaching?</h1>
@@ -261,10 +302,31 @@ export default function NewResourcePage() {
             </div>
           )}
 
+          {currentStepId === "uploadDoc" && (
+            <div>
+              <h2 className="font-serif font-bold text-2xl text-ink mb-2">Upload your lesson plan</h2>
+              <p className="text-ink/50 mb-6">Word (.docx) or PDF. We&rsquo;ll pull the text out so you can review it before publishing.</p>
+              <LessonPlanUpload
+                fileMeta={form.lessonPlanFile}
+                onFileChange={(f) => set("lessonPlanFile", f)}
+                onThumbnail={(thumb) => { if (form.photos.length === 0) set("photos", [thumb]); }}
+                body={form.body}
+                onBodyChange={(v) => set("body", v)}
+              />
+            </div>
+          )}
+
           {currentStepId === "photos" && (
             <div>
               <h2 className="font-serif font-bold text-2xl text-ink mb-2">Photos</h2>
               <p className="text-ink/50 mb-6">Show what this looks like in the classroom. (Optional)</p>
+              <div className="flex items-start gap-3 bg-mustard/10 border border-mustard/25 rounded-2xl p-4 mb-6">
+                <svg className="w-5 h-5 text-mustard flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                  <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <p className="text-sm text-ink/70 leading-relaxed">{PII_REMINDER}</p>
+              </div>
               <FileUploadList bucket="resource-photos" files={form.photos} onChange={(v) => set("photos", v)} accept="image/*" label="Click to upload photos" />
             </div>
           )}
@@ -277,7 +339,7 @@ export default function NewResourcePage() {
                   ? "Upload your file — this is the main thing people will download."
                   : "Add any handouts, slides, or templates. (Optional)"}
               </p>
-              <FileUploadList bucket={form.priceCents ? "resource-attachments-paid" : "resource-attachments"} files={form.attachments} onChange={(v) => set("attachments", v)} accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx" label="Click to upload files" />
+              <FileUploadList bucket={form.priceCents ? "resource-attachments-paid" : "resource-attachments"} files={form.attachments} onChange={(v) => set("attachments", v)} onThumbnail={(thumb) => { if (form.photos.length === 0) set("photos", [thumb]); }} accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx" label="Click to upload files" />
               {form.priceCents ? (
                 <p className="text-xs text-ink/35 mt-3">This is a paid resource — files upload privately and only unlock for buyers after purchase.</p>
               ) : null}
@@ -332,18 +394,27 @@ export default function NewResourcePage() {
                   <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Standards</p>
                   <p className="text-ink/70 text-sm">{form.standards.length ? form.standards.join(", ") : "None added"}</p>
                 </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Materials</p>
-                  <p className="text-ink/70 text-sm">{form.materials.length ? form.materials.join(", ") : "None added"}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Learning targets</p>
-                  <p className="text-ink/70 text-sm">{form.learningTargets.length} added</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Directions</p>
-                  <p className="text-ink/70 text-sm">{form.directions.length} step{form.directions.length !== 1 ? "s" : ""}</p>
-                </div>
+                {mode === "upload" ? (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Lesson plan</p>
+                    <p className="text-ink/70 text-sm">{form.body.trim().split(/\s+/).filter(Boolean).length} words, from {form.lessonPlanFile?.name ?? "your upload"}</p>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Materials</p>
+                      <p className="text-ink/70 text-sm">{form.materials.length ? form.materials.join(", ") : "None added"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Learning targets</p>
+                      <p className="text-ink/70 text-sm">{form.learningTargets.length} added</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Directions</p>
+                      <p className="text-ink/70 text-sm">{form.directions.length} step{form.directions.length !== 1 ? "s" : ""}</p>
+                    </div>
+                  </>
+                )}
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Photos &amp; attachments</p>
                   <p className="text-ink/70 text-sm">{form.photos.length} photo{form.photos.length !== 1 ? "s" : ""}, {form.attachments.length} file{form.attachments.length !== 1 ? "s" : ""}</p>

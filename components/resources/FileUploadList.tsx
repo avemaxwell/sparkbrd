@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { generatePdfThumbnail } from "@/lib/pdf-thumbnail";
 
 interface UploadedFile {
   name: string;
@@ -12,12 +13,17 @@ export default function FileUploadList({
   bucket,
   files,
   onChange,
+  onThumbnail,
   accept,
   label,
 }: {
   bucket: "resource-photos" | "resource-attachments" | "resource-attachments-paid";
   files: UploadedFile[];
   onChange: (files: UploadedFile[]) => void;
+  // Called with a page-1 preview image after a PDF attachment uploads — lets
+  // the resource pick up a real cover photo instead of the generic
+  // placeholder used when "Save to collection" has no photo to show.
+  onThumbnail?: (file: UploadedFile) => void;
   accept: string;
   label: string;
 }) {
@@ -51,6 +57,20 @@ export default function FileUploadList({
       } else {
         const { data } = supabase.storage.from(bucket).getPublicUrl(path);
         uploaded.push({ name: file.name, url: data.publicUrl });
+      }
+
+      if (bucket !== "resource-photos" && file.name.toLowerCase().endsWith(".pdf") && onThumbnail) {
+        try {
+          const thumbBlob = await generatePdfThumbnail(file);
+          const thumbPath = `${user.id}/${Date.now()}-thumb.png`;
+          const { error: thumbError } = await supabase.storage.from("resource-photos").upload(thumbPath, thumbBlob);
+          if (!thumbError) {
+            const { data: thumbData } = supabase.storage.from("resource-photos").getPublicUrl(thumbPath);
+            onThumbnail({ name: "Cover", url: thumbData.publicUrl });
+          }
+        } catch {
+          // Non-fatal — the attachment itself uploaded fine, just skip the cover image.
+        }
       }
     }
 

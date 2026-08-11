@@ -79,7 +79,7 @@ export async function PATCH(request: Request, { params }: Params) {
     const body = await request.json();
     const allowed = [
       'title', 'subject', 'grade_band', 'resource_type', 'state',
-      'standards', 'materials', 'learning_targets', 'directions',
+      'standards', 'materials', 'learning_targets', 'directions', 'body',
       'photos', 'attachments', 'section_order', 'status',
     ];
     const update: Record<string, unknown> = {};

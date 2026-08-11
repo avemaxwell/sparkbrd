@@ -4,12 +4,13 @@ export const SECTION_LABELS: Record<string, string> = {
   learning_targets: "Learning targets",
   materials: "Materials",
   directions: "Directions",
+  body: "Lesson Plan",
   standards: "Standards",
   photos: "Photos",
   attachments: "Attachments",
 };
 
-export const DEFAULT_SECTION_ORDER = ["learning_targets", "materials", "directions", "standards", "photos", "attachments"];
+export const DEFAULT_SECTION_ORDER = ["learning_targets", "materials", "directions", "body", "standards", "photos", "attachments"];
 
 // Plug-and-play sections: toggle which of the fixed section types appear on
 // the published lesson plan, and reorder them. Arrow buttons rather than

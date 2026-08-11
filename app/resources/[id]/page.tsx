@@ -12,6 +12,7 @@ import ResourceComments from "@/components/resources/ResourceComments";
 import { DEFAULT_SECTION_ORDER, SECTION_LABELS } from "@/components/resources/SectionOrderPicker";
 import { useUser } from "@/hooks/useUser";
 import FileUploadList from "@/components/resources/FileUploadList";
+import PdfEmbed from "@/components/resources/PdfEmbed";
 
 interface ResourceRecord {
   id: string;
@@ -25,6 +26,7 @@ interface ResourceRecord {
   materials: string[];
   learning_targets: string[];
   directions: string[];
+  body: string | null;
   photos: string[];
   attachments: { name: string; url: string }[];
   section_order: string[] | null;
@@ -42,10 +44,13 @@ interface ResourceRecord {
   owner: { name: string | null; avatar_url: string | null; is_official?: boolean; is_founding_educator?: boolean } | null;
 }
 
+const isPdf = (name: string) => name.toLowerCase().endsWith(".pdf");
+
 const SECTION_ICONS: Record<string, typeof IconFlag> = {
   learning_targets: IconFlag,
   materials: IconWrench,
   directions: IconBook,
+  body: IconBook,
   standards: IconShieldCheck,
   photos: IconCamera,
   attachments: IconDownload,
@@ -148,6 +153,20 @@ function ResourcePageContent() {
     } finally {
       setSavingAttachments(false);
     }
+  };
+
+  // Gives a PDF-only resource a real cover image (instead of the generic
+  // placeholder "Save to collection" falls back to) — never overwrites a
+  // photo the teacher actually uploaded.
+  const savePhotoThumbnail = async (thumbnail: { name: string; url: string }) => {
+    if (!resource || resource.photos.length > 0) return;
+    const photos = [thumbnail.url];
+    setResource((prev) => (prev ? { ...prev, photos } : prev));
+    await fetch(`/api/resources/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photos }),
+    });
   };
 
   const downloadAttachment = async (path: string, name: string) => {
@@ -292,6 +311,16 @@ function ResourcePageContent() {
           </section>
         ) : null;
 
+      case "body":
+        return resource.body ? (
+          <section key={key}>
+            <SectionHeading sectionKey={key} />
+            <div className="bg-white rounded-2xl p-6 border border-black/5">
+              <p className="text-ink/70 leading-relaxed whitespace-pre-line">{resource.body}</p>
+            </div>
+          </section>
+        ) : null;
+
       case "standards":
         return resource.standards.length > 0 ? (
           <section key={key}>
@@ -310,7 +339,19 @@ function ResourcePageContent() {
         const isPaid = !!resource.price_cents && resource.price_cents > 0;
         const locked = isPaid && !resource.purchased && !isOwner;
 
+        // Free attachments are already public URLs; paid ones store a raw
+        // storage path and need a short-lived signed URL (same endpoint
+        // downloadAttachment/printResource already use).
+        const resolveAttachmentSrc = async (url: string) => {
+          if (!isPaid) return url;
+          const res = await fetch(`/api/resources/${id}/download?path=${encodeURIComponent(url)}`);
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error ?? "Couldn't load file");
+          return data.url as string;
+        };
+
         if (isOwner) {
+          const pdfAttachments = resource.attachments.filter((a) => isPdf(a.name));
           return (
             <section key={key}>
               <div className="flex items-center justify-between mb-4">
@@ -320,10 +361,18 @@ function ResourcePageContent() {
               <p className="text-xs text-ink/40 mb-3 -mt-2">
                 Accompanying files for this lesson — worksheets, organizers, rubrics, and the like.
               </p>
+              {pdfAttachments.length > 0 && (
+                <div className="space-y-4 mb-4">
+                  {pdfAttachments.map((a, i) => (
+                    <PdfEmbed key={i} name={a.name} resolveSrc={() => resolveAttachmentSrc(a.url)} />
+                  ))}
+                </div>
+              )}
               <FileUploadList
                 bucket={isPaid ? "resource-attachments-paid" : "resource-attachments"}
                 files={resource.attachments}
                 onChange={saveAttachments}
+                onThumbnail={savePhotoThumbnail}
                 accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx"
                 label="Click to upload files"
               />
@@ -342,6 +391,8 @@ function ResourcePageContent() {
                       <IconLock className="w-4 h-4 text-ink/30 flex-shrink-0" />
                       <span className="text-sm text-ink/50 truncate">{a.name}</span>
                     </div>
+                  ) : isPdf(a.name) ? (
+                    <PdfEmbed name={a.name} resolveSrc={() => resolveAttachmentSrc(a.url)} />
                   ) : isPaid ? (
                     <button
                       type="button"
