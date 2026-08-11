@@ -13,6 +13,7 @@ import { DEFAULT_SECTION_ORDER, SECTION_LABELS } from "@/components/resources/Se
 import { useUser } from "@/hooks/useUser";
 import FileUploadList from "@/components/resources/FileUploadList";
 import PdfEmbed from "@/components/resources/PdfEmbed";
+import StandardsPicker from "@/components/resources/StandardsPicker";
 
 interface ResourceRecord {
   id: string;
@@ -82,6 +83,8 @@ function ResourcePageContent() {
   const [downloadingPath, setDownloadingPath] = useState<string | null>(null);
   const [printing, setPrinting] = useState(false);
   const [savingAttachments, setSavingAttachments] = useState(false);
+  const [savingPhotos, setSavingPhotos] = useState(false);
+  const [savingStandards, setSavingStandards] = useState(false);
 
   const loadResource = () => {
     fetch(`/api/resources/${id}`)
@@ -167,6 +170,37 @@ function ResourcePageContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ photos }),
     });
+  };
+
+  // Photos and standards are skippable at creation time (the minimal upload
+  // flow at /resources/new doesn't ask for them at all) — the owner adds
+  // them here instead, same pattern as saveAttachments above.
+  const savePhotos = async (photos: string[]) => {
+    setSavingPhotos(true);
+    setResource((prev) => (prev ? { ...prev, photos } : prev));
+    try {
+      await fetch(`/api/resources/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photos }),
+      });
+    } finally {
+      setSavingPhotos(false);
+    }
+  };
+
+  const saveStandards = async (standards: string[]) => {
+    setSavingStandards(true);
+    setResource((prev) => (prev ? { ...prev, standards } : prev));
+    try {
+      await fetch(`/api/resources/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ standards }),
+      });
+    } finally {
+      setSavingStandards(false);
+    }
   };
 
   const downloadAttachment = async (path: string, name: string) => {
@@ -256,9 +290,28 @@ function ResourcePageContent() {
 
   const renderSection = (key: string) => {
     if (!resource) return null;
+    const isOwner = !!profile && profile.id === resource.owner_id;
     switch (key) {
-      case "photos":
-        return resource.photos.length > 0 ? (
+      case "photos": {
+        if (resource.photos.length === 0 && !isOwner) return null;
+        if (isOwner) {
+          return (
+            <section key={key}>
+              <div className="flex items-center justify-between mb-4">
+                <SectionHeading sectionKey={key} />
+                {savingPhotos && <span className="text-xs text-ink/40">Saving…</span>}
+              </div>
+              <FileUploadList
+                bucket="resource-photos"
+                files={resource.photos.map((url) => ({ name: "Photo", url }))}
+                onChange={(files) => savePhotos(files.map((f) => f.url))}
+                accept="image/*"
+                label="Click to upload photos"
+              />
+            </section>
+          );
+        }
+        return (
           <section key={key}>
             <SectionHeading sectionKey={key} />
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -267,7 +320,8 @@ function ResourcePageContent() {
               ))}
             </div>
           </section>
-        ) : null;
+        );
+      }
 
       case "learning_targets":
         return resource.learning_targets.length > 0 ? (
@@ -321,8 +375,20 @@ function ResourcePageContent() {
           </section>
         ) : null;
 
-      case "standards":
-        return resource.standards.length > 0 ? (
+      case "standards": {
+        if (resource.standards.length === 0 && !isOwner) return null;
+        if (isOwner) {
+          return (
+            <section key={key}>
+              <div className="flex items-center justify-between mb-4">
+                <SectionHeading sectionKey={key} />
+                {savingStandards && <span className="text-xs text-ink/40">Saving…</span>}
+              </div>
+              <StandardsPicker items={resource.standards} onChange={saveStandards} subject={resource.subject} gradeBand={resource.grade_band} />
+            </section>
+          );
+        }
+        return (
           <section key={key}>
             <SectionHeading sectionKey={key} />
             <ul className="flex flex-wrap gap-2">
@@ -331,10 +397,10 @@ function ResourcePageContent() {
               ))}
             </ul>
           </section>
-        ) : null;
+        );
+      }
 
       case "attachments": {
-        const isOwner = !!profile && profile.id === resource.owner_id;
         if (resource.attachments.length === 0 && !isOwner) return null;
         const isPaid = !!resource.price_cents && resource.price_cents > 0;
         const locked = isPaid && !resource.purchased && !isOwner;
