@@ -45,7 +45,11 @@ interface ResourceRecord {
   owner: { name: string | null; avatar_url: string | null; is_official?: boolean; is_founding_educator?: boolean } | null;
 }
 
-const isPdf = (name: string) => name.toLowerCase().endsWith(".pdf");
+// Attachments from the "upload a lesson plan" flow are stored with a
+// generic display name ("Original Lesson Plan"), not the real filename —
+// the URL/storage path is the only reliable place the .pdf extension survives.
+const isPdf = (attachment: { name: string; url: string }) =>
+  attachment.name.toLowerCase().endsWith(".pdf") || attachment.url.toLowerCase().split("?")[0].endsWith(".pdf");
 
 const SECTION_ICONS: Record<string, typeof IconFlag> = {
   learning_targets: IconFlag,
@@ -417,7 +421,7 @@ function ResourcePageContent() {
         };
 
         if (isOwner) {
-          const pdfAttachments = resource.attachments.filter((a) => isPdf(a.name));
+          const pdfAttachments = resource.attachments.filter(isPdf);
           return (
             <section key={key}>
               <div className="flex items-center justify-between mb-4">
@@ -457,7 +461,7 @@ function ResourcePageContent() {
                       <IconLock className="w-4 h-4 text-ink/30 flex-shrink-0" />
                       <span className="text-sm text-ink/50 truncate">{a.name}</span>
                     </div>
-                  ) : isPdf(a.name) ? (
+                  ) : isPdf(a) ? (
                     <PdfEmbed name={a.name} resolveSrc={() => resolveAttachmentSrc(a.url)} />
                   ) : isPaid ? (
                     <button

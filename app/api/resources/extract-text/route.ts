@@ -9,6 +9,7 @@ import { PDFParse } from 'pdf-parse';
 // reviews/edits the result before anything publishes; this never writes to
 // the database itself.
 const MAX_SIZE_BYTES = 10 * 1024 * 1024;
+const NUL_CHAR_REGEX = new RegExp(String.fromCharCode(0), 'g');
 
 export async function POST(request: Request) {
   try {
@@ -41,7 +42,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Only .docx and .pdf files are supported' }, { status: 400 });
     }
 
-    text = text.trim();
+    // pdf-parse occasionally emits stray NUL characters for certain embedded
+    // fonts/encodings — Postgres text columns reject those outright, so
+    // publishing would 500 later if one slipped through here.
+    text = text.replace(NUL_CHAR_REGEX, '').trim();
     if (text.length < 20) {
       return NextResponse.json({
         error: "Couldn't find readable text in that file — it may be a scanned image rather than real text. Try a different export, or paste the text in manually.",
