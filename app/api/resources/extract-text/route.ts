@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import mammoth from 'mammoth';
+import { getData } from 'pdf-parse/worker';
 import { PDFParse } from 'pdf-parse';
+
+// pdf-parse's default worker setup resolves pdf.worker.mjs relative to its
+// own file at runtime — that path doesn't survive Next.js bundling (dev or
+// serverless prod alike). getData() returns the worker bundled inline as a
+// data: URI instead, so there's no file path to resolve at all. Must run
+// before any PDFParse instance is created.
+PDFParse.setWorker(getData());
 
 // POST /api/resources/extract-text — multipart/form-data, field "file".
 // Deterministic text extraction (no AI) for the "Upload an existing lesson
