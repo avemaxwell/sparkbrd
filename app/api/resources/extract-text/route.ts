@@ -18,6 +18,7 @@ PDFParse.setWorker(getData());
 // the database itself.
 const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 const NUL_CHAR_REGEX = new RegExp(String.fromCharCode(0), 'g');
+const PAGE_MARKER_REGEX = /--\s*\d+\s*of\s*\d+\s*--/gi;
 
 export async function POST(request: Request) {
   try {
@@ -43,7 +44,10 @@ export async function POST(request: Request) {
       text = result.value;
     } else if (name.endsWith('.pdf')) {
       const parser = new PDFParse({ data: new Uint8Array(buffer) });
-      const result = await parser.getText();
+      // Default pageJoiner appends "-- page_number of total_number --"
+      // between pages — meaningful in a PDF viewer, meaningless (and ugly)
+      // once the text is lifted out into a single lesson-plan body.
+      const result = await parser.getText({ pageJoiner: '\n\n' });
       text = result.text;
       await parser.destroy();
     } else {
@@ -52,8 +56,10 @@ export async function POST(request: Request) {
 
     // pdf-parse occasionally emits stray NUL characters for certain embedded
     // fonts/encodings — Postgres text columns reject those outright, so
-    // publishing would 500 later if one slipped through here.
-    text = text.replace(NUL_CHAR_REGEX, '').trim();
+    // publishing would 500 later if one slipped through here. Also strip any
+    // leftover page-marker text (belt-and-suspenders alongside the
+    // pageJoiner override above — mammoth/older extractions won't have it).
+    text = text.replace(NUL_CHAR_REGEX, '').replace(PAGE_MARKER_REGEX, '').trim();
     if (text.length < 20) {
       return NextResponse.json({
         error: "Couldn't find readable text in that file — it may be a scanned image rather than real text. Try a different export, or paste the text in manually.",

@@ -14,6 +14,7 @@ import { useUser } from "@/hooks/useUser";
 import FileUploadList from "@/components/resources/FileUploadList";
 import PdfEmbed from "@/components/resources/PdfEmbed";
 import StandardsPicker from "@/components/resources/StandardsPicker";
+import FormattedBody from "@/components/resources/FormattedBody";
 
 interface ResourceRecord {
   id: string;
@@ -374,7 +375,7 @@ function ResourcePageContent() {
           <section key={key}>
             <SectionHeading sectionKey={key} />
             <div className="bg-white rounded-2xl p-6 border border-black/5">
-              <p className="text-ink/70 leading-relaxed whitespace-pre-line">{resource.body}</p>
+              <FormattedBody text={resource.body} />
             </div>
           </section>
         ) : null;

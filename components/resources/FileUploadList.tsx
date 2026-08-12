@@ -107,16 +107,33 @@ export default function FileUploadList({
       {error && <p className="text-xs text-papaya mt-2">{error}</p>}
 
       {files.length > 0 && (
-        <ul className="mt-4 space-y-2">
-          {files.map((f, i) => (
-            <li key={i} className="flex items-center gap-3 bg-ink/5 rounded-xl p-3">
-              <span className="flex-1 text-sm text-ink/80 truncate">{f.name}</span>
-              <button type="button" onClick={() => removeAt(i)} className="w-6 h-6 rounded-full hover:bg-ink/10 flex items-center justify-center flex-shrink-0">
-                <svg className="w-3 h-3 stroke-ink/50 stroke-[2.5] fill-none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
-              </button>
-            </li>
-          ))}
-        </ul>
+        bucket === "resource-photos" ? (
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-3">
+            {files.map((f, i) => (
+              <div key={i} className="relative aspect-square rounded-2xl overflow-hidden bg-ink/5">
+                <img src={f.url} alt="" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removeAt(i)}
+                  className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-colors"
+                >
+                  <svg className="w-3 h-3 stroke-white stroke-[2.5] fill-none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <ul className="mt-4 space-y-2">
+            {files.map((f, i) => (
+              <li key={i} className="flex items-center gap-3 bg-ink/5 rounded-xl p-3">
+                <span className="flex-1 text-sm text-ink/80 truncate">{f.name}</span>
+                <button type="button" onClick={() => removeAt(i)} className="w-6 h-6 rounded-full hover:bg-ink/10 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-3 h-3 stroke-ink/50 stroke-[2.5] fill-none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )
       )}
     </div>
   );
