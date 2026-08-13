@@ -90,6 +90,9 @@ function ResourcePageContent() {
   const [savingAttachments, setSavingAttachments] = useState(false);
   const [savingPhotos, setSavingPhotos] = useState(false);
   const [savingStandards, setSavingStandards] = useState(false);
+  const [editingBody, setEditingBody] = useState(false);
+  const [bodyDraft, setBodyDraft] = useState("");
+  const [savingBody, setSavingBody] = useState(false);
 
   const loadResource = () => {
     fetch(`/api/resources/${id}`)
@@ -191,6 +194,24 @@ function ResourcePageContent() {
       });
     } finally {
       setSavingPhotos(false);
+    }
+  };
+
+  const saveBody = async () => {
+    if (!bodyDraft.trim()) return;
+    setSavingBody(true);
+    try {
+      const res = await fetch(`/api/resources/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: bodyDraft.trim() }),
+      });
+      if (res.ok) {
+        setResource((prev) => (prev ? { ...prev, body: bodyDraft.trim() } : prev));
+        setEditingBody(false);
+      }
+    } finally {
+      setSavingBody(false);
     }
   };
 
@@ -370,15 +391,54 @@ function ResourcePageContent() {
           </section>
         ) : null;
 
-      case "body":
-        return resource.body ? (
+      case "body": {
+        if (!resource.body) return null;
+        return (
           <section key={key}>
-            <SectionHeading sectionKey={key} />
+            <div className="flex items-center justify-between mb-4">
+              <SectionHeading sectionKey={key} />
+              {isOwner && !editingBody && (
+                <button
+                  onClick={() => { setBodyDraft(resource.body ?? ""); setEditingBody(true); }}
+                  className="text-xs text-ink/40 hover:text-ink transition-colors"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
             <div className="bg-white rounded-2xl p-6 border border-black/5">
-              <FormattedBody text={resource.body} />
+              {editingBody ? (
+                <div>
+                  <textarea
+                    value={bodyDraft}
+                    onChange={(e) => setBodyDraft(e.target.value)}
+                    rows={16}
+                    autoFocus
+                    className="w-full px-4 py-3 bg-ink/5 border border-ink/10 rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 transition-all text-sm leading-relaxed resize-y"
+                  />
+                  <div className="flex gap-3 mt-3">
+                    <button
+                      onClick={saveBody}
+                      disabled={savingBody || !bodyDraft.trim()}
+                      className="px-4 py-2 bg-papaya text-white rounded-full text-xs font-medium hover:bg-papaya/90 transition-colors disabled:opacity-50"
+                    >
+                      {savingBody ? "Saving…" : "Save"}
+                    </button>
+                    <button
+                      onClick={() => setEditingBody(false)}
+                      className="text-xs text-ink/40 hover:text-ink transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <FormattedBody text={resource.body} />
+              )}
             </div>
           </section>
-        ) : null;
+        );
+      }
 
       case "standards": {
         if (resource.standards.length === 0 && !isOwner) return null;

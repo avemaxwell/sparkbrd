@@ -32,11 +32,13 @@ function Avatar({ name, avatarUrl }: { name: string | null; avatarUrl: string | 
 function CommentRow({
   comment,
   isOwn,
+  canModerate,
   onEdit,
   onDelete,
 }: {
   comment: Comment;
   isOwn: boolean;
+  canModerate: boolean;
   onEdit: (id: string, body: string) => Promise<void>;
   onDelete: (id: string) => void;
 }) {
@@ -92,10 +94,14 @@ function CommentRow({
           <p className="text-sm text-ink/70 whitespace-pre-line">{comment.body}</p>
         )}
 
-        {isOwn && !editing && (
+        {!editing && (isOwn || canModerate) && (
           <div className="flex items-center gap-3 mt-1.5">
-            <button onClick={() => setEditing(true)} className="text-xs text-ink/40 hover:text-ink transition-colors">Edit</button>
-            <button onClick={() => onDelete(comment.id)} className="text-xs text-ink/40 hover:text-papaya transition-colors">Delete</button>
+            {isOwn && (
+              <button onClick={() => setEditing(true)} className="text-xs text-ink/40 hover:text-ink transition-colors">Edit</button>
+            )}
+            <button onClick={() => onDelete(comment.id)} className="text-xs text-ink/40 hover:text-papaya transition-colors">
+              {isOwn ? "Delete" : "Delete (admin)"}
+            </button>
           </div>
         )}
       </div>
@@ -103,10 +109,13 @@ function CommentRow({
   );
 }
 
+const ADMIN_EMAIL = "admin@sparkurio.com";
+
 // Feedback on a shared resource — kept intentionally simpler than board/tack
 // comments (no threading, no @mentions): a flat list + a post box.
 export default function ResourceComments({ resourceId }: { resourceId: string }) {
   const { profile } = useUser();
+  const isAdmin = profile?.email === ADMIN_EMAIL;
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [body, setBody] = useState("");
@@ -151,8 +160,10 @@ export default function ResourceComments({ resourceId }: { resourceId: string })
   };
 
   const handleDelete = async (commentId: string) => {
-    setComments((prev) => prev.filter((c) => c.id !== commentId));
-    await fetch(`/api/comments/${commentId}`, { method: 'DELETE' });
+    const res = await fetch(`/api/comments/${commentId}`, { method: 'DELETE' });
+    if (res.ok) {
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+    }
   };
 
   return (
@@ -197,7 +208,7 @@ export default function ResourceComments({ resourceId }: { resourceId: string })
       ) : (
         <ul className="space-y-4">
           {comments.map((c) => (
-            <CommentRow key={c.id} comment={c} isOwn={profile?.id === c.author.id} onEdit={handleEdit} onDelete={handleDelete} />
+            <CommentRow key={c.id} comment={c} isOwn={profile?.id === c.author.id} canModerate={isAdmin} onEdit={handleEdit} onDelete={handleDelete} />
           ))}
         </ul>
       )}

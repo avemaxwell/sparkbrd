@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+// Sparkurio's one moderation account — can delete any comment (resource
+// feedback or board/tack), on top of the normal "author or board owner"
+// rule. Editing stays author-only regardless — see PATCH below.
+const ADMIN_EMAIL = 'admin@sparkurio.com';
+
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const supabase = await createClient();
@@ -64,7 +69,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
     if (!comment) return NextResponse.json({ error: 'Comment not found' }, { status: 404 });
 
-    let authorized = comment.user_id === user.id;
+    let authorized = comment.user_id === user.id || user.email === ADMIN_EMAIL;
     if (!authorized) {
       const { data: board } = await supabase
         .from('boards')
@@ -76,7 +81,15 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
     if (!authorized) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-    await supabase.from('comments').delete().eq('id', id);
+    // .delete() doesn't error on zero rows affected — it would silently no-op
+    // (and report success) if RLS blocks it despite this check passing, e.g.
+    // the admin-moderation policy not having been applied yet. Select the row
+    // back to confirm it actually happened.
+    const { data: deleted, error: deleteErr } = await supabase.from('comments').delete().eq('id', id).select('id');
+    if (deleteErr) throw deleteErr;
+    if (!deleted || deleted.length === 0) {
+      return NextResponse.json({ error: 'Delete was blocked by database policy' }, { status: 403 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {
