@@ -22,9 +22,14 @@ export interface LessonBlock {
 export interface LessonBlocksData {
   periodMinutes: number;
   items: LessonBlock[];
+  // Mirrors the resource-level `standards` column (same field the classic
+  // builder's StandardsPicker writes to) — kept here too so the block
+  // canvas can read/suggest/attach them without a second round trip, and
+  // publish just forwards this array alongside `blocks`.
+  standards: string[];
 }
 
-export const EMPTY_BLOCKS_DATA: LessonBlocksData = { periodMinutes: 50, items: [] };
+export const EMPTY_BLOCKS_DATA: LessonBlocksData = { periodMinutes: 50, items: [], standards: [] };
 
 interface BlockMeta {
   label: string;

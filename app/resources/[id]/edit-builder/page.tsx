@@ -12,6 +12,9 @@ interface ResourceSummary {
   title: string;
   owner_id: string | null;
   blocks: LessonBlocksData | null;
+  subject: string;
+  grade_band: string;
+  state: string | null;
 }
 
 // Re-editing a published block-canvas lesson plan — same LessonBlockCanvas
@@ -32,7 +35,9 @@ export default function EditBuilderPage() {
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((data) => {
         setResource(data.resource);
-        setBlocks(data.resource.blocks ?? EMPTY_BLOCKS_DATA);
+        // Spread over EMPTY_BLOCKS_DATA to backfill any field added to the
+        // shape after this resource was first saved (e.g. `standards`).
+        setBlocks({ ...EMPTY_BLOCKS_DATA, ...(data.resource.blocks ?? {}) });
       })
       .catch(() => setError("Couldn't load this resource."))
       .finally(() => setLoading(false));
@@ -45,7 +50,7 @@ export default function EditBuilderPage() {
       const res = await fetch(`/api/resources/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ blocks }),
+        body: JSON.stringify({ blocks, standards: blocks.standards }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -101,7 +106,13 @@ export default function EditBuilderPage() {
           <h2 className="font-serif font-bold text-2xl text-ink mb-2">Edit your lesson</h2>
           <p className="text-ink/50 mb-6">Add, remove, or reorder blocks, and update timing or attached resources.</p>
 
-          <LessonBlockCanvas value={blocks} onChange={setBlocks} />
+          <LessonBlockCanvas
+            value={blocks}
+            onChange={setBlocks}
+            subject={resource.subject}
+            gradeBand={resource.grade_band}
+            state={resource.state ?? undefined}
+          />
 
           {error && <div className="mt-6 p-3 bg-papaya/10 text-papaya text-sm rounded-xl">{error}</div>}
 

@@ -729,25 +729,28 @@ function ResourcePageContent() {
 
           <div className="max-w-3xl mx-auto px-6 py-12 print:py-4 space-y-10 print:space-y-5">
             {blocksData ? (
-              <section>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-serif font-bold text-xl text-ink flex items-center gap-2.5">
-                    <span className="w-8 h-8 rounded-full bg-papaya/10 flex items-center justify-center flex-shrink-0">
-                      <IconBook className="w-4 h-4 stroke-papaya" />
-                    </span>
-                    Lesson Plan
-                  </h2>
-                  {isOwner && (
-                    <Link
-                      href={`/resources/${resource.id}/edit-builder`}
-                      className="text-xs text-ink/40 hover:text-ink transition-colors print:hidden"
-                    >
-                      Edit
-                    </Link>
-                  )}
-                </div>
-                <LessonBlocksView data={blocksData} />
-              </section>
+              <>
+                <section>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-serif font-bold text-xl text-ink flex items-center gap-2.5">
+                      <span className="w-8 h-8 rounded-full bg-papaya/10 flex items-center justify-center flex-shrink-0">
+                        <IconBook className="w-4 h-4 stroke-papaya" />
+                      </span>
+                      Lesson Plan
+                    </h2>
+                    {isOwner && (
+                      <Link
+                        href={`/resources/${resource.id}/edit-builder`}
+                        className="text-xs text-ink/40 hover:text-ink transition-colors print:hidden"
+                      >
+                        Edit
+                      </Link>
+                    )}
+                  </div>
+                  <LessonBlocksView data={blocksData} />
+                </section>
+                {renderSection("standards")}
+              </>
             ) : (
               order.map(renderSection)
             )}

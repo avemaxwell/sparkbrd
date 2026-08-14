@@ -13,6 +13,139 @@ import {
 import MarkdownEditor from "@/components/resources/MarkdownEditor";
 import ResourcePickerModal, { type PickedResource } from "@/components/resources/ResourcePickerModal";
 
+interface MatchedStandard { code: string; text: string }
+interface StateStandard { code: string; description: string }
+interface StandardSuggestions { matched: MatchedStandard[]; stateSuggestions: StateStandard[] }
+
+// AI assist, scoped exactly as pitched: teacher writes an objective, this
+// suggests candidate codes, teacher confirms/edits — nothing attaches on
+// its own. Common Core/NGSS suggestions are grounded in the real embedded
+// dataset server-side; state-level ones come from the model's own
+// knowledge and are labeled unverified since there's no dataset to check
+// them against.
+function StandardsPanel({
+  standards,
+  onChange,
+  objectiveText,
+  subject,
+  gradeBand,
+  state,
+}: {
+  standards: string[];
+  onChange: (standards: string[]) => void;
+  objectiveText: string;
+  subject?: string;
+  gradeBand?: string;
+  state?: string;
+}) {
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestions, setSuggestions] = useState<StandardSuggestions | null>(null);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
+  const hasObjective = objectiveText.trim().length > 0;
+
+  const suggest = async () => {
+    setSuggesting(true);
+    setSuggestError(null);
+    setSuggestions(null);
+    try {
+      const res = await fetch("/api/resources/suggest-standards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ objective: objectiveText, subject, gradeBand, state }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setSuggestError(data.error ?? "Couldn't get suggestions."); return; }
+      setSuggestions(data);
+    } catch {
+      setSuggestError("Couldn't get suggestions. Please try again.");
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
+  const addStandard = (label: string) => { if (!standards.includes(label)) onChange([...standards, label]); };
+  const removeStandard = (label: string) => onChange(standards.filter((s) => s !== label));
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-ink/40">Standards</p>
+        <button
+          type="button"
+          onClick={suggest}
+          disabled={!hasObjective || suggesting}
+          title={hasObjective ? undefined : "Add an Objective / Standard block with some text first"}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-papaya hover:underline disabled:text-ink/25 disabled:no-underline disabled:cursor-not-allowed"
+        >
+          {suggesting ? <span className="w-3 h-3 border-2 border-papaya/30 border-t-papaya rounded-full animate-spin" /> : <span>✨</span>}
+          {suggesting ? "Thinking…" : "Suggest from Objective"}
+        </button>
+      </div>
+
+      {standards.length === 0 ? (
+        <p className="text-sm text-ink/30 mb-2">Nothing added yet.</p>
+      ) : (
+        <div className="flex flex-wrap gap-2 mb-2">
+          {standards.map((s) => (
+            <span key={s} className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-papaya/10 text-papaya text-sm rounded-full max-w-full">
+              <span className="truncate">{s}</span>
+              <button type="button" onClick={() => removeStandard(s)} className="w-4 h-4 rounded-full hover:bg-papaya/20 flex items-center justify-center flex-shrink-0">
+                <svg className="w-2.5 h-2.5 stroke-current stroke-[2.5] fill-none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" /></svg>
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {suggestError && <p className="text-xs text-papaya mb-2">{suggestError}</p>}
+
+      {suggestions && (
+        <div className="bg-papaya/5 border border-papaya/15 rounded-2xl p-4 space-y-3">
+          {suggestions.matched.length === 0 && suggestions.stateSuggestions.length === 0 ? (
+            <p className="text-xs text-ink/40">No confident matches for this objective — try adding more detail.</p>
+          ) : (
+            <>
+              {suggestions.matched.map((m) => {
+                const label = `${m.code} — ${m.text}`;
+                const added = standards.includes(label);
+                return (
+                  <button key={m.code} type="button" onClick={() => addStandard(label)} disabled={added} className="w-full flex items-start gap-2.5 text-left">
+                    <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${added ? "bg-papaya border-papaya" : "border-ink/20"}`}>
+                      {added && <svg className="w-3 h-3 stroke-white stroke-[3] fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" /></svg>}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-xs font-semibold text-papaya">{m.code}</span>
+                      <span className="block text-xs text-ink/60 line-clamp-2">{m.text}</span>
+                    </span>
+                  </button>
+                );
+              })}
+              {suggestions.stateSuggestions.map((s) => {
+                const label = `${s.code} — ${s.description}`;
+                const added = standards.includes(label);
+                return (
+                  <button key={s.code} type="button" onClick={() => addStandard(label)} disabled={added} className="w-full flex items-start gap-2.5 text-left">
+                    <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${added ? "bg-mustard border-mustard" : "border-ink/20"}`}>
+                      {added && <svg className="w-3 h-3 stroke-white stroke-[3] fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" /></svg>}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-semibold text-mustard">{s.code}</span>
+                        <span className="text-[10px] text-ink/35">unverified — double-check the code</span>
+                      </span>
+                      <span className="block text-xs text-ink/60 line-clamp-2">{s.description}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BlockCard({
   block,
   onUpdate,
@@ -125,14 +258,21 @@ function BlockCard({
 export default function LessonBlockCanvas({
   value,
   onChange,
+  subject,
+  gradeBand,
+  state,
 }: {
   value: LessonBlocksData;
   onChange: (v: LessonBlocksData) => void;
+  subject?: string;
+  gradeBand?: string;
+  state?: string;
 }) {
   const [attachingBlockId, setAttachingBlockId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const setItems = (items: LessonBlock[]) => onChange({ ...value, items });
+  const objectiveText = value.items.find((b) => b.type === "objective" && b.content.trim())?.content ?? "";
   const addBlock = (type: BlockType) => setItems([...value.items, createBlock(type)]);
   const removeBlock = (id: string) => setItems(value.items.filter((b) => b.id !== id));
   const updateBlock = (id: string, patch: Partial<LessonBlock>) =>
@@ -184,6 +324,15 @@ export default function LessonBlockCanvas({
           {overUnder < 0 && ` — ${-overUnder} min unplanned`}
         </p>
       </div>
+
+      <StandardsPanel
+        standards={value.standards}
+        onChange={(standards) => onChange({ ...value, standards })}
+        objectiveText={objectiveText}
+        subject={subject}
+        gradeBand={gradeBand}
+        state={state}
+      />
 
       {/* Palette */}
       <div className="mb-6">

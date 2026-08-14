@@ -83,6 +83,7 @@ export default function BuildResourcePage() {
           resource_type: form.resourceType,
           state: form.state || null,
           blocks: form.blocks,
+          standards: form.blocks.standards,
           price_cents: form.priceCents,
           status,
         }),
@@ -191,7 +192,13 @@ export default function BuildResourcePage() {
                 Add blocks, attach resources from the library, and Sparkurio will check your timing as you go.
               </p>
 
-              <LessonBlockCanvas value={form.blocks} onChange={(blocks) => set("blocks", blocks)} />
+              <LessonBlockCanvas
+                value={form.blocks}
+                onChange={(blocks) => set("blocks", blocks)}
+                subject={form.subject}
+                gradeBand={form.gradeBand}
+                state={form.state}
+              />
 
               {error && <div className="mt-6 p-3 bg-papaya/10 text-papaya text-sm rounded-xl">{error}</div>}
 
