@@ -9,6 +9,10 @@ import { US_STATES } from "@/lib/us-states";
 import ChipSelect from "@/components/resources/ChipSelect";
 import LessonBlockCanvas from "@/components/resources/LessonBlockCanvas";
 import { EMPTY_BLOCKS_DATA, type LessonBlocksData } from "@/lib/lesson-blocks";
+import Header from "@/components/layout/Header";
+import { getShapeCorner } from "@/components/decor/ShapeCorner";
+
+const ShapeCorner = getShapeCorner("lesson-builder");
 
 const SUBJECT_NAMES = Object.values(SUBJECTS).map((s) => s.name);
 
@@ -44,20 +48,28 @@ export default function BuildResourcePage() {
   const [error, setError] = useState<string | null>(null);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-ink/20 border-t-papaya rounded-full animate-spin" /></div>;
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-ink/20 border-t-papaya rounded-full animate-spin" /></div>
+      </>
+    );
   }
 
   if (!profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center border border-ink/5">
-          <h1 className="font-serif text-2xl mb-2">Sign in to share a resource</h1>
-          <p className="text-ink-soft mb-6">Create a free account to start building your lesson.</p>
-          <Link href="/signup?intent=share&redirect=/resources/new/build" className="inline-block px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors">
-            Create account
-          </Link>
+      <>
+        <Header />
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center border border-ink/5">
+            <h1 className="font-serif text-2xl mb-2">Sign in to share a resource</h1>
+            <p className="text-ink-soft mb-6">Create a free account to start building your lesson.</p>
+            <Link href="/signup?intent=share&redirect=/resources/new/build" className="inline-block px-6 py-3 bg-papaya text-white rounded-full font-medium hover:bg-papaya/90 transition-colors">
+              Create account
+            </Link>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -98,8 +110,21 @@ export default function BuildResourcePage() {
   };
 
   return (
-    <div className="min-h-screen bg-cork-warm py-12 px-4">
-      <div className={currentStepId === "builder" ? "max-w-4xl mx-auto" : "max-w-2xl mx-auto"}>
+    <div className="min-h-screen bg-cork-warm relative overflow-hidden">
+      <Header />
+      <ShapeCorner className="hidden lg:block absolute top-24 right-6 pointer-events-none" />
+
+      <div className={`relative pt-24 md:pt-28 pb-12 px-4 ${currentStepId === "builder" ? "max-w-4xl mx-auto" : "max-w-2xl mx-auto"}`}>
+        <div className="flex items-center gap-2 mb-4">
+          <span className="w-7 h-7 rounded-full bg-blush flex items-center justify-center flex-shrink-0">
+            <svg className="w-3.5 h-3.5 stroke-white stroke-[1.6] fill-none" viewBox="0 0 24 24">
+              <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
+              <rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
+            </svg>
+          </span>
+          <p className="text-xs font-bold uppercase tracking-wider text-blush">Sparkurio Lesson Plan Builder</p>
+        </div>
+
         <div className="flex items-center justify-between mb-6">
           <Link href="/" className="text-sm text-ink/50 hover:text-ink transition-colors">Cancel</Link>
           <p className="text-xs text-ink/40 uppercase tracking-widest">Step {step + 1} of {STEPS.length}</p>
