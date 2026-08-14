@@ -15,6 +15,7 @@ import FileUploadList from "@/components/resources/FileUploadList";
 import PdfEmbed from "@/components/resources/PdfEmbed";
 import StandardsPicker from "@/components/resources/StandardsPicker";
 import FormattedBody from "@/components/resources/FormattedBody";
+import MarkdownEditor from "@/components/resources/MarkdownEditor";
 
 interface ResourceRecord {
   id: string;
@@ -409,13 +410,7 @@ function ResourcePageContent() {
             <div className="bg-white rounded-2xl p-6 border border-black/5">
               {editingBody ? (
                 <div>
-                  <textarea
-                    value={bodyDraft}
-                    onChange={(e) => setBodyDraft(e.target.value)}
-                    rows={16}
-                    autoFocus
-                    className="w-full px-4 py-3 bg-ink/5 border border-ink/10 rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 transition-all text-sm leading-relaxed resize-y"
-                  />
+                  <MarkdownEditor value={bodyDraft} onChange={setBodyDraft} rows={16} autoFocus />
                   <div className="flex gap-3 mt-3">
                     <button
                       onClick={saveBody}

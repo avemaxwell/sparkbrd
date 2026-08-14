@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { generatePdfThumbnail } from "@/lib/pdf-thumbnail";
+import MarkdownEditor from "@/components/resources/MarkdownEditor";
 
 interface UploadedFile { name: string; url: string }
 
@@ -135,12 +136,7 @@ export default function LessonPlanUpload({
           <label className="block text-sm font-medium text-ink/60 mb-2">
             Here&rsquo;s what we pulled from your file — review and clean it up before publishing:
           </label>
-          <textarea
-            value={body}
-            onChange={(e) => onBodyChange(e.target.value)}
-            rows={16}
-            className="w-full px-4 py-3 bg-white border border-ink/10 rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 transition-all text-sm leading-relaxed resize-y"
-          />
+          <MarkdownEditor value={body} onChange={onBodyChange} rows={16} />
         </div>
       )}
     </div>
