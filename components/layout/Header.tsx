@@ -19,6 +19,7 @@ export default function Header() {
   const { profile, loading, signOut } = useUser();
   const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [createDropdownOpen, setCreateDropdownOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmails, setInviteEmails] = useState('');
   const [inviteSending, setInviteSending] = useState(false);
@@ -92,16 +93,67 @@ export default function Header() {
 
           {profile && <NotificationBell />}
 
-          {/* Share a Resource — signed-out users are prompted to create a free account */}
-          <Link
-            href={profile ? "/resources/new" : "/signup?intent=share&redirect=/resources/new"}
-            className="hidden sm:inline-flex items-center gap-1.5 px-4 sm:px-5 py-2.5 bg-blush text-white text-sm font-semibold rounded-full hover:bg-blush/90 transition-colors flex-shrink-0"
-          >
-            <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
-              <path d="M12 5v14M5 12h14"/>
-            </svg>
-            <span className="hidden md:inline">Share a Resource</span>
-          </Link>
+          {/* Share a Resource — a dropdown so "Build a Lesson Plan" (the block
+              canvas) is directly reachable from the top nav, not just as a
+              secondary link buried inside the upload flow. Signed-out users
+              are prompted to create a free account either way. */}
+          <div className="relative hidden sm:block flex-shrink-0">
+            <button
+              onClick={() => setCreateDropdownOpen((v) => !v)}
+              className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2.5 bg-blush text-white text-sm font-semibold rounded-full hover:bg-blush/90 transition-colors"
+            >
+              <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+              <span className="hidden md:inline">Share a Resource</span>
+              <svg className="w-3 h-3 stroke-current stroke-2 fill-none flex-shrink-0" viewBox="0 0 24 24">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+
+            {createDropdownOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setCreateDropdownOpen(false)} />
+                <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-ink/5 z-50 overflow-hidden p-2">
+                  <Link
+                    href={profile ? "/resources/new/build" : "/signup?intent=share&redirect=/resources/new/build"}
+                    onClick={() => setCreateDropdownOpen(false)}
+                    className="flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-ink/5 transition-colors"
+                  >
+                    <span className="w-8 h-8 rounded-full bg-papaya/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <svg className="w-4 h-4 stroke-papaya stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                        <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+                        <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+                        <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+                        <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+                      </svg>
+                    </span>
+                    <span>
+                      <span className="block text-sm font-medium text-ink">Build a Lesson Plan</span>
+                      <span className="block text-xs text-ink/40">Block by block, with the resource library built in</span>
+                    </span>
+                  </Link>
+                  <Link
+                    href={profile ? "/resources/new" : "/signup?intent=share&redirect=/resources/new"}
+                    onClick={() => setCreateDropdownOpen(false)}
+                    className="flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-ink/5 transition-colors"
+                  >
+                    <span className="w-8 h-8 rounded-full bg-ink/5 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <svg className="w-4 h-4 stroke-ink/60 stroke-[1.5] fill-none" viewBox="0 0 24 24">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                      </svg>
+                    </span>
+                    <span>
+                      <span className="block text-sm font-medium text-ink">Upload a Resource</span>
+                      <span className="block text-xs text-ink/40">Already have it written? Upload the file</span>
+                    </span>
+                  </Link>
+                </div>
+              </>
+            )}
+          </div>
 
           {loading ? (
             <div className="w-10 h-10 rounded-full bg-ink/5 animate-pulse" />
