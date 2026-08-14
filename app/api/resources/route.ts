@@ -100,7 +100,7 @@ export async function POST(request: Request) {
     const {
       title, subject, grade_band, resource_type, state,
       standards, materials, learning_targets, directions, body: lessonBody,
-      photos, attachments, section_order, status, price_cents,
+      photos, attachments, section_order, status, price_cents, blocks,
     } = requestBody;
 
     if (!title?.trim()) return NextResponse.json({ error: 'Title is required' }, { status: 400 });
@@ -146,6 +146,7 @@ export async function POST(request: Request) {
         photos: photos ?? [],
         attachments: attachments ?? [],
         section_order: section_order ?? null,
+        blocks: blocks ?? null,
         status: isPublishing ? 'published' : 'draft',
         price_cents: resolvedPriceCents,
         classroom_proven: classroomProven,

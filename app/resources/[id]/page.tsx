@@ -16,6 +16,8 @@ import PdfEmbed from "@/components/resources/PdfEmbed";
 import StandardsPicker from "@/components/resources/StandardsPicker";
 import FormattedBody from "@/components/resources/FormattedBody";
 import MarkdownEditor from "@/components/resources/MarkdownEditor";
+import type { LessonBlocksData } from "@/lib/lesson-blocks";
+import LessonBlocksView from "@/components/resources/LessonBlocksView";
 
 interface ResourceRecord {
   id: string;
@@ -30,6 +32,7 @@ interface ResourceRecord {
   learning_targets: string[];
   directions: string[];
   body: string | null;
+  blocks: LessonBlocksData | null;
   photos: string[];
   attachments: { name: string; url: string }[];
   section_order: string[] | null;
@@ -314,6 +317,8 @@ function ResourcePageContent() {
   const bg = subject?.color ?? "#B9AEFF";
   const textOn = subject?.textOn === "white" ? "text-white" : "text-ink";
   const order = resource?.section_order && resource.section_order.length > 0 ? resource.section_order : DEFAULT_SECTION_ORDER;
+  const isOwner = !!profile && !!resource && profile.id === resource.owner_id;
+  const blocksData = resource?.blocks?.items && resource.blocks.items.length > 0 ? resource.blocks : null;
 
   const renderSection = (key: string) => {
     if (!resource) return null;
@@ -723,7 +728,29 @@ function ResourcePageContent() {
           </div>
 
           <div className="max-w-3xl mx-auto px-6 py-12 print:py-4 space-y-10 print:space-y-5">
-            {order.map(renderSection)}
+            {blocksData ? (
+              <section>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-serif font-bold text-xl text-ink flex items-center gap-2.5">
+                    <span className="w-8 h-8 rounded-full bg-papaya/10 flex items-center justify-center flex-shrink-0">
+                      <IconBook className="w-4 h-4 stroke-papaya" />
+                    </span>
+                    Lesson Plan
+                  </h2>
+                  {isOwner && (
+                    <Link
+                      href={`/resources/${resource.id}/edit-builder`}
+                      className="text-xs text-ink/40 hover:text-ink transition-colors print:hidden"
+                    >
+                      Edit
+                    </Link>
+                  )}
+                </div>
+                <LessonBlocksView data={blocksData} />
+              </section>
+            ) : (
+              order.map(renderSection)
+            )}
 
             <div id="resource-feedback" className="print:hidden">
               <ResourceComments resourceId={resource.id} />

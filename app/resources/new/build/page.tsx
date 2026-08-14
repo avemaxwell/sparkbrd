@@ -7,15 +7,10 @@ import { useUser } from "@/hooks/useUser";
 import { SUBJECTS, GRADE_BANDS, RESOURCE_TYPES } from "@/lib/subjects";
 import { US_STATES } from "@/lib/us-states";
 import ChipSelect from "@/components/resources/ChipSelect";
-import TagListInput from "@/components/resources/TagListInput";
-import FileUploadList from "@/components/resources/FileUploadList";
-import StandardsPicker from "@/components/resources/StandardsPicker";
-import SectionOrderPicker, { DEFAULT_SECTION_ORDER } from "@/components/resources/SectionOrderPicker";
-import { PII_REMINDER } from "@/components/resources/LessonPlanUpload";
+import LessonBlockCanvas from "@/components/resources/LessonBlockCanvas";
+import { EMPTY_BLOCKS_DATA, type LessonBlocksData } from "@/lib/lesson-blocks";
 
 const SUBJECT_NAMES = Object.values(SUBJECTS).map((s) => s.name);
-
-interface UploadedFile { name: string; url: string }
 
 interface FormState {
   title: string;
@@ -23,36 +18,23 @@ interface FormState {
   gradeBand: string;
   resourceType: string;
   state: string;
-  standards: string[];
-  materials: string[];
-  learningTargets: string[];
-  directions: string[];
-  photos: UploadedFile[];
-  attachments: UploadedFile[];
-  sectionOrder: string[];
   priceCents: number | null;
+  blocks: LessonBlocksData;
 }
 
 const EMPTY: FormState = {
   title: "", subject: "", gradeBand: "", resourceType: "", state: "",
-  standards: [], materials: [], learningTargets: [], directions: [],
-  photos: [], attachments: [], sectionOrder: [...DEFAULT_SECTION_ORDER],
-  priceCents: null,
+  priceCents: null, blocks: EMPTY_BLOCKS_DATA,
 };
 
-type StepId = "title" | "basics" | "standards" | "materials" | "learningTargets" | "directions" | "photos" | "attachments" | "sections" | "review";
+type StepId = "basics" | "builder";
+const STEPS: StepId[] = ["basics", "builder"];
 
-// Worksheets/templates/assessments are usually "here's the file" resources, not
-// step-by-step lesson plans — attachments are the main content, so they (and
-// photos) come right after the basics instead of after four lesson-only steps.
-const ATTACHMENT_FIRST_TYPES = ["Worksheet", "Template", "Assessment"];
-
-const LESSON_SHAPED_ORDER: StepId[] = ["title", "basics", "standards", "materials", "learningTargets", "directions", "photos", "attachments", "sections", "review"];
-const ATTACHMENT_FIRST_ORDER: StepId[] = ["title", "basics", "attachments", "photos", "standards", "materials", "learningTargets", "directions", "sections", "review"];
-
-// The step-by-step builder — for a brand-new lesson that doesn't exist as a
-// document yet. Most creators already have a finished lesson plan and want
-// the minimal upload flow at /resources/new instead.
+// The block-canvas Lesson Plan Builder — the main "build from scratch" path.
+// Drag/click blocks (Objective, Warm-up, Direct Instruction, ...) onto a
+// timeline sized to the real class period, attach existing library
+// resources directly to a block, and Sparkurio checks the timing live. See
+// components/resources/LessonBlockCanvas.tsx for the actual builder.
 export default function BuildResourcePage() {
   const { profile, loading } = useUser();
   const router = useRouter();
@@ -80,13 +62,10 @@ export default function BuildResourcePage() {
   }
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((f) => ({ ...f, [key]: value }));
-
-  const steps = ATTACHMENT_FIRST_TYPES.includes(form.resourceType) ? ATTACHMENT_FIRST_ORDER : LESSON_SHAPED_ORDER;
-  const currentStepId = steps[step];
+  const currentStepId = STEPS[step];
 
   const canAdvance = () => {
-    if (currentStepId === "title") return form.title.trim().length > 0;
-    if (currentStepId === "basics") return !!form.subject && !!form.gradeBand && !!form.resourceType;
+    if (currentStepId === "basics") return form.title.trim().length > 0 && !!form.subject && !!form.gradeBand && !!form.resourceType;
     return true;
   };
 
@@ -103,13 +82,7 @@ export default function BuildResourcePage() {
           grade_band: form.gradeBand,
           resource_type: form.resourceType,
           state: form.state || null,
-          standards: form.standards,
-          materials: form.materials,
-          learning_targets: form.learningTargets,
-          directions: form.directions,
-          photos: form.photos.map((p) => p.url),
-          attachments: form.attachments,
-          section_order: form.sectionOrder,
+          blocks: form.blocks,
           price_cents: form.priceCents,
           status,
         }),
@@ -125,36 +98,32 @@ export default function BuildResourcePage() {
 
   return (
     <div className="min-h-screen bg-cork-warm py-12 px-4">
-      <div className="max-w-2xl mx-auto">
+      <div className={currentStepId === "builder" ? "max-w-4xl mx-auto" : "max-w-2xl mx-auto"}>
         <div className="flex items-center justify-between mb-6">
           <Link href="/" className="text-sm text-ink/50 hover:text-ink transition-colors">Cancel</Link>
-          <p className="text-xs text-ink/40 uppercase tracking-widest">Step {step + 1} of {steps.length}</p>
+          <p className="text-xs text-ink/40 uppercase tracking-widest">Step {step + 1} of {STEPS.length}</p>
         </div>
 
         <div className="h-1.5 bg-ink/10 rounded-full overflow-hidden mb-10">
-          <div className="h-full bg-papaya rounded-full transition-all" style={{ width: `${((step + 1) / steps.length) * 100}%` }} />
+          <div className="h-full bg-papaya rounded-full transition-all" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
         </div>
 
         <div className="bg-white rounded-3xl shadow-xl p-8 md:p-10">
-          {currentStepId === "title" && (
-            <div>
-              <h1 className="font-serif font-bold text-3xl text-ink mb-2">What are you teaching?</h1>
-              <p className="text-ink/50 mb-6">Give your resource a clear, searchable title.</p>
-              <input
-                type="text"
-                autoFocus
-                value={form.title}
-                onChange={(e) => set("title", e.target.value)}
-                placeholder="e.g. Hand-Building Ceramics Unit"
-                className="w-full px-5 py-4 bg-ink/5 rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 transition-all text-lg"
-              />
-            </div>
-          )}
-
           {currentStepId === "basics" && (
             <div className="space-y-8">
               <div>
-                <h2 className="font-serif font-bold text-2xl text-ink mb-4">The basics</h2>
+                <h1 className="font-serif font-bold text-3xl text-ink mb-2">What are you teaching?</h1>
+                <p className="text-ink/50 mb-6">Give your lesson a clear, searchable title — you&rsquo;ll build it block by block next.</p>
+                <input
+                  type="text"
+                  autoFocus
+                  value={form.title}
+                  onChange={(e) => set("title", e.target.value)}
+                  placeholder="e.g. Hand-Building Ceramics Unit"
+                  className="w-full px-5 py-4 bg-ink/5 rounded-xl outline-none focus:ring-2 focus:ring-papaya/30 transition-all text-lg"
+                />
+              </div>
+              <div>
                 <p className="text-sm font-medium text-ink/60 mb-3">Grade level</p>
                 <ChipSelect options={GRADE_BANDS} value={form.gradeBand} onChange={(v) => set("gradeBand", v)} />
               </div>
@@ -215,142 +184,21 @@ export default function BuildResourcePage() {
             </div>
           )}
 
-          {currentStepId === "standards" && (
+          {currentStepId === "builder" && (
             <div>
-              <h2 className="font-serif font-bold text-2xl text-ink mb-2">Standards</h2>
-              <p className="text-ink/50 mb-6">Which standards does this align to? (Optional — skip if this doesn&rsquo;t apply)</p>
-              <StandardsPicker items={form.standards} onChange={(v) => set("standards", v)} subject={form.subject} gradeBand={form.gradeBand} />
-            </div>
-          )}
-
-          {currentStepId === "materials" && (
-            <div>
-              <h2 className="font-serif font-bold text-2xl text-ink mb-2">Materials</h2>
-              <p className="text-ink/50 mb-6">What do teachers need to gather? (Optional — skip if this doesn&rsquo;t apply)</p>
-              <TagListInput items={form.materials} onChange={(v) => set("materials", v)} placeholder="e.g. Air-dry clay, rolling pins" />
-            </div>
-          )}
-
-          {currentStepId === "learningTargets" && (
-            <div>
-              <h2 className="font-serif font-bold text-2xl text-ink mb-2">Learning targets</h2>
-              <p className="text-ink/50 mb-6">What should students be able to do by the end? (Optional — skip if this doesn&rsquo;t apply)</p>
-              <TagListInput items={form.learningTargets} onChange={(v) => set("learningTargets", v)} placeholder="e.g. I can identify the elements of a coil pot" />
-            </div>
-          )}
-
-          {currentStepId === "directions" && (
-            <div>
-              <h2 className="font-serif font-bold text-2xl text-ink mb-2">Directions</h2>
-              <p className="text-ink/50 mb-6">Walk other teachers through it, step by step. (Optional — skip if this doesn&rsquo;t apply)</p>
-              <TagListInput items={form.directions} onChange={(v) => set("directions", v)} placeholder="Describe the next step…" variant="numbered" />
-            </div>
-          )}
-
-          {currentStepId === "photos" && (
-            <div>
-              <h2 className="font-serif font-bold text-2xl text-ink mb-2">Photos</h2>
-              <p className="text-ink/50 mb-6">Show what this looks like in the classroom. (Optional)</p>
-              <div className="flex items-start gap-3 bg-mustard/10 border border-mustard/25 rounded-2xl p-4 mb-6">
-                <svg className="w-5 h-5 text-mustard flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
-                  <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-                <p className="text-sm text-ink/70 leading-relaxed">{PII_REMINDER}</p>
-              </div>
-              <FileUploadList bucket="resource-photos" files={form.photos} onChange={(v) => set("photos", v)} accept="image/*" label="Click to upload photos" />
-            </div>
-          )}
-
-          {currentStepId === "attachments" && (
-            <div>
-              <h2 className="font-serif font-bold text-2xl text-ink mb-2">Attachments</h2>
+              <h2 className="font-serif font-bold text-2xl text-ink mb-2">Build your lesson</h2>
               <p className="text-ink/50 mb-6">
-                {ATTACHMENT_FIRST_TYPES.includes(form.resourceType)
-                  ? "Upload your file — this is the main thing people will download."
-                  : "Add any handouts, slides, or templates. (Optional)"}
+                Add blocks, attach resources from the library, and Sparkurio will check your timing as you go.
               </p>
-              <FileUploadList bucket={form.priceCents ? "resource-attachments-paid" : "resource-attachments"} files={form.attachments} onChange={(v) => set("attachments", v)} onThumbnail={(thumb) => { if (form.photos.length === 0) set("photos", [thumb]); }} accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx" label="Click to upload files" />
-              {form.priceCents ? (
-                <p className="text-xs text-ink/35 mt-3">This is a paid resource — files upload privately and only unlock for buyers after purchase.</p>
-              ) : null}
-            </div>
-          )}
 
-          {currentStepId === "sections" && (
-            <div>
-              <h2 className="font-serif font-bold text-2xl text-ink mb-2">Sections</h2>
-              <p className="text-ink/50 mb-6">Choose which sections appear on the published page, and in what order.</p>
-              <SectionOrderPicker order={form.sectionOrder} onChange={(v) => set("sectionOrder", v)} />
-            </div>
-          )}
+              <LessonBlockCanvas value={form.blocks} onChange={(blocks) => set("blocks", blocks)} />
 
-          {currentStepId === "review" && (
-            <div>
-              <h2 className="font-serif font-bold text-2xl text-ink mb-2">Review &amp; publish</h2>
-              <p className="text-ink/50 mb-6">Sparkurio will build the lesson page automatically.</p>
+              {error && <div className="mt-6 p-3 bg-papaya/10 text-papaya text-sm rounded-xl">{error}</div>}
 
-              {error && <div className="mb-4 p-3 bg-papaya/10 text-papaya text-sm rounded-xl">{error}</div>}
-
-              <div className="space-y-4 mb-8">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Title</p>
-                  <p className="text-ink">{form.title || "—"}</p>
-                </div>
-                <div className="flex gap-6">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Grade</p>
-                    <p className="text-ink">{form.gradeBand || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Subject</p>
-                    <p className="text-ink">{form.subject || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Type</p>
-                    <p className="text-ink">{form.resourceType || "—"}</p>
-                  </div>
-                  {form.state && (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">State</p>
-                      <p className="text-ink">{form.state}</p>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Sections</p>
-                  <p className="text-ink/70 text-sm">{form.sectionOrder.length} of {DEFAULT_SECTION_ORDER.length} included</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Standards</p>
-                  <p className="text-ink/70 text-sm">{form.standards.length ? form.standards.join(", ") : "None added"}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Materials</p>
-                  <p className="text-ink/70 text-sm">{form.materials.length ? form.materials.join(", ") : "None added"}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Learning targets</p>
-                  <p className="text-ink/70 text-sm">{form.learningTargets.length} added</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Directions</p>
-                  <p className="text-ink/70 text-sm">{form.directions.length} step{form.directions.length !== 1 ? "s" : ""}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Photos &amp; attachments</p>
-                  <p className="text-ink/70 text-sm">{form.photos.length} photo{form.photos.length !== 1 ? "s" : ""}, {form.attachments.length} file{form.attachments.length !== 1 ? "s" : ""}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Price</p>
-                  <p className="text-ink/70 text-sm">{form.priceCents ? `$${(form.priceCents / 100).toFixed(2)}` : "Free"}</p>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
+              <div className="flex items-center gap-3 mt-8 pt-6 border-t border-ink/5">
                 <button
                   onClick={() => submit("published")}
-                  disabled={submitting}
+                  disabled={submitting || form.blocks.items.length === 0}
                   className="flex-1 py-3.5 bg-papaya text-white rounded-full font-semibold hover:bg-papaya/90 transition-colors disabled:opacity-50"
                 >
                   {submitting ? "Publishing…" : "Publish resource"}
@@ -363,28 +211,31 @@ export default function BuildResourcePage() {
                   Save draft
                 </button>
               </div>
+              {form.blocks.items.length === 0 && (
+                <p className="text-xs text-ink/30 mt-2 text-center">Add at least one block before publishing.</p>
+              )}
             </div>
           )}
         </div>
 
-        {currentStepId !== "review" && (
-          <div className="flex items-center justify-between mt-6">
+        <div className="flex items-center justify-between mt-6">
+          <button
+            onClick={() => setStep((s) => Math.max(0, s - 1))}
+            disabled={step === 0}
+            className="px-6 py-3 text-ink/60 font-medium hover:text-ink transition-colors disabled:opacity-0"
+          >
+            Back
+          </button>
+          {currentStepId !== "builder" && (
             <button
-              onClick={() => setStep((s) => Math.max(0, s - 1))}
-              disabled={step === 0}
-              className="px-6 py-3 text-ink/60 font-medium hover:text-ink transition-colors disabled:opacity-0"
-            >
-              Back
-            </button>
-            <button
-              onClick={() => setStep((s) => Math.min(steps.length - 1, s + 1))}
+              onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
               disabled={!canAdvance()}
               className="px-7 py-3 bg-ink text-white rounded-full font-medium hover:bg-ink/85 transition-colors disabled:opacity-30"
             >
               Continue
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
         {step === 0 && (
           <p className="text-center text-sm text-ink/40 mt-6">
