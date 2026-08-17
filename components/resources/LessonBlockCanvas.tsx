@@ -146,22 +146,62 @@ function StandardsPanel({
   );
 }
 
+interface DifferentiationSuggestion { label: string; text: string }
+
 function BlockCard({
   block,
+  subject,
+  gradeBand,
   onUpdate,
   onRemove,
   onAttach,
   onDetach,
+  onInsertDifferentiation,
 }: {
   block: LessonBlock;
+  subject?: string;
+  gradeBand?: string;
   onUpdate: (patch: Partial<LessonBlock>) => void;
   onRemove: () => void;
   onAttach: () => void;
   onDetach: () => void;
+  onInsertDifferentiation: (label: string, text: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
   const meta = BLOCK_TYPES[block.type];
   const Icon = meta.icon;
+
+  const [suggestingDiff, setSuggestingDiff] = useState(false);
+  const [diffSuggestions, setDiffSuggestions] = useState<DifferentiationSuggestion[] | null>(null);
+  const [diffError, setDiffError] = useState<string | null>(null);
+  const [addedLabels, setAddedLabels] = useState<Set<string>>(new Set());
+  const hasContent = block.content.trim().length > 0;
+
+  const suggestDifferentiation = async () => {
+    setSuggestingDiff(true);
+    setDiffError(null);
+    setDiffSuggestions(null);
+    setAddedLabels(new Set());
+    try {
+      const res = await fetch("/api/resources/suggest-differentiation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: block.content, blockLabel: block.title, subject, gradeBand }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setDiffError(data.error ?? "Couldn't get suggestions."); return; }
+      setDiffSuggestions(data.suggestions ?? []);
+    } catch {
+      setDiffError("Couldn't get suggestions. Please try again.");
+    } finally {
+      setSuggestingDiff(false);
+    }
+  };
+
+  const addSuggestion = (s: DifferentiationSuggestion) => {
+    onInsertDifferentiation(s.label, s.text);
+    setAddedLabels((prev) => new Set(prev).add(s.label));
+  };
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -237,14 +277,53 @@ function BlockCard({
                 + Attach a resource
               </button>
             )}
-            <button
-              type="button"
-              onClick={onRemove}
-              className="text-xs text-ink/30 hover:text-papaya transition-colors"
-            >
-              Remove block
-            </button>
+            <div className="flex items-center gap-3">
+              {block.type !== "differentiation" && (
+                <button
+                  type="button"
+                  onClick={suggestDifferentiation}
+                  disabled={!hasContent || suggestingDiff}
+                  title={hasContent ? undefined : "Add some content to this block first"}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-lavender hover:underline disabled:text-ink/25 disabled:no-underline disabled:cursor-not-allowed"
+                >
+                  {suggestingDiff ? <span className="w-3 h-3 border-2 border-lavender/40 border-t-lavender rounded-full animate-spin" /> : <span>✨</span>}
+                  {suggestingDiff ? "Thinking…" : "Differentiate"}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onRemove}
+                className="text-xs text-ink/30 hover:text-papaya transition-colors"
+              >
+                Remove block
+              </button>
+            </div>
           </div>
+
+          {diffError && <p className="text-xs text-papaya mt-2">{diffError}</p>}
+
+          {diffSuggestions && (
+            <div className="bg-lavender/10 border border-lavender/25 rounded-2xl p-4 space-y-3 mt-3">
+              {diffSuggestions.length === 0 ? (
+                <p className="text-xs text-ink/40">No suggestions came back — try adding more detail to this block.</p>
+              ) : (
+                diffSuggestions.map((s) => {
+                  const added = addedLabels.has(s.label);
+                  return (
+                    <button key={s.label} type="button" onClick={() => addSuggestion(s)} disabled={added} className="w-full flex items-start gap-2.5 text-left">
+                      <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${added ? "bg-lavender border-lavender" : "border-ink/20"}`}>
+                        {added && <svg className="w-3 h-3 stroke-white stroke-[3] fill-none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" /></svg>}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-xs font-semibold text-ink">{s.label}</span>
+                        <span className="block text-xs text-ink/60">{s.text}</span>
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -277,6 +356,27 @@ export default function LessonBlockCanvas({
   const removeBlock = (id: string) => setItems(value.items.filter((b) => b.id !== id));
   const updateBlock = (id: string, patch: Partial<LessonBlock>) =>
     setItems(value.items.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+
+  // Suggestions never edit a block directly — they land in a Differentiation
+  // block (creating one right after the source block if none exists yet),
+  // same "starting point, not final text" posture as the rest of the AI.
+  const insertDifferentiation = (afterBlockId: string, label: string, text: string) => {
+    const formatted = `**${label}:** ${text}`;
+    const existingIndex = value.items.findIndex((b) => b.type === "differentiation");
+    if (existingIndex !== -1) {
+      const existing = value.items[existingIndex];
+      const nextContent = existing.content.trim() ? `${existing.content}\n\n${formatted}` : formatted;
+      setItems(value.items.map((b, i) => (i === existingIndex ? { ...b, content: nextContent } : b)));
+      return;
+    }
+    const newBlock = createBlock("differentiation");
+    newBlock.content = formatted;
+    const afterIndex = value.items.findIndex((b) => b.id === afterBlockId);
+    const insertAt = afterIndex === -1 ? value.items.length : afterIndex + 1;
+    const next = [...value.items];
+    next.splice(insertAt, 0, newBlock);
+    setItems(next);
+  };
 
   const handleDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;
@@ -369,10 +469,13 @@ export default function LessonBlockCanvas({
                 <BlockCard
                   key={block.id}
                   block={block}
+                  subject={subject}
+                  gradeBand={gradeBand}
                   onUpdate={(patch) => updateBlock(block.id, patch)}
                   onRemove={() => removeBlock(block.id)}
                   onAttach={() => setAttachingBlockId(block.id)}
                   onDetach={() => updateBlock(block.id, { linkedResourceId: null, linkedResourceTitle: null })}
+                  onInsertDifferentiation={(label, text) => insertDifferentiation(block.id, label, text)}
                 />
               ))}
             </div>
