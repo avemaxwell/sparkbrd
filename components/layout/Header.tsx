@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import NotificationBell from "@/components/board/NotificationBell";
 import { planDisplayName } from "@/lib/plan-limits";
+import { IconBook, IconPencil, IconPalette, IconCubes, IconLaptop, IconMedal } from "@/components/icons";
 
 const NAV_LINKS = [
   { href: "/explore", label: "Discover" },
@@ -13,6 +14,18 @@ const NAV_LINKS = [
   { href: "/labs", label: "Labs" },
   { href: "/community", label: "Community" },
   { href: "/about", label: "About" },
+];
+
+// One upload entry per RESOURCE_TYPES value (lib/subjects.ts) — jumps
+// straight to /resources/new with the type pre-selected instead of making
+// the teacher pick it again in the Basics step.
+const UPLOAD_TYPES = [
+  { value: "Lesson", label: "Lesson Plan", icon: IconBook },
+  { value: "Worksheet", label: "Worksheet", icon: IconPencil },
+  { value: "Activity", label: "Activity", icon: IconPalette },
+  { value: "Project", label: "Project", icon: IconCubes },
+  { value: "Template", label: "Template", icon: IconLaptop },
+  { value: "Assessment", label: "Assessment", icon: IconMedal },
 ];
 
 export default function Header() {
@@ -115,6 +128,7 @@ export default function Header() {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setCreateDropdownOpen(false)} />
                 <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-ink/5 z-50 overflow-hidden p-2">
+                  <p className="px-3 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-widest text-ink/35">Build</p>
                   <Link
                     href={profile ? "/resources/new/build" : "/signup?intent=share&redirect=/resources/new/build"}
                     onClick={() => setCreateDropdownOpen(false)}
@@ -133,23 +147,21 @@ export default function Header() {
                       <span className="block text-xs text-ink/40">Block by block, with the resource library built in</span>
                     </span>
                   </Link>
-                  <Link
-                    href={profile ? "/resources/new" : "/signup?intent=share&redirect=/resources/new"}
-                    onClick={() => setCreateDropdownOpen(false)}
-                    className="flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-ink/5 transition-colors"
-                  >
-                    <span className="w-8 h-8 rounded-full bg-ink/5 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <svg className="w-4 h-4 stroke-ink/60 stroke-[1.5] fill-none" viewBox="0 0 24 24">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="17 8 12 3 7 8"/>
-                        <line x1="12" y1="3" x2="12" y2="15"/>
-                      </svg>
-                    </span>
-                    <span>
-                      <span className="block text-sm font-medium text-ink">Upload a Resource</span>
-                      <span className="block text-xs text-ink/40">Already have it written? Upload the file</span>
-                    </span>
-                  </Link>
+
+                  <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-ink/35 border-t border-ink/5 mt-1">Upload existing</p>
+                  {UPLOAD_TYPES.map(({ value, label, icon: Icon }) => (
+                    <Link
+                      key={value}
+                      href={profile ? `/resources/new?type=${encodeURIComponent(value)}` : `/signup?intent=share&redirect=${encodeURIComponent(`/resources/new?type=${value}`)}`}
+                      onClick={() => setCreateDropdownOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-ink/5 transition-colors"
+                    >
+                      <span className="w-7 h-7 rounded-full bg-ink/5 flex items-center justify-center flex-shrink-0">
+                        <Icon className="w-3.5 h-3.5 stroke-ink/60 stroke-[1.5] fill-none" />
+                      </span>
+                      <span className="text-sm text-ink">{label}</span>
+                    </Link>
+                  ))}
                 </div>
               </>
             )}

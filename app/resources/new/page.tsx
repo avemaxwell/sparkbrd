@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useUser } from "@/hooks/useUser";
 import { SUBJECTS, GRADE_BANDS, RESOURCE_TYPES } from "@/lib/subjects";
@@ -9,6 +9,7 @@ import { US_STATES } from "@/lib/us-states";
 import ChipSelect from "@/components/resources/ChipSelect";
 import { DEFAULT_SECTION_ORDER } from "@/components/resources/SectionOrderPicker";
 import LessonPlanUpload from "@/components/resources/LessonPlanUpload";
+import FileUploadList from "@/components/resources/FileUploadList";
 
 const SUBJECT_NAMES = Object.values(SUBJECTS).map((s) => s.name);
 
@@ -22,14 +23,22 @@ interface FormState {
   state: string;
   body: string;
   lessonPlanFile: UploadedFile | null;
+  attachments: UploadedFile[];
   photos: UploadedFile[];
   priceCents: number | null;
 }
 
 const EMPTY: FormState = {
   title: "", subject: "", gradeBand: "", resourceType: "", state: "",
-  body: "", lessonPlanFile: null, photos: [], priceCents: null,
+  body: "", lessonPlanFile: null, attachments: [], photos: [], priceCents: null,
 };
+
+// Text extraction only makes sense for an actual lesson-plan document —
+// a worksheet's "text" is disconnected labels and word lists pulled off a
+// visual layout (e.g. "SAY IT ANOTHER WAY! HAPPY SAD ANGRY"), not prose
+// worth showing as a page body. Everything else just gets attached as a
+// file, same as the classic builder's Attachments step.
+const TEXT_EXTRACTABLE_TYPES = ["Lesson"];
 
 type StepId = "basics" | "upload" | "review";
 const STEPS: StepId[] = ["basics", "upload", "review"];
@@ -38,11 +47,17 @@ const STEPS: StepId[] = ["basics", "upload", "review"];
 // finished lesson plan and just want to post it, not re-type it into
 // materials/learning-targets/directions fields. The full section-by-section
 // builder still exists at /resources/new/build for a brand-new lesson.
-export default function NewResourcePage() {
+function NewResourcePageContent() {
   const { profile, loading } = useUser();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // The nav dropdown links straight here with ?type=Worksheet etc. (see
+  // components/layout/Header.tsx) so the teacher doesn't have to pick the
+  // type again in the Basics step. Ignore anything that isn't a real type.
+  const typeFromQuery = searchParams.get("type");
+  const initialResourceType = typeFromQuery && (RESOURCE_TYPES as readonly string[]).includes(typeFromQuery) ? typeFromQuery : "";
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState<FormState>(EMPTY);
+  const [form, setForm] = useState<FormState>({ ...EMPTY, resourceType: initialResourceType });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,10 +81,15 @@ export default function NewResourcePage() {
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((f) => ({ ...f, [key]: value }));
   const currentStepId = STEPS[step];
+  const isTextExtractable = TEXT_EXTRACTABLE_TYPES.includes(form.resourceType);
 
   const canAdvance = () => {
     if (currentStepId === "basics") return form.title.trim().length > 0 && !!form.subject && !!form.gradeBand && !!form.resourceType;
-    if (currentStepId === "upload") return !!form.lessonPlanFile && form.body.trim().length > 0;
+    if (currentStepId === "upload") {
+      return isTextExtractable
+        ? !!form.lessonPlanFile && form.body.trim().length > 0
+        : form.attachments.length > 0;
+    }
     return true;
   };
 
@@ -90,9 +110,11 @@ export default function NewResourcePage() {
           materials: [],
           learning_targets: [],
           directions: [],
-          body: form.body || null,
+          body: isTextExtractable ? (form.body || null) : null,
           photos: form.photos.map((p) => p.url),
-          attachments: form.lessonPlanFile ? [form.lessonPlanFile] : [],
+          attachments: isTextExtractable
+            ? (form.lessonPlanFile ? [form.lessonPlanFile] : [])
+            : form.attachments,
           section_order: DEFAULT_SECTION_ORDER,
           price_cents: form.priceCents,
           status,
@@ -124,7 +146,7 @@ export default function NewResourcePage() {
             <div className="space-y-8">
               <div>
                 <h1 className="font-serif font-bold text-3xl text-ink mb-2">What are you sharing?</h1>
-                <p className="text-ink/50 mb-6">Give it a clear, searchable title — you&rsquo;ll upload the actual lesson plan next.</p>
+                <p className="text-ink/50 mb-6">Give it a clear, searchable title — you&rsquo;ll upload the file next.</p>
                 <input
                   type="text"
                   autoFocus
@@ -197,15 +219,38 @@ export default function NewResourcePage() {
 
           {currentStepId === "upload" && (
             <div>
-              <h2 className="font-serif font-bold text-2xl text-ink mb-2">Upload your lesson plan</h2>
-              <p className="text-ink/50 mb-6">Word (.docx) or PDF. We&rsquo;ll pull the text out so you can review it before publishing.</p>
-              <LessonPlanUpload
-                fileMeta={form.lessonPlanFile}
-                onFileChange={(f) => set("lessonPlanFile", f)}
-                onThumbnail={(thumb) => { if (form.photos.length === 0) set("photos", [thumb]); }}
-                body={form.body}
-                onBodyChange={(v) => set("body", v)}
-              />
+              {isTextExtractable ? (
+                <>
+                  <h2 className="font-serif font-bold text-2xl text-ink mb-2">Upload your lesson plan</h2>
+                  <p className="text-ink/50 mb-6">Word (.docx) or PDF. We&rsquo;ll pull the text out so you can review it before publishing.</p>
+                  <LessonPlanUpload
+                    fileMeta={form.lessonPlanFile}
+                    onFileChange={(f) => set("lessonPlanFile", f)}
+                    onThumbnail={(thumb) => { if (form.photos.length === 0) set("photos", [thumb]); }}
+                    body={form.body}
+                    onBodyChange={(v) => set("body", v)}
+                  />
+                </>
+              ) : (
+                <>
+                  <h2 className="font-serif font-bold text-2xl text-ink mb-2">Upload your file</h2>
+                  <p className="text-ink/50 mb-6">
+                    PDF, Word, PowerPoint, or Excel — attach the {form.resourceType.toLowerCase() || "file"} as-is.
+                    There&rsquo;s no text to review here; it&rsquo;ll show up on the page as a viewable, printable file.
+                  </p>
+                  <FileUploadList
+                    bucket={form.priceCents ? "resource-attachments-paid" : "resource-attachments"}
+                    files={form.attachments}
+                    onChange={(v) => set("attachments", v)}
+                    onThumbnail={(thumb) => { if (form.photos.length === 0) set("photos", [thumb]); }}
+                    accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx"
+                    label="Click to upload files"
+                  />
+                  {form.priceCents ? (
+                    <p className="text-xs text-ink/35 mt-3">This is a paid resource — files upload privately and only unlock for buyers after purchase.</p>
+                  ) : null}
+                </>
+              )}
             </div>
           )}
 
@@ -245,8 +290,12 @@ export default function NewResourcePage() {
                   )}
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Lesson plan</p>
-                  <p className="text-ink/70 text-sm">{form.body.trim().split(/\s+/).filter(Boolean).length} words, from {form.lessonPlanFile?.name ?? "your upload"}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">{isTextExtractable ? "Lesson plan" : "File"}</p>
+                  <p className="text-ink/70 text-sm">
+                    {isTextExtractable
+                      ? `${form.body.trim().split(/\s+/).filter(Boolean).length} words, from ${form.lessonPlanFile?.name ?? "your upload"}`
+                      : `${form.attachments.length} file${form.attachments.length !== 1 ? "s" : ""}: ${form.attachments.map((a) => a.name).join(", ") || "none"}`}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-ink/40 mb-1">Price</p>
@@ -301,5 +350,13 @@ export default function NewResourcePage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function NewResourcePage() {
+  return (
+    <Suspense>
+      <NewResourcePageContent />
+    </Suspense>
   );
 }
