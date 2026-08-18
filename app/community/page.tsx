@@ -9,6 +9,7 @@ import BottomNav from "@/components/layout/BottomNav";
 import { relativeTime } from "@/lib/relativeTime";
 import {
   IconChatBubble, IconShieldCheck, IconBook, IconLaptop, IconStar, IconUsers,
+  IconHeart, IconFlag, IconBrain, IconGraduationCap, IconPersonCheck,
 } from "@/components/icons";
 import { getShapeCorner } from "@/components/decor/ShapeCorner";
 
@@ -20,6 +21,12 @@ const CATEGORY_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   book: IconBook,
   laptop: IconLaptop,
   star: IconStar,
+  heart: IconHeart,
+  flag: IconFlag,
+  brain: IconBrain,
+  cap: IconGraduationCap,
+  homeschool: IconPersonCheck,
+  coaches: IconUsers,
 };
 
 interface Category {
