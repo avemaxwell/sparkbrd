@@ -1,5 +1,6 @@
 import { IconBlob } from "./decor";
 import { SUBJECT_LIST } from "@/lib/subjects";
+import Reveal from "./Reveal";
 
 export default function FeaturedCategories() {
   return (
@@ -13,22 +14,23 @@ export default function FeaturedCategories() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4">
-          {SUBJECT_LIST.map((subject) => (
-            <a
-              key={subject.slug}
-              href={`/subjects/${subject.slug}`}
-              style={{ backgroundColor: subject.color }}
-              className="group relative rounded-3xl aspect-square p-4 flex flex-col items-center justify-center gap-3 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
-            >
-              <IconBlob
-                icon={<subject.icon className="w-full h-full" />}
-                size={60}
-                blobClassName="bg-white/90 group-hover:scale-110 transition-transform duration-300"
-              />
-              <span className={`font-serif font-semibold text-sm text-center leading-tight ${subject.textOn === "white" ? "text-white" : "text-ink"}`}>
-                {subject.name}
-              </span>
-            </a>
+          {SUBJECT_LIST.map((subject, i) => (
+            <Reveal key={subject.slug} delay={Math.min(i * 40, 400)}>
+              <a
+                href={`/subjects/${subject.slug}`}
+                style={{ backgroundColor: subject.color }}
+                className="group relative rounded-3xl aspect-square p-4 flex flex-col items-center justify-center gap-3 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+              >
+                <IconBlob
+                  icon={<subject.icon className="w-full h-full" />}
+                  size={60}
+                  blobClassName="bg-white/90 group-hover:scale-110 transition-transform duration-300"
+                />
+                <span className={`font-serif font-semibold text-sm text-center leading-tight ${subject.textOn === "white" ? "text-white" : "text-ink"}`}>
+                  {subject.name}
+                </span>
+              </a>
+            </Reveal>
           ))}
         </div>
       </div>

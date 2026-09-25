@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { relativeTime } from "@/lib/relativeTime";
+import Reveal from "./Reveal";
 
 interface Thread {
   id: string;
@@ -37,12 +38,12 @@ export default function CommunityActivity() {
           <p className="text-ink/50 mt-2">Educators sharing, testing, and improving lessons together.</p>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-sm border border-black/5 divide-y divide-ink/5">
+        <Reveal className="bg-white rounded-3xl shadow-sm border border-black/5 divide-y divide-ink/5">
           {threads.map((t) => (
             <Link
               key={t.id}
               href={`/community/${t.id}`}
-              className="flex items-center gap-4 px-5 py-4 hover:bg-ink/[0.02] transition-colors"
+              className="flex items-center gap-4 px-5 py-4 hover:bg-ink/[0.03] hover:px-6 transition-all duration-300"
             >
               {t.actor_avatar ? (
                 <img src={t.actor_avatar} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
@@ -59,7 +60,7 @@ export default function CommunityActivity() {
               <span className="text-xs text-ink/35 flex-shrink-0">{relativeTime(t.created_at)}</span>
             </Link>
           ))}
-        </div>
+        </Reveal>
 
         <div className="mt-6 text-center">
           <Link href="/community" className="text-sm font-medium text-papaya hover:text-papaya/70 transition-colors">

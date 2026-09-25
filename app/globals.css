@@ -32,3 +32,19 @@ body {
   background: var(--color-cork-warm);
   color: var(--color-ink);
 }
+
+/* Idle motion for decorative shapes (blobs, spark bursts, pattern corners) —
+   used sitewide so sections feel alive without requiring hover or scroll.
+   Any static rotation for a shape belongs on a wrapping element, since an
+   animated transform here fully replaces (not composes with) an inline
+   transform on the same element. */
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+@keyframes pulse-soft {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.12); opacity: 0.75; }
+}
+.animate-float-slow { animation: float-slow 6s ease-in-out infinite; }
+.animate-pulse-soft { animation: pulse-soft 4s ease-in-out infinite; }

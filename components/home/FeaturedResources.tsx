@@ -24,7 +24,9 @@ export default function FeaturedResources() {
 
   return (
     <section className="relative overflow-hidden py-16 md:py-20 px-6 bg-cork-warm">
-      <SparkBurst className="absolute top-10 right-[8%] w-8 h-8 hidden lg:block pointer-events-none opacity-70" rotate={12} />
+      <div className="absolute top-10 right-[8%] hidden lg:block pointer-events-none opacity-70" style={{ transform: "rotate(12deg)" }}>
+        <SparkBurst className="w-8 h-8 animate-pulse-soft" />
+      </div>
 
       <div className="relative max-w-7xl mx-auto">
         <div className="flex items-end justify-between mb-8">

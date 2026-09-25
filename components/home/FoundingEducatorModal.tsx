@@ -20,13 +20,23 @@ export default function FoundingEducatorModal({ onClose }: { onClose: () => void
           </svg>
         </button>
 
-        {/* Decorative back-to-school band */}
+        {/* Decorative back-to-school band — white/blush accents rather than
+            lavender-on-lime, which reads as a muddy olive smear rather than
+            an intentional shape once blended */}
         <div className="relative overflow-hidden bg-lime h-44">
-          <Blob className="absolute -top-10 -left-10 w-32 h-32 bg-lavender/50 pointer-events-none" />
-          <Blob className="absolute -bottom-14 -right-10 w-36 h-36 bg-blush/25 pointer-events-none" />
-          <SparkBurst className="absolute top-6 left-8 w-7 h-7" rotate={-12} />
-          <SparkBurst className="absolute bottom-8 right-10 w-6 h-6" rotate={18} />
-          <Clover className="absolute top-4 right-6 w-10 h-10 text-mustard/70 pointer-events-none" />
+          <div className="absolute -top-10 -left-10 animate-float-slow">
+            <Blob className="w-32 h-32 bg-white/50 pointer-events-none" />
+          </div>
+          <div className="absolute -bottom-14 -right-10 animate-float-slow [animation-delay:1.5s]">
+            <Blob className="w-36 h-36 bg-blush/25 pointer-events-none" />
+          </div>
+          <div className="absolute top-6 left-8" style={{ transform: "rotate(-12deg)" }}>
+            <SparkBurst className="w-7 h-7 animate-pulse-soft" />
+          </div>
+          <div className="absolute bottom-8 right-10" style={{ transform: "rotate(18deg)" }}>
+            <SparkBurst className="w-6 h-6 animate-pulse-soft [animation-delay:2s]" />
+          </div>
+          <Clover className="absolute top-4 right-6 w-10 h-10 text-mustard/70 pointer-events-none animate-pulse-soft [animation-delay:1s]" />
           <div className="absolute bottom-4 left-6 w-14 h-8 pointer-events-none">
             <CheckerDots color="#4C4DFF" cols={4} rows={2} dotSize={5} gap={3} />
           </div>

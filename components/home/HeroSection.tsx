@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/hooks/useUser";
-import { Blob, IconBlob, SparkBurst, PatternCorner, WaveDivider } from "./decor";
+import { IconBlob, SparkBurst, PatternCorner, WaveDivider, Clover } from "./decor";
 import { IconPalette, IconLaptop, IconVase, IconAtom, IconGlobe, IconPencil } from "@/components/icons";
 import FoundingEducatorModal from "./FoundingEducatorModal";
 
@@ -62,11 +62,20 @@ export default function HeroSection() {
     <>
     {showFoundingModal && <FoundingEducatorModal onClose={dismissFoundingModal} />}
     <section className="relative overflow-hidden bg-lime">
-      {/* Decorative background shapes */}
-      <Blob className="absolute bottom-10 -left-16 w-64 h-64 bg-lavender/40 pointer-events-none" />
-      <PatternCorner className="absolute top-24 right-4 hidden lg:block" />
-      <SparkBurst className="absolute top-40 left-[46%] w-8 h-8 hidden lg:block pointer-events-none" rotate={-15} />
-      <SparkBurst className="absolute bottom-24 right-[8%] w-10 h-10 hidden lg:block pointer-events-none" rotate={20} />
+      {/* Decorative background shapes — all with idle motion so the hero
+          feels alive even before any scroll or hover interaction */}
+      <div className="absolute bottom-16 -left-6 hidden md:block pointer-events-none">
+        <Clover className="w-16 h-16 text-blush/70 animate-pulse-soft" />
+      </div>
+      <div className="absolute top-24 right-4 hidden lg:block animate-float-slow">
+        <PatternCorner />
+      </div>
+      <div className="absolute top-40 left-[46%] hidden lg:block pointer-events-none" style={{ transform: "rotate(-15deg)" }}>
+        <SparkBurst className="w-8 h-8 animate-pulse-soft" />
+      </div>
+      <div className="absolute bottom-24 right-[8%] hidden lg:block pointer-events-none" style={{ transform: "rotate(20deg)" }}>
+        <SparkBurst className="w-10 h-10 animate-pulse-soft [animation-delay:1.5s]" />
+      </div>
 
       <div className="relative max-w-7xl mx-auto px-6 pt-32 pb-16 md:pt-40 md:pb-20 grid lg:grid-cols-2 lg:gap-12 items-center">
         {/* Text column — normal document flow, never overlapped */}

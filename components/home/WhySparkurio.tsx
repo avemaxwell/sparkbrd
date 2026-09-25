@@ -19,7 +19,7 @@ const SIGNALS = [
 export default function WhySparkurio() {
   return (
     <section className="relative overflow-hidden py-16 md:py-20 px-6 bg-cork-warm">
-      <div className="absolute top-8 right-6 hidden lg:block pointer-events-none opacity-60">
+      <div className="absolute top-8 right-6 hidden lg:block pointer-events-none opacity-60 animate-float-slow">
         <CheckerDots color="#B9AEFF" cols={4} rows={3} dotSize={7} gap={5} />
       </div>
 
