@@ -4,8 +4,6 @@ import HeroSection from "@/components/home/HeroSection";
 import FeaturedCategories from "@/components/home/FeaturedCategories";
 import FeaturedResources from "@/components/home/FeaturedResources";
 import SparkurioLabs from "@/components/home/SparkurioLabs";
-import FeaturedCollections from "@/components/home/FeaturedCollections";
-import FeaturedEducators from "@/components/home/FeaturedEducators";
 import CommunityActivity from "@/components/home/CommunityActivity";
 import WhySparkurio from "@/components/home/WhySparkurio";
 import FooterCTA from "@/components/home/FooterCTA";
@@ -19,8 +17,6 @@ export default function Home() {
       <FeaturedCategories />
       <FeaturedResources />
       <SparkurioLabs />
-      <FeaturedCollections />
-      <FeaturedEducators />
       <CommunityActivity />
       <WhySparkurio />
       <FooterCTA />
