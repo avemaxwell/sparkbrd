@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import ResourceCard, { type ResourceCardData } from "@/components/ResourceCard";
 import { resourceToCardData, type RealResource } from "@/lib/resources-adapter";
+import Reveal from "./Reveal";
+import { SparkBurst } from "./decor";
 
 export default function FeaturedResources() {
   const [resources, setResources] = useState<ResourceCardData[]>([]);
@@ -21,8 +23,10 @@ export default function FeaturedResources() {
   if (resources.length === 0) return null;
 
   return (
-    <section className="py-16 md:py-20 px-6 bg-cork-warm">
-      <div className="max-w-7xl mx-auto">
+    <section className="relative overflow-hidden py-16 md:py-20 px-6 bg-cork-warm">
+      <SparkBurst className="absolute top-10 right-[8%] w-8 h-8 hidden lg:block pointer-events-none opacity-70" rotate={12} />
+
+      <div className="relative max-w-7xl mx-auto">
         <div className="flex items-end justify-between mb-8">
           <div>
             <h2 className="font-serif font-bold text-3xl md:text-4xl text-ink">Featured resources</h2>
@@ -35,7 +39,9 @@ export default function FeaturedResources() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {resources.map((r, i) => (
-            <ResourceCard key={`${r.title}-${i}`} resource={r} />
+            <Reveal key={`${r.title}-${i}`} delay={i * 60}>
+              <ResourceCard resource={r} />
+            </Reveal>
           ))}
         </div>
 

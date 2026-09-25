@@ -121,13 +121,13 @@ export default function HeroSection() {
           <div className="mt-8 flex items-center gap-4 justify-center lg:justify-start">
             <a
               href="/explore"
-              className="inline-flex items-center gap-2 px-7 py-3.5 bg-ink text-white text-sm font-semibold rounded-full hover:bg-ink/85 transition-colors"
+              className="inline-flex items-center gap-2 px-7 py-3.5 bg-ink text-white text-sm font-semibold rounded-full hover:bg-ink/85 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"
             >
               Discover Resources
             </a>
             <a
               href={profile ? "/resources/new" : "/signup?intent=share&redirect=/resources/new"}
-              className="inline-flex items-center gap-2 px-7 py-3.5 bg-white text-ink text-sm font-semibold rounded-full border border-black/10 hover:border-black/20 transition-colors"
+              className="inline-flex items-center gap-2 px-7 py-3.5 bg-white text-ink text-sm font-semibold rounded-full border border-black/10 hover:border-black/20 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"
             >
               Share a Resource
             </a>

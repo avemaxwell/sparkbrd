@@ -2,7 +2,7 @@ import type { ComponentType } from "react";
 import {
   IconPalette, IconLaptop, IconCubes, IconGraduationCap, IconBook, IconTestTube,
   IconGlobe, IconHeart, IconWrench, IconMusicNote, IconCamera, IconPencil,
-  IconBrain, IconTheatreMasks, IconCalculator,
+  IconBrain, IconTheatreMasks, IconCalculator, IconStar,
 } from "@/components/icons";
 
 export interface Subcategory {
@@ -54,6 +54,11 @@ const SUBJECT_DEFS: Omit<SubjectDef, "slug" | "color" | "textOn">[] = [
     name: "Technology", icon: IconLaptop,
     description: "Resources, lessons, and ideas for teaching tech skills that empower today's learners.",
     subcategories: [sub("All Tech"), sub("Coding & CS"), sub("Digital Literacy"), sub("Robotics"), sub("Hardware"), sub("AI & Data"), sub("Design & Media")],
+  },
+  {
+    name: "Pre-K", icon: IconStar,
+    description: "Playful, developmentally-appropriate resources for early learners and pre-kindergarten classrooms.",
+    subcategories: [sub("All Pre-K"), sub("Early Literacy"), sub("Fine Motor Skills"), sub("Social-Emotional Learning"), sub("Sensory Play"), sub("Circle Time")],
   },
   {
     name: "Elementary", icon: IconCubes,
@@ -151,4 +156,4 @@ export function hashStr(s: string): number {
 }
 
 export const RESOURCE_TYPES = ["Lesson", "Worksheet", "Activity", "Project", "Template", "Assessment"] as const;
-export const GRADE_BANDS = ["K-5", "6-8", "9-12", "College"] as const;
+export const GRADE_BANDS = ["Pre-K", "K-5", "6-8", "9-12", "College"] as const;
